@@ -78,6 +78,9 @@ static void runFile(const char* path) {
 //< Scanning on Demand run-file
 
 int main(int argc, const char* argv[]) {
+  setbuf(stdout, NULL);
+  setbuf(stderr, NULL);
+
 //> A Virtual Machine main-init-vm
   initVM();
 
