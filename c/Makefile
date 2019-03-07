@@ -23,30 +23,30 @@ clean :
 .PHONY : debug
 debug :
 	mkdir -p "$(BUILDROOT)/Debug"
-	cd "$(BUILDROOT)/Debug" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Debug
+	cd "$(BUILDROOT)/Debug" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
 	$(MAKE) -C "$(BUILDROOT)/Debug"
 
 .PHONY : release
 release :
 	mkdir -p "$(BUILDROOT)/Release"
-	cd "$(BUILDROOT)/Release" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Release
+	cd "$(BUILDROOT)/Release" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
 	$(MAKE) -C "$(BUILDROOT)/Release"
 
 .PHONY : RelWithDebInfo
 relwithdebinfo :
 	mkdir -p "$(BUILDROOT)/RelWithDebInfo"
-	cd "$(BUILDROOT)/RelWithDebInfo" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+	cd "$(BUILDROOT)/RelWithDebInfo" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
 	$(MAKE) -C "$(BUILDROOT)/RelWithDebInfo"
 
 .PHONY : minsizerel
 minsizerel :
 	mkdir -p "$(BUILDROOT)/MinSizeRel"
-	cd "$(BUILDROOT)/MinSizeRel" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=MinSizeRel
+	cd "$(BUILDROOT)/MinSizeRel" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
 	$(MAKE) -C "$(BUILDROOT)/MinSizeRel"
 
 .PHONY : coverage
 coverage :
 	mkdir -p "$(BUILDROOT)/Coverage"
-	cd "$(BUILDROOT)/Coverage" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Coverage
+	cd "$(BUILDROOT)/Coverage" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Coverage -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
 	$(MAKE) -C "$(BUILDROOT)/Coverage"
 

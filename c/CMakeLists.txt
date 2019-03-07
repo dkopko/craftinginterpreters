@@ -3,6 +3,9 @@ project(clox C)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
+find_library(CB_LIB cb)
+find_path(CB_INCLUDE "cb.h")
+
 option(COVERAGE "Build with test coverage" OFF)
 
 set(CLOX_SOURCES
@@ -20,6 +23,7 @@ set(CLOX_SOURCES
 
 include_directories(
   "${CMAKE_SOURCE_DIR}"
+  "${CB_INCLUDE}"
 )
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNAN_TAGGING -Wall -Wextra -Werror -Wno-missing-prototypes -Wno-unused-function -Wno-unused-parameter")
@@ -36,4 +40,5 @@ set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_COVERAGE} -O0 -g -fprofile-arcs -fte
 set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "${CMAKE_EXE_LINKER_FLAGS_COVERAGE} -fprofile-arcs -ftest-coverage")
 
 add_executable(clox ${CLOX_SOURCES})
+target_link_libraries(clox "${CB_LIB}")
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cb.h>
 
 //< Scanning on Demand main-includes
 #include "common.h"
@@ -80,6 +81,8 @@ static void runFile(const char* path) {
 int main(int argc, const char* argv[]) {
   setbuf(stdout, NULL);
   setbuf(stderr, NULL);
+
+  cb_module_init();
 
 //> A Virtual Machine main-init-vm
   initVM();
