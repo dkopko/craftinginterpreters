@@ -9,6 +9,7 @@ find_path(CB_INCLUDE "cb.h")
 option(COVERAGE "Build with test coverage" OFF)
 
 set(CLOX_SOURCES
+  "${CMAKE_SOURCE_DIR}/cb_integration.c"
   "${CMAKE_SOURCE_DIR}/chunk.c"
   "${CMAKE_SOURCE_DIR}/compiler.c"
   "${CMAKE_SOURCE_DIR}/debug.c"

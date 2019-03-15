@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cb.h>
 
+#include "cb_integration.h"
 //< Scanning on Demand main-includes
 #include "common.h"
 //> main-include-chunk
@@ -79,10 +79,27 @@ static void runFile(const char* path) {
 //< Scanning on Demand run-file
 
 int main(int argc, const char* argv[]) {
+  struct cb_params cb_params = CB_PARAMS_DEFAULT;
+  int ret;
+
   setbuf(stdout, NULL);
   setbuf(stderr, NULL);
 
-  cb_module_init();
+  /* Initialize cb library. */
+  ret = cb_module_init();
+  if (ret != 0) {
+    fprintf(stderr, "cb_module_init() failed.\n");
+    return EXIT_FAILURE;
+  }
+
+  /* Create thread-local continuous buffer. */
+  cb_params.ring_size = 8388608;
+  cb_params.mmap_flags &= ~MAP_ANONYMOUS;
+  thread_cb = cb_create(&cb_params, sizeof(cb_params));
+  if (!thread_cb) {
+    fprintf(stderr, "Could not create continuous buffer. \n");
+    return EXIT_FAILURE;
+  }
 
 //> A Virtual Machine main-init-vm
   initVM();
