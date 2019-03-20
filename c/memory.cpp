@@ -62,7 +62,7 @@ void grayObject(Obj* object) {
 
     // Not using reallocate() here because we don't want to trigger the
     // GC inside a GC!
-    vm.grayStack = realloc(vm.grayStack,
+    vm.grayStack = (Obj **)realloc(vm.grayStack,
                            sizeof(Obj*) * vm.grayCapacity);
   }
 
