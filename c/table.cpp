@@ -19,7 +19,7 @@ void initTable(Table* table) {
 //> Optimization not-yet
   table->capacityMask = -1;
 //< Optimization not-yet
-  table->entries = NULL;
+  table->entries = CB_NULL;
 }
 //> free-table
 void freeTable(Table* table) {
@@ -38,21 +38,21 @@ static Entry* findEntry(Entry* entries, int capacity,
                         ObjString* key) {
 */
 //> Optimization not-yet
-static Entry* findEntry(Entry* entries, int capacityMask,
-                        ObjString* key) {
+static Entry* findEntry(CBO<Entry> entries, int capacityMask,
+                        CBO<ObjString> key) {
 //< Optimization not-yet
 /* Hash Tables find-entry < Optimization not-yet
   uint32_t index = key->hash % capacity;
 */
 //> Optimization not-yet
-  uint32_t index = key->hash & capacityMask;
+  uint32_t index = key.lp()->hash & capacityMask;
 //< Optimization not-yet
 //> find-entry-tombstone
   Entry* tombstone = NULL;
   
 //< find-entry-tombstone
   for (;;) {
-    Entry* entry = &entries[index];
+    Entry* entry = &entries.lp()[index];
 
 /* Hash Tables find-entry < Hash Tables find-tombstone
     if (entry->key == key || entry->key == NULL) {
@@ -60,7 +60,7 @@ static Entry* findEntry(Entry* entries, int capacityMask,
     }
 */
 //> find-tombstone
-    if (entry->key == NULL) {
+    if (entry->key.is_nil()) {
       if (IS_NIL(entry->value)) {
         // Empty entry.
         return tombstone != NULL ? tombstone : entry;
@@ -68,7 +68,7 @@ static Entry* findEntry(Entry* entries, int capacityMask,
         // We found a tombstone.
         if (tombstone == NULL) tombstone = entry;
       }
-    } else if (entry->key == key) {
+    } else if (entry->key.o() == key.o()) {  //CBINT FIXME Will this be true, as an alternative to 'entry->key == key'?
       // We found the key.
       return entry;
     }
@@ -84,8 +84,8 @@ static Entry* findEntry(Entry* entries, int capacityMask,
 }
 //< find-entry
 //> table-get
-bool tableGet(Table* table, ObjString* key, Value* value) {
-  if (table->entries == NULL) return false;
+bool tableGet(Table* table, CBO<ObjString> key, Value* value) {
+  if (table->entries.is_nil()) return false;
 
 /* Hash Tables table-get < Optimization not-yet
   Entry* entry = findEntry(table->entries, table->capacity, key);
@@ -93,7 +93,7 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
 //> Optimization not-yet
   Entry* entry = findEntry(table->entries, table->capacityMask, key);
 //< Optimization not-yet
-  if (entry->key == NULL) return false;
+  if (entry->key.is_nil()) return false;
 
   *value = entry->value;
   return true;
@@ -111,10 +111,11 @@ static void adjustCapacity(Table* table, int capacityMask) {
   for (int i = 0; i < capacity; i++) {
 */
 //> Optimization not-yet
-  Entry* entries = ALLOCATE(Entry, capacityMask + 1);
+  CBO<Entry> entriesCBO = ALLOCATE(Entry, capacityMask + 1);
+  Entry* entries = entriesCBO.lp();
   for (int i = 0; i <= capacityMask; i++) {
 //< Optimization not-yet
-    entries[i].key = NULL;
+    entries[i].key = CB_NULL;
     entries[i].value = NIL_VAL;
   }
   
@@ -128,14 +129,14 @@ static void adjustCapacity(Table* table, int capacityMask) {
 //> Optimization not-yet
   for (int i = 0; i <= table->capacityMask; i++) {
 //< Optimization not-yet
-    Entry* entry = &table->entries[i];
-    if (entry->key == NULL) continue;
+    Entry* entry = &table->entries.lp()[i];
+    if (entry->key.is_nil()) continue;
 
 /* Hash Tables re-hash < Optimization not-yet
     Entry* dest = findEntry(entries, capacity, entry->key);
 */
 //> Optimization not-yet
-    Entry* dest = findEntry(entries, capacityMask, entry->key);
+    Entry* dest = findEntry(entriesCBO, capacityMask, entry->key);
 //< Optimization not-yet
     dest->key = entry->key;
     dest->value = entry->value;
@@ -151,7 +152,7 @@ static void adjustCapacity(Table* table, int capacityMask) {
 //> Optimization not-yet
   FREE_ARRAY(Entry, table->entries, table->capacityMask + 1);
 //< Optimization not-yet
-  table->entries = entries;
+  table->entries = entriesCBO;
 /* Hash Tables table-adjust-capacity < Optimization not-yet
   table->capacity = capacity;
 */
@@ -161,7 +162,7 @@ static void adjustCapacity(Table* table, int capacityMask) {
 }
 //< table-adjust-capacity
 //> table-set
-bool tableSet(Table* table, ObjString* key, Value value) {
+bool tableSet(Table* table, CBO<ObjString> key, Value value) {
 /* Hash Tables table-set-grow < Optimization not-yet
   if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
@@ -184,7 +185,7 @@ bool tableSet(Table* table, ObjString* key, Value value) {
   Entry* entry = findEntry(table->entries, table->capacityMask, key);
 //< Optimization not-yet
   
-  bool isNewKey = entry->key == NULL;
+  bool isNewKey = entry->key.is_nil();
 /* Hash Tables table-set < Hash Tables set-increment-count
   if (isNewKey) table->count++;
 */
@@ -198,7 +199,7 @@ bool tableSet(Table* table, ObjString* key, Value value) {
 }
 //< table-set
 //> table-delete
-bool tableDelete(Table* table, ObjString* key) {
+bool tableDelete(Table* table, CBO<ObjString> key) {
   if (table->count == 0) return false;
 
   // Find the entry.
@@ -208,10 +209,10 @@ bool tableDelete(Table* table, ObjString* key) {
 //> Optimization not-yet
   Entry* entry = findEntry(table->entries, table->capacityMask, key);
 //< Optimization not-yet
-  if (entry->key == NULL) return false;
+  if (entry->key.is_nil()) return false;
 
   // Place a tombstone in the entry.
-  entry->key = NULL;
+  entry->key = CB_NULL;
   entry->value = BOOL_VAL(true);
 
   return true;
@@ -225,18 +226,18 @@ void tableAddAll(Table* from, Table* to) {
 //> Optimization not-yet
   for (int i = 0; i <= from->capacityMask; i++) {
 //< Optimization not-yet
-    Entry* entry = &from->entries[i];
-    if (entry->key != NULL) {
+    Entry* entry = &from->entries.lp()[i];
+    if (!entry->key.is_nil()) {
       tableSet(to, entry->key, entry->value);
     }
   }
 }
 //< table-add-all
 //> table-find-string
-ObjString* tableFindString(Table* table, const char* chars, int length,
-                           uint32_t hash) {
+CBO<ObjString> tableFindString(Table* table, const char* chars, int length,
+                                uint32_t hash) {
   // If the table is empty, we definitely won't find it.
-  if (table->entries == NULL) return NULL;
+  if (table->entries.is_nil()) return CB_NULL;
 
 /* Hash Tables table-find-string < Optimization not-yet
   uint32_t index = hash % table->capacity;
@@ -246,14 +247,14 @@ ObjString* tableFindString(Table* table, const char* chars, int length,
 //< Optimization not-yet
 
   for (;;) {
-    Entry* entry = &table->entries[index];
+    Entry* entry = &table->entries.lp()[index];
 
-    if (entry->key == NULL) {
+    if (entry->key.is_nil()) {
       // Stop if we find an empty non-tombstone entry.
-      if (IS_NIL(entry->value)) return NULL;
-    } else if (entry->key->length == length &&
-        entry->key->hash == hash &&
-        memcmp(entry->key->chars, chars, length) == 0) {
+      if (IS_NIL(entry->value)) return CB_NULL;
+    } else if (entry->key.lp()->length == length &&
+        entry->key.lp()->hash == hash &&
+        memcmp(entry->key.lp()->chars, chars, length) == 0) {
       // We found it.
       return entry->key;
     }
@@ -271,28 +272,30 @@ ObjString* tableFindString(Table* table, const char* chars, int length,
 //> Garbage Collection not-yet
 
 void tableRemoveWhite(Table* table) {
+  return; //CBINT
 /* Garbage Collection not-yet < Optimization not-yet
   for (int i = 0; i < table->capacity; i++) {
 */
 //> Optimization not-yet
   for (int i = 0; i <= table->capacityMask; i++) {
 //< Optimization not-yet
-    Entry* entry = &table->entries[i];
-    if (entry->key != NULL && !entry->key->obj.isDark) {
+    Entry* entry = &table->entries.lp()[i];
+    if (!entry->key.is_nil() && !entry->key.lp()->obj.isDark) {
       tableDelete(table, entry->key);
     }
   }
 }
 
 void grayTable(Table* table) {
+  return; //CBINT
 /* Garbage Collection not-yet < Optimization not-yet
   for (int i = 0; i < table->capacity; i++) {
 */
 //> Optimization not-yet
   for (int i = 0; i <= table->capacityMask; i++) {
 //< Optimization not-yet
-    Entry* entry = &table->entries[i];
-    grayObject((Obj*)entry->key);
+    Entry* entry = &table->entries.lp()[i];
+    grayObject((Obj*)entry->key.lp());
     grayValue(entry->value);
   }
 }

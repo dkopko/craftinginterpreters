@@ -2,6 +2,7 @@
 #ifndef clox_compiler_h
 #define clox_compiler_h
 
+#include "cb_integration.h"
 //> Strings compiler-include-object
 #include "object.h"
 //< Strings compiler-include-object
@@ -16,7 +17,7 @@ void compile(const char* source);
 bool compile(const char* source, Chunk* chunk);
 */
 //> Calls and Functions not-yet
-ObjFunction* compile(const char* source);
+CBO<ObjFunction> compile(const char* source);
 //< Calls and Functions not-yet
 //> Garbage Collection not-yet
 void grayCompilerRoots();

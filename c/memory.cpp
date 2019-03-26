@@ -19,7 +19,7 @@
 #define GC_HEAP_GROW_FACTOR 2
 //< Garbage Collection not-yet
 
-void* reallocate(void* previous, size_t oldSize, size_t newSize) {
+cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize) {
 //> Garbage Collection not-yet
   vm.bytesAllocated += newSize - oldSize;
 
@@ -35,15 +35,27 @@ void* reallocate(void* previous, size_t oldSize, size_t newSize) {
 
 //< Garbage Collection not-yet
   if (newSize == 0) {
-    free(previous);
-    return NULL;
+    return (cb_offset_t)0;
+  } else if (newSize < oldSize) {
+    return previous;
+  } else {
+    int ret;
+    cb_offset_t new_offset;
+
+    ret = cb_memalign(&thread_cb, &new_offset, 8 /*CBINT FIXME*/, newSize);
+    if (ret != CB_SUCCESS) {
+      return (cb_offset_t)0;
+    }
+    memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, previous), oldSize);
+    return new_offset;
   }
-  
-  return realloc(previous, newSize);
 }
+
 //> Garbage Collection not-yet
 
 void grayObject(Obj* object) {
+  return; //CBINT FIXME
+
   if (object == NULL) return;
 
   // Don't get caught in cycle.
@@ -76,11 +88,13 @@ void grayValue(Value value) {
 
 static void grayArray(ValueArray* array) {
   for (int i = 0; i < array->count; i++) {
-    grayValue(array->values[i]);
+    grayValue(array->values.lp()[i]);
   }
 }
 
 static void blackenObject(Obj* object) {
+  return;  //CBINT FIXME
+
 #ifdef DEBUG_TRACE_GC
   printf("%p blacken ", object);
   printValue(OBJ_VAL(object));
@@ -92,7 +106,7 @@ static void blackenObject(Obj* object) {
     case OBJ_BOUND_METHOD: {
       ObjBoundMethod* bound = (ObjBoundMethod*)object;
       grayValue(bound->receiver);
-      grayObject((Obj*)bound->method);
+      grayObject((Obj*)bound->method.lp());
       break;
     }
 //< Methods and Initializers not-yet
@@ -100,9 +114,9 @@ static void blackenObject(Obj* object) {
 
     case OBJ_CLASS: {
       ObjClass* klass = (ObjClass*)object;
-      grayObject((Obj*)klass->name);
+      grayObject((Obj*)klass->name.lp());
 //> Superclasses not-yet
-      grayObject((Obj*)klass->superclass);
+      grayObject((Obj*)klass->superclass.lp());
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
       grayTable(&klass->methods);
@@ -113,16 +127,16 @@ static void blackenObject(Obj* object) {
 //< Classes and Instances not-yet
     case OBJ_CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object;
-      grayObject((Obj*)closure->function);
+      grayObject((Obj*)closure->function.lp());
       for (int i = 0; i < closure->upvalueCount; i++) {
-        grayObject((Obj*)closure->upvalues[i]);
+        grayObject((Obj*)closure->upvalues.lp()[i].lp());
       }
       break;
     }
 
     case OBJ_FUNCTION: {
       ObjFunction* function = (ObjFunction*)object;
-      grayObject((Obj*)function->name);
+      grayObject((Obj*)function->name.lp());
       grayArray(&function->chunk.constants);
       break;
     }
@@ -130,7 +144,7 @@ static void blackenObject(Obj* object) {
 //> Classes and Instances not-yet
     case OBJ_INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object;
-      grayObject((Obj*)instance->klass);
+      grayObject((Obj*)instance->klass.lp());
       grayTable(&instance->fields);
       break;
     }
@@ -148,6 +162,10 @@ static void blackenObject(Obj* object) {
 }
 //< Garbage Collection not-yet
 //> Strings free-object
+static void freeObject(Obj* object) {
+}
+
+#if 0
 static void freeObject(Obj* object) {
 //> Garbage Collection not-yet
 #ifdef DEBUG_TRACE_GC
@@ -228,6 +246,7 @@ static void freeObject(Obj* object) {
 //< Closures not-yet
   }
 }
+#endif
 //< Strings free-object
 //> Garbage Collection not-yet
 
@@ -243,21 +262,21 @@ void collectGarbage() {
   }
 
   for (int i = 0; i < vm.frameCount; i++) {
-    grayObject((Obj*)vm.frames[i].closure);
+    grayObject((Obj*)vm.frames[i].closure.lp());
   }
 
   // Mark the open upvalues.
-  for (ObjUpvalue* upvalue = vm.openUpvalues;
-       upvalue != NULL;
-       upvalue = upvalue->next) {
-    grayObject((Obj*)upvalue);
+  for (CBO<ObjUpvalue> upvalue = vm.openUpvalues;
+       !upvalue.is_nil();
+       upvalue = upvalue.lp()->next) {
+    grayObject((Obj*)upvalue.lp());
   }
 
   // Mark the global roots.
   grayTable(&vm.globals);
   grayCompilerRoots();
 //> Methods and Initializers not-yet
-  grayObject((Obj*)vm.initString);
+  grayObject((Obj*)vm.initString.lp());
 //< Methods and Initializers not-yet
 
   // Traverse the references.

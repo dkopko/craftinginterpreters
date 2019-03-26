@@ -39,7 +39,7 @@ static void resetStack() {
   vm.frameCount = 0;
 //< Calls and Functions not-yet
 //> Closures not-yet
-  vm.openUpvalues = NULL;
+  vm.openUpvalues = CB_NULL;
 //< Closures not-yet
 }
 //< reset-stack
@@ -63,17 +63,17 @@ static void runtimeError(const char* format, ...) {
     ObjFunction* function = frame->function;
 */
 //> Closures not-yet
-    ObjFunction* function = frame->closure->function;
+    CBO<ObjFunction> function = frame->closure.lp()->function;
 //< Closures not-yet
     // -1 because the IP is sitting on the next instruction to be
     // executed.
-    size_t instruction = frame->ip - function->chunk.code - 1;
+    size_t instruction = frame->ip - function.lp()->chunk.code.lp() - 1;
     fprintf(stderr, "[line %d] in ",
-            function->chunk.lines[instruction]);
-    if (function->name == NULL) {
+            function.lp()->chunk.lines.lp()[instruction]);
+    if (function.lp()->name.is_nil()) {
       fprintf(stderr, "script\n");
     } else {
-      fprintf(stderr, "%s()\n", function->name->chars);
+      fprintf(stderr, "%s()\n", function.lp()->name.lp()->chars);
     }
   }
 //< Calls and Functions not-yet
@@ -84,9 +84,9 @@ static void runtimeError(const char* format, ...) {
 //> Calls and Functions not-yet
 
 static void defineNative(const char* name, NativeFn function) {
-  push(OBJ_VAL(copyString(name, (int)strlen(name))));
-  push(OBJ_VAL(newNative(function)));
-  tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
+  push(OBJ_VAL(copyString(name, (int)strlen(name)).o()));
+  push(OBJ_VAL(newNative(function).o()));
+  tableSet(&vm.globals, AS_STRING_OFFSET(vm.stack[0]), vm.stack[1]);
   pop();
   pop();
 }
@@ -132,7 +132,7 @@ void freeVM() {
   freeTable(&vm.strings);
 //< Hash Tables free-strings
 //> Methods and Initializers not-yet
-  vm.initString = NULL;
+  vm.initString = CB_NULL;
 //< Methods and Initializers not-yet
 //> Strings call-free-objects
   freeObjects();
@@ -165,10 +165,10 @@ static bool call(ObjFunction* function, int argCount) {
 //> Calls and Functions not-yet
 //> Closures not-yet
 
-static bool call(ObjClosure* closure, int argCount) {
-  if (argCount != closure->function->arity) {
+static bool call(CBO<ObjClosure> closure, int argCount) {
+  if (argCount != closure.lp()->function.lp()->arity) {
     runtimeError("Expected %d arguments but got %d.",
-        closure->function->arity, argCount);
+        closure.lp()->function.lp()->arity, argCount);
 //< Closures not-yet
     return false;
   }
@@ -185,7 +185,7 @@ static bool call(ObjClosure* closure, int argCount) {
 */
 //> Closures not-yet
   frame->closure = closure;
-  frame->ip = closure->function->chunk.code;
+  frame->ip = closure.lp()->function.lp()->chunk.code.lp();
 //< Closures not-yet
 
   // +1 to include either the called function or the receiver.
@@ -198,26 +198,26 @@ static bool callValue(Value callee, int argCount) {
     switch (OBJ_TYPE(callee)) {
 //> Methods and Initializers not-yet
       case OBJ_BOUND_METHOD: {
-        ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+        CBO<ObjBoundMethod> bound = AS_BOUND_METHOD_OFFSET(callee);
 
         // Replace the bound method with the receiver so it's in the
         // right slot when the method is called.
-        vm.stackTop[-argCount - 1] = bound->receiver;
-        return call(bound->method, argCount);
+        vm.stackTop[-argCount - 1] = bound.lp()->receiver;
+        return call(bound.lp()->method, argCount);
       }
 
 //< Methods and Initializers not-yet
 //> Classes and Instances not-yet
       case OBJ_CLASS: {
-        ObjClass* klass = AS_CLASS(callee);
+        CBO<ObjClass> klass = AS_CLASS_OFFSET(callee);
 
         // Create the instance.
-        vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
+        vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass).o());
 //> Methods and Initializers not-yet
         // Call the initializer, if there is one.
         Value initializer;
-        if (tableGet(&klass->methods, vm.initString, &initializer)) {
-          return call(AS_CLOSURE(initializer), argCount);
+        if (tableGet(&klass.lp()->methods, vm.initString, &initializer)) {
+          return call(AS_CLOSURE_OFFSET(initializer), argCount);
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
           return false;
@@ -230,7 +230,7 @@ static bool callValue(Value callee, int argCount) {
 //> Closures not-yet
 
       case OBJ_CLOSURE:
-        return call(AS_CLOSURE(callee), argCount);
+        return call(AS_CLOSURE_OFFSET(callee), argCount);
 
 //< Closures not-yet
 /* Calls and Functions not-yet < Closures not-yet
@@ -258,19 +258,19 @@ static bool callValue(Value callee, int argCount) {
 //< Calls and Functions not-yet
 //> Methods and Initializers not-yet
 
-static bool invokeFromClass(ObjClass* klass, ObjString* name,
+static bool invokeFromClass(CBO<ObjClass> klass, CBO<ObjString> name,
                             int argCount) {
   // Look for the method.
   Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
-    runtimeError("Undefined property '%s'.", name->chars);
+  if (!tableGet(&klass.lp()->methods, name, &method)) {
+    runtimeError("Undefined property '%s'.", name.lp()->chars);
     return false;
   }
 
-  return call(AS_CLOSURE(method), argCount);
+  return call(AS_CLOSURE_OFFSET(method), argCount);
 }
 
-static bool invoke(ObjString* name, int argCount) {
+static bool invoke(CBO<ObjString> name, int argCount) {
   Value receiver = peek(argCount);
 
   if (!IS_INSTANCE(receiver)) {
@@ -278,28 +278,28 @@ static bool invoke(ObjString* name, int argCount) {
     return false;
   }
 
-  ObjInstance* instance = AS_INSTANCE(receiver);
+  CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(receiver);
 
   // First look for a field which may shadow a method.
   Value value;
-  if (tableGet(&instance->fields, name, &value)) {
+  if (tableGet(&instance.lp()->fields, name, &value)) {
     vm.stackTop[-argCount] = value;
     return callValue(value, argCount);
   }
 
-  return invokeFromClass(instance->klass, name, argCount);
+  return invokeFromClass(instance.lp()->klass, name, argCount);
 }
 
-static bool bindMethod(ObjClass* klass, ObjString* name) {
+static bool bindMethod(CBO<ObjClass> klass, CBO<ObjString> name) {
   Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
-    runtimeError("Undefined property '%s'.", name->chars);
+  if (!tableGet(&klass.lp()->methods, name, &method)) {
+    runtimeError("Undefined property '%s'.", name.lp()->chars);
     return false;
   }
 
-  ObjBoundMethod* bound = newBoundMethod(peek(0), AS_CLOSURE(method));
+  CBO<ObjBoundMethod> bound = newBoundMethod(peek(0), AS_CLOSURE_OFFSET(method));
   pop(); // Instance.
-  push(OBJ_VAL(bound));
+  push(OBJ_VAL(bound.o()));
   return true;
 }
 //< Methods and Initializers not-yet
@@ -310,63 +310,63 @@ static bool bindMethod(ObjClass* klass, ObjString* name) {
 // important to ensure that multiple closures closing over the same
 // variable actually see the same variable.) Otherwise, it creates a
 // new open upvalue and adds it to the VM's list of upvalues.
-static ObjUpvalue* captureUpvalue(Value* local) {
+static CBO<ObjUpvalue> captureUpvalue(Value* local) {  //CBINT FIXME will need to be offset.
   // If there are no open upvalues at all, we must need a new one.
-  if (vm.openUpvalues == NULL) {
+  if (vm.openUpvalues.is_nil()) {
     vm.openUpvalues = newUpvalue(local);
     return vm.openUpvalues;
   }
 
-  ObjUpvalue* prevUpvalue = NULL;
-  ObjUpvalue* upvalue = vm.openUpvalues;
+  CBO<ObjUpvalue> prevUpvalue = CB_NULL;
+  CBO<ObjUpvalue> upvalue = vm.openUpvalues;
 
   // Walk towards the bottom of the stack until we find a previously
   // existing upvalue or reach where it should be.
-  while (upvalue != NULL && upvalue->value > local) {
+  while (!upvalue.is_nil() && upvalue.lp()->value > local) {
     prevUpvalue = upvalue;
-    upvalue = upvalue->next;
+    upvalue = upvalue.lp()->next;
   }
 
   // If we found it, reuse it.
-  if (upvalue != NULL && upvalue->value == local) return upvalue;
+  if (!upvalue.is_nil() && upvalue.lp()->value == local) return upvalue;
 
   // We walked past the local on the stack, so there must not be an
   // upvalue for it already. Make a new one and link it in in the right
   // place to keep the list sorted.
-  ObjUpvalue* createdUpvalue = newUpvalue(local);
-  createdUpvalue->next = upvalue;
+  CBO<ObjUpvalue> createdUpvalue = newUpvalue(local);
+  createdUpvalue.lp()->next = upvalue;
 
-  if (prevUpvalue == NULL) {
+  if (prevUpvalue.is_nil()) {
     // The new one is the first one in the list.
     vm.openUpvalues = createdUpvalue;
   } else {
-    prevUpvalue->next = createdUpvalue;
+    prevUpvalue.lp()->next = createdUpvalue;
   }
 
   return createdUpvalue;
 }
 
 static void closeUpvalues(Value* last) {
-  while (vm.openUpvalues != NULL &&
-         vm.openUpvalues->value >= last) {
-    ObjUpvalue* upvalue = vm.openUpvalues;
+  while (!vm.openUpvalues.is_nil() &&
+         vm.openUpvalues.lp()->value >= last) {  //CBINT FIXME what the fuck is this pointer math?
+    CBO<ObjUpvalue> upvalue = vm.openUpvalues;
 
     // Move the value into the upvalue itself and point the upvalue to
     // it.
-    upvalue->closed = *upvalue->value;
-    upvalue->value = &upvalue->closed;
+    upvalue.lp()->closed = *(upvalue.lp()->value);
+    upvalue.lp()->value = &(upvalue.lp()->closed);
 
     // Pop it off the open upvalue list.
-    vm.openUpvalues = upvalue->next;
+    vm.openUpvalues = upvalue.lp()->next;
   }
 }
 //< Closures not-yet
 //> Methods and Initializers not-yet
 
-static void defineMethod(ObjString* name) {
+static void defineMethod(CBO<ObjString> name) {
   Value method = peek(0);
-  ObjClass* klass = AS_CLASS(peek(1));
-  tableSet(&klass->methods, name, method);
+  CBO<ObjClass> klass = AS_CLASS_OFFSET(peek(1));
+  tableSet(&klass.lp()->methods, name, method);
   pop();
 }
 //< Methods and Initializers not-yet
@@ -378,15 +378,15 @@ static void createClass(ObjString* name) {
 //> Classes and Instances not-yet
 //> Superclasses not-yet
 
-static void createClass(ObjString* name, ObjClass* superclass) {
-  ObjClass* klass = newClass(name, superclass);
+static void createClass(CBO<ObjString> name, CBO<ObjClass> superclass) {
+  CBO<ObjClass> klass = newClass(name, superclass);
 //< Superclasses not-yet
-  push(OBJ_VAL(klass));
+  push(OBJ_VAL(klass.o()));
 //> Superclasses not-yet
 
   // Inherit methods.
-  if (superclass != NULL) {
-    tableAddAll(&superclass->methods, &klass->methods);
+  if (!superclass.is_nil()) {
+    tableAddAll(&superclass.lp()->methods, &klass.lp()->methods);
   }
 //< Superclasses not-yet
 }
@@ -403,22 +403,22 @@ static void concatenate() {
   ObjString* a = AS_STRING(pop());
 */
 //> Garbage Collection not-yet
-  ObjString* b = AS_STRING(peek(0));
-  ObjString* a = AS_STRING(peek(1));
+  CBO<ObjString> b = AS_STRING_OFFSET(peek(0));
+  CBO<ObjString> a = AS_STRING_OFFSET(peek(1));
 //< Garbage Collection not-yet
 
-  int length = a->length + b->length;
-  char* chars = ALLOCATE(char, length + 1);
-  memcpy(chars, a->chars, a->length);
-  memcpy(chars + a->length, b->chars, b->length);
-  chars[length] = '\0';
+  int length = a.lp()->length + b.lp()->length;
+  CBO<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
+  memcpy(chars.lp(), a.lp()->chars, a.lp()->length);
+  memcpy(chars.lp() + a.lp()->length, b.lp()->chars, b.lp()->length);
+  chars.lp()[length] = '\0';
 
-  ObjString* result = takeString(chars, length);
+  CBO<ObjString> result = takeString(chars, length);
 //> Garbage Collection not-yet
   pop();
   pop();
 //< Garbage Collection not-yet
-  push(OBJ_VAL(result));
+  push(OBJ_VAL(result.o()));
 }
 //< Strings concatenate
 //> run
@@ -446,10 +446,10 @@ static InterpretResult run() {
 */
 //> Closures not-yet
 #define READ_CONSTANT() \
-    (frame->closure->function->chunk.constants.values[READ_BYTE()])
+    (frame->closure.lp()->function.lp()->chunk.constants.values.lp()[READ_BYTE()])
 //< Closures not-yet
 //> Global Variables read-string
-#define READ_STRING() AS_STRING(READ_CONSTANT())
+#define READ_STRING() AS_STRING_OFFSET(READ_CONSTANT())
 //< Global Variables read-string
 //> binary-op
 
@@ -496,8 +496,8 @@ static InterpretResult run() {
         (int)(frame->ip - frame->function->chunk.code));
 */
 //> Closures not-yet
-    disassembleInstruction(&frame->closure->function->chunk,
-        (int)(frame->ip - frame->closure->function->chunk.code));
+    disassembleInstruction(&frame->closure.lp()->function.lp()->chunk,
+        (int)(frame->ip - frame->closure.lp()->function.lp()->chunk.code.lp()));
 //< Closures not-yet
 #endif
     
@@ -552,10 +552,10 @@ static InterpretResult run() {
 //> Global Variables interpret-get-global
 
       case OP_GET_GLOBAL: {
-        ObjString* name = READ_STRING();
+        CBO<ObjString> name = READ_STRING();
         Value value;
         if (!tableGet(&vm.globals, name, &value)) {
-          runtimeError("Undefined variable '%s'.", name->chars);
+          runtimeError("Undefined variable '%s'.", name.lp()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
         push(value);
@@ -565,7 +565,7 @@ static InterpretResult run() {
 //> Global Variables interpret-define-global
 
       case OP_DEFINE_GLOBAL: {
-        ObjString* name = READ_STRING();
+        CBO<ObjString> name = READ_STRING();
         tableSet(&vm.globals, name, peek(0));
         pop();
         break;
@@ -574,9 +574,9 @@ static InterpretResult run() {
 //> Global Variables interpret-set-global
 
       case OP_SET_GLOBAL: {
-        ObjString* name = READ_STRING();
+        CBO<ObjString> name = READ_STRING();
         if (tableSet(&vm.globals, name, peek(0))) {
-          runtimeError("Undefined variable '%s'.", name->chars);
+          runtimeError("Undefined variable '%s'.", name.lp()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
@@ -586,13 +586,13 @@ static InterpretResult run() {
 
       case OP_GET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        push(*frame->closure->upvalues[slot]->value);
+        push(*frame->closure.lp()->upvalues.lp()[slot].lp()->value);
         break;
       }
 
       case OP_SET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        *frame->closure->upvalues[slot]->value = peek(0);
+        *frame->closure.lp()->upvalues.lp()[slot].lp()->value = peek(0);
         break;
       }
 //< Closures not-yet
@@ -604,10 +604,10 @@ static InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
 
-        ObjInstance* instance = AS_INSTANCE(peek(0));
-        ObjString* name = READ_STRING();
+        CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(peek(0));
+        CBO<ObjString> name = READ_STRING();
         Value value;
-        if (tableGet(&instance->fields, name, &value)) {
+        if (tableGet(&instance.lp()->fields, name, &value)) {
           pop(); // Instance.
           push(value);
           break;
@@ -618,7 +618,7 @@ static InterpretResult run() {
         return INTERPRET_RUNTIME_ERROR;
 */
 //> Methods and Initializers not-yet
-        if (!bindMethod(instance->klass, name)) {
+        if (!bindMethod(instance.lp()->klass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
@@ -631,8 +631,8 @@ static InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
 
-        ObjInstance* instance = AS_INSTANCE(peek(1));
-        tableSet(&instance->fields, READ_STRING(), peek(0));
+        CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(peek(1));
+        tableSet(&instance.lp()->fields, READ_STRING(), peek(0));
         Value value = pop();
         pop();
         push(value);
@@ -642,8 +642,8 @@ static InterpretResult run() {
 //> Superclasses not-yet
 
       case OP_GET_SUPER: {
-        ObjString* name = READ_STRING();
-        ObjClass* superclass = AS_CLASS(pop());
+        CBO<ObjString> name = READ_STRING();
+        CBO<ObjClass> superclass = AS_CLASS_OFFSET(pop());
         if (!bindMethod(superclass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -784,7 +784,7 @@ static InterpretResult run() {
       case OP_INVOKE_6:
       case OP_INVOKE_7:
       case OP_INVOKE_8: {
-        ObjString* method = READ_STRING();
+        CBO<ObjString> method = READ_STRING();
         int argCount = instruction - OP_INVOKE_0;
         if (!invoke(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
@@ -804,9 +804,9 @@ static InterpretResult run() {
       case OP_SUPER_6:
       case OP_SUPER_7:
       case OP_SUPER_8: {
-        ObjString* method = READ_STRING();
+        CBO<ObjString> method = READ_STRING();
         int argCount = instruction - OP_SUPER_0;
-        ObjClass* superclass = AS_CLASS(pop());
+        CBO<ObjClass> superclass = AS_CLASS_OFFSET(pop());
         if (!invokeFromClass(superclass, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -817,24 +817,24 @@ static InterpretResult run() {
 //> Closures not-yet
 
       case OP_CLOSURE: {
-        ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
+        CBO<ObjFunction> function = AS_FUNCTION_OFFSET(READ_CONSTANT());
 
         // Create the closure and push it on the stack before creating
         // upvalues so that it doesn't get collected.
-        ObjClosure* closure = newClosure(function);
-        push(OBJ_VAL(closure));
+        CBO<ObjClosure> closure = newClosure(function);
+        push(OBJ_VAL(closure.o()));
 
         // Capture upvalues.
-        for (int i = 0; i < closure->upvalueCount; i++) {
+        for (int i = 0; i < closure.lp()->upvalueCount; i++) {
           uint8_t isLocal = READ_BYTE();
           uint8_t index = READ_BYTE();
           if (isLocal) {
             // Make an new upvalue to close over the parent's local
             // variable.
-            closure->upvalues[i] = captureUpvalue(frame->slots + index);
+            closure.lp()->upvalues.lp()[i] = captureUpvalue(frame->slots + index);
           } else {
             // Use the same upvalue as the current call frame.
-            closure->upvalues[i] = frame->closure->upvalues[index];
+            closure.lp()->upvalues.lp()[i] = frame->closure.lp()->upvalues.lp()[index];
           }
         }
 
@@ -883,7 +883,7 @@ static InterpretResult run() {
         createClass(READ_STRING());
 */
 //> Superclasses not-yet
-        createClass(READ_STRING(), NULL);
+        createClass(READ_STRING(), CB_NULL);
 //< Superclasses not-yet
         break;
 //< Classes and Instances not-yet
@@ -896,7 +896,7 @@ static InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
 
-        createClass(READ_STRING(), AS_CLASS(superclass));
+        createClass(READ_STRING(), AS_CLASS_OFFSET(superclass));
         break;
       }
 //< Superclasses not-yet
@@ -955,24 +955,24 @@ InterpretResult interpret(const char* source) {
   vm.ip = vm.chunk->code;
 */
 //> Calls and Functions not-yet
-  ObjFunction* function = compile(source);
-  if (function == NULL) return INTERPRET_COMPILE_ERROR;
+  CBO<ObjFunction> function = compile(source);
+  if (function.is_nil()) return INTERPRET_COMPILE_ERROR;
 
 //< Calls and Functions not-yet
 /* Calls and Functions not-yet < Closures not-yet
   callValue(OBJ_VAL(function), 0);
 */
 //> Garbage Collection not-yet
-  push(OBJ_VAL(function));
+  push(OBJ_VAL(function.o()));
 //< Garbage Collection not-yet
 //> Closures not-yet
-  ObjClosure* closure = newClosure(function);
+  CBO<ObjClosure> closure = newClosure(function);
 //< Closures not-yet
 //> Garbage Collection not-yet
   pop();
 //< Garbage Collection not-yet
 //> Closures not-yet
-  callValue(OBJ_VAL(closure), 0);
+  callValue(OBJ_VAL(closure.o()), 0);
 
 //< Closures not-yet
 //< Scanning on Demand vm-interpret-c

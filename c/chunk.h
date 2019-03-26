@@ -2,6 +2,7 @@
 #ifndef clox_chunk_h
 #define clox_chunk_h
 
+#include "cb_integration.h"
 #include "common.h"
 //> chunk-h-include-value
 #include "value.h"
@@ -125,9 +126,9 @@ typedef struct {
   int count;
   int capacity;
 //< count-and-capacity
-  uint8_t* code;
+  CBO<uint8_t> code;  //uint8_t*
 //> chunk-lines
-  int* lines;
+  CBO<int> lines;  //int*
 //< chunk-lines
 //> chunk-constants
   ValueArray constants;

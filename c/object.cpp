@@ -12,12 +12,13 @@
 //> allocate-obj
 
 #define ALLOCATE_OBJ(type, objectType) \
-    (type*)allocateObject(sizeof(type), objectType)
+    allocateObject(sizeof(type), objectType)
 //< allocate-obj
 //> allocate-object
 
-static Obj* allocateObject(size_t size, ObjType type) {
-  Obj* object = (Obj*)reallocate(NULL, 0, size);
+static cb_offset_t allocateObject(size_t size, ObjType type) {
+  CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size);
+  Obj* object = objectCBO.lp();
   object->type = type;
 //> Garbage Collection not-yet
   object->isDark = false;
@@ -34,18 +35,19 @@ static Obj* allocateObject(size_t size, ObjType type) {
 #endif
 
 //< Garbage Collection not-yet
-  return object;
+  return objectCBO.o();
 }
 //< allocate-object
 //> Methods and Initializers not-yet
 
-ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method) {
-  ObjBoundMethod* bound = ALLOCATE_OBJ(ObjBoundMethod,
+CBO<ObjBoundMethod> newBoundMethod(Value receiver, CBO<ObjClosure> method) {
+  CBO<ObjBoundMethod> boundCBO = ALLOCATE_OBJ(ObjBoundMethod,
                                        OBJ_BOUND_METHOD);
+  ObjBoundMethod* bound = boundCBO.lp();
 
   bound->receiver = receiver;
   bound->method = method;
-  return bound;
+  return boundCBO.o();
 }
 //< Methods and Initializers not-yet
 //> Classes and Instances not-yet
@@ -54,9 +56,10 @@ ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method) {
 ObjClass* newClass(ObjString* name) {
 */
 //> Superclasses not-yet
-ObjClass* newClass(ObjString* name, ObjClass* superclass) {
+CBO<ObjClass> newClass(CBO<ObjString> name, CBO<ObjClass> superclass) {
 //< Superclasses not-yet
-  ObjClass* klass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
+  CBO<ObjClass> klassCBO = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
+  ObjClass* klass = klassCBO.lp();
   klass->name = name;
 //> Superclasses not-yet
   klass->superclass = superclass;
@@ -64,55 +67,60 @@ ObjClass* newClass(ObjString* name, ObjClass* superclass) {
 //> Methods and Initializers not-yet
   initTable(&klass->methods);
 //< Methods and Initializers not-yet
-  return klass;
+  return klassCBO;
 }
 //< Classes and Instances not-yet
 //> Closures not-yet
 
-ObjClosure* newClosure(ObjFunction* function) {
+CBO<ObjClosure> newClosure(CBO<ObjFunction> function) {
   // Allocate the upvalue array first so it doesn't cause the closure
   // to get collected.
-  ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
-  for (int i = 0; i < function->upvalueCount; i++) {
-    upvalues[i] = NULL;
+  CBO<CBO<ObjUpvalue> > upvaluesCBO = ALLOCATE(CBO<ObjUpvalue>, function.lp()->upvalueCount);
+  CBO<ObjUpvalue>* upvalues = upvaluesCBO.lp();
+  for (int i = 0; i < function.lp()->upvalueCount; i++) {
+    upvalues[i] = CB_NULL;
   }
 
-  ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+  CBO<ObjClosure> closureCBO = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+  ObjClosure* closure = closureCBO.lp();
   closure->function = function;
-  closure->upvalues = upvalues;
-  closure->upvalueCount = function->upvalueCount;
-  return closure;
+  closure->upvalues = upvaluesCBO;
+  closure->upvalueCount = function.lp()->upvalueCount;
+  return closureCBO;
 }
 //< Closures not-yet
 //> Calls and Functions not-yet
 
-ObjFunction* newFunction() {
-  ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+CBO<ObjFunction> newFunction() {
+  CBO<ObjFunction> functionCBO = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+  ObjFunction* function = functionCBO.lp();
 
   function->arity = 0;
 //> Closures not-yet
   function->upvalueCount = 0;
 //< Closures not-yet
-  function->name = NULL;
+  function->name = CB_NULL;
   initChunk(&function->chunk);
-  return function;
+  return functionCBO;
 }
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
 
-ObjInstance* newInstance(ObjClass* klass) {
-  ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+CBO<ObjInstance> newInstance(CBO<ObjClass> klass) {
+  CBO<ObjInstance> instanceCBO = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+  ObjInstance* instance = instanceCBO.lp();
   instance->klass = klass;
   initTable(&instance->fields);
-  return instance;
+  return instanceCBO;
 }
 //< Classes and Instances not-yet
 //> Calls and Functions not-yet
 
-ObjNative* newNative(NativeFn function) {
-  ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+CBO<ObjNative> newNative(NativeFn function) {
+  CBO<ObjNative> nativeCBO = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+  ObjNative* native = nativeCBO.lp();
   native->function = function;
-  return native;
+  return nativeCBO;
 }
 //< Calls and Functions not-yet
 
@@ -121,10 +129,11 @@ static ObjString* allocateString(char* chars, int length) {
 */
 //> allocate-string
 //> Hash Tables allocate-string
-static ObjString* allocateString(char* chars, int length,
-                                 uint32_t hash) {
+static CBO<ObjString> allocateString(char* chars, int length,
+                                      uint32_t hash) {
 //< Hash Tables allocate-string
-  ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+  CBO<ObjString> stringCBO = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+  ObjString* string = stringCBO.lp();
   string->length = length;
   string->chars = chars;
 //> Hash Tables allocate-store-hash
@@ -135,13 +144,13 @@ static ObjString* allocateString(char* chars, int length,
   push(OBJ_VAL(string));
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  tableSet(&vm.strings, string, NIL_VAL);
+  tableSet(&vm.strings, stringCBO, NIL_VAL);
 //> Garbage Collection not-yet
   pop();
 //< Garbage Collection not-yet
 
 //< Hash Tables allocate-store-string
-  return string;
+  return stringCBO;
 }
 //< allocate-string
 //> Hash Tables hash-string
@@ -157,36 +166,37 @@ static uint32_t hashString(const char* key, int length) {
 }
 //< Hash Tables hash-string
 //> take-string
-ObjString* takeString(char* chars, int length) {
+CBO<ObjString> takeString(CBO<char> /*char[]*/ chars, int length) {
 /* Strings take-string < Hash Tables take-string-hash
   return allocateString(chars, length);
 */
 //> Hash Tables take-string-hash
-  uint32_t hash = hashString(chars, length);
+  uint32_t hash = hashString(chars.lp(), length);
 //> take-string-intern
-  ObjString* interned = tableFindString(&vm.strings, chars, length,
-                                        hash);
-  if (interned != NULL) {
+  CBO<ObjString> internedCBO = tableFindString(&vm.strings, chars.lp(), length,
+                                                hash);
+  if (!internedCBO.is_nil()) {
     FREE_ARRAY(char, chars, length + 1);
-    return interned;
+    return internedCBO;
   }
 
 //< take-string-intern
-  return allocateString(chars, length, hash);
+  return allocateString(chars.lp(), length, hash);
 //< Hash Tables take-string-hash
 }
 //< take-string
-ObjString* copyString(const char* chars, int length) {
+CBO<ObjString> copyString(const char* chars, int length) {
 //> Hash Tables copy-string-hash
   uint32_t hash = hashString(chars, length);
 //> copy-string-intern
-  ObjString* interned = tableFindString(&vm.strings, chars, length,
-                                        hash);
-  if (interned != NULL) return interned;
+  CBO<ObjString> internedCBO = tableFindString(&vm.strings, chars, length,
+                                                hash);
+  if (!internedCBO.is_nil()) return internedCBO;
 //< copy-string-intern
 
 //< Hash Tables copy-string-hash
-  char* heapChars = ALLOCATE(char, length + 1);
+  CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);
+  char* heapChars = heapCharsCBO.lp();
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
 
@@ -199,13 +209,14 @@ ObjString* copyString(const char* chars, int length) {
 }
 //> Closures not-yet
 
-ObjUpvalue* newUpvalue(Value* slot) {
-  ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+CBO<ObjUpvalue> newUpvalue(Value* slot) {
+  CBO<ObjUpvalue> upvalueCBO = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+  ObjUpvalue* upvalue = upvalueCBO.lp();
   upvalue->closed = NIL_VAL;
   upvalue->value = slot;
-  upvalue->next = NULL;
+  upvalue->next = CB_NULL;
 
-  return upvalue;
+  return upvalueCBO;
 }
 //< Closures not-yet
 //> print-object
@@ -213,39 +224,38 @@ void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
 //> Classes and Instances not-yet
     case OBJ_CLASS:
-      printf("%s", AS_CLASS(value)->name->chars);
+      printf("%s", AS_CLASS_OFFSET(value).lp()->name.lp()->chars);
       break;
 //< Classes and Instances not-yet
 //> Methods and Initializers not-yet
     case OBJ_BOUND_METHOD:
       printf("<fn %s>",
-             AS_BOUND_METHOD(value)->method->function->name->chars);
+             AS_BOUND_METHOD_OFFSET(value).lp()->method.lp()->function.lp()->name.lp()->chars);
       break;
 //< Methods and Initializers not-yet
 //> Closures not-yet
     case OBJ_CLOSURE:
-      if (AS_CLOSURE(value)->function &&
-          AS_CLOSURE(value)->function->name) {
-        printf("<fn %s>", AS_CLOSURE(value)->function->name->chars);
+      if (!AS_CLOSURE_OFFSET(value).lp()->function.is_nil() &&
+          !AS_CLOSURE_OFFSET(value).lp()->function.lp()->name.is_nil()) {
+        printf("<fn %s>", AS_CLOSURE_OFFSET(value).lp()->function.lp()->name.lp()->chars);
       } else {
-        printf("<fn uninit%ju>", (uintmax_t)AS_CLOSURE(value)->function);
+        printf("<fn uninit%ju>", (uintmax_t)AS_CLOSURE_OFFSET(value).lp()->function.o());
       }
       break;
 //< Closures not-yet
 //> Calls and Functions not-yet
     case OBJ_FUNCTION: {
-      ObjString *name = AS_FUNCTION(value)->name;
-      if (name) {
-        printf("<fn %p>", AS_FUNCTION(value)->name->chars);
+      if (!AS_FUNCTION_OFFSET(value).lp()->name.is_nil()) {
+        printf("<fn %p>", AS_FUNCTION_OFFSET(value).lp()->name.lp()->chars);
       } else {
-        printf("<fn anon%ju>", (uintmax_t)(uintptr_t)AS_FUNCTION(value));
+        printf("<fn anon%ju>", (uintmax_t)AS_FUNCTION_OFFSET(value).o());
       }
       break;
     }
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
     case OBJ_INSTANCE:
-      printf("%s instance", AS_INSTANCE(value)->klass->name->chars);
+      printf("%s instance", AS_INSTANCE_OFFSET(value).lp()->klass.lp()->name.lp()->chars);
       break;
 //< Classes and Instances not-yet
 //> Calls and Functions not-yet

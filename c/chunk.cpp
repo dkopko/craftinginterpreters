@@ -15,9 +15,9 @@
 void initChunk(Chunk* chunk) {
   chunk->count = 0;
   chunk->capacity = 0;
-  chunk->code = NULL;
+  chunk->code = CB_NULL;
 //> chunk-null-lines
-  chunk->lines = NULL;
+  chunk->lines = CB_NULL;
 //< chunk-null-lines
 //> chunk-init-constant-array
   initValueArray(&chunk->constants);
@@ -25,9 +25,9 @@ void initChunk(Chunk* chunk) {
 }
 //> free-chunk
 void freeChunk(Chunk* chunk) {
-  FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
+  FREE_ARRAY(uint8_t, chunk->code.o(), chunk->capacity);
 //> chunk-free-lines
-  FREE_ARRAY(int, chunk->lines, chunk->capacity);
+  FREE_ARRAY(int, chunk->lines.o(), chunk->capacity);
 //< chunk-free-lines
 //> chunk-free-constants
   freeValueArray(&chunk->constants);
@@ -45,17 +45,17 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
   if (chunk->capacity < chunk->count + 1) {
     int oldCapacity = chunk->capacity;
     chunk->capacity = GROW_CAPACITY(oldCapacity);
-    chunk->code = GROW_ARRAY(chunk->code, uint8_t,
+    chunk->code = GROW_ARRAY(chunk->code.o(), uint8_t,
         oldCapacity, chunk->capacity);
 //> write-chunk-line
-    chunk->lines = GROW_ARRAY(chunk->lines, int,
+    chunk->lines = GROW_ARRAY(chunk->lines.o(), int,
         oldCapacity, chunk->capacity);
 //< write-chunk-line
   }
 
-  chunk->code[chunk->count] = byte;
+  chunk->code.lp()[chunk->count] = byte;
 //> chunk-write-line
-  chunk->lines[chunk->count] = line;
+  chunk->lines.lp()[chunk->count] = line;
 //< chunk-write-line
   chunk->count++;
 }

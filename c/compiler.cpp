@@ -109,7 +109,7 @@ typedef struct Compiler {
   struct Compiler* enclosing;
 
   // The function being compiled.
-  ObjFunction* function;
+  CBO<ObjFunction> function;
   FunctionType type;
 
 //< Calls and Functions not-yet
@@ -161,7 +161,7 @@ static Chunk* currentChunk() {
 //> Calls and Functions not-yet
 
 static Chunk* currentChunk() {
-  return &current->function->chunk;
+  return &current->function.lp()->chunk;
 }
 //< Calls and Functions not-yet
 //> Compiling Expressions error-at
@@ -309,8 +309,8 @@ static void patchJump(int offset) {
     error("Too much code to jump over.");
   }
 
-  currentChunk()->code[offset] = (jump >> 8) & 0xff;
-  currentChunk()->code[offset + 1] = jump & 0xff;
+  currentChunk()->code.lp()[offset] = (jump >> 8) & 0xff;
+  currentChunk()->code.lp()[offset + 1] = jump & 0xff;
 }
 //< Jumping Forward and Back not-yet
 //> Local Variables not-yet
@@ -321,7 +321,7 @@ static void initCompiler(Compiler* compiler) {
 static void initCompiler(Compiler* compiler, int scopeDepth,
                          FunctionType type) {
   compiler->enclosing = current;
-  compiler->function = NULL;
+  compiler->function = CB_NULL;
   compiler->type = type;
 //< Calls and Functions not-yet
   compiler->localCount = 0;
@@ -341,11 +341,11 @@ static void initCompiler(Compiler* compiler, int scopeDepth,
     case TYPE_METHOD:
 //< Methods and Initializers not-yet
     case TYPE_FUNCTION:
-      current->function->name = copyString(parser.previous.start,
+      current->function.lp()->name = copyString(parser.previous.start,
                                            parser.previous.length);
       break;
     case TYPE_TOP_LEVEL:
-      current->function->name = NULL;
+      current->function.lp()->name = CB_NULL;
       break;
   }
 
@@ -379,12 +379,12 @@ static void initCompiler(Compiler* compiler, int scopeDepth,
 static void endCompiler() {
 */
 //> Calls and Functions not-yet
-static ObjFunction* endCompiler() {
+static CBO<ObjFunction> endCompiler() {
 //< Calls and Functions not-yet
   emitReturn();
 //> Calls and Functions not-yet
 
-  ObjFunction* function = current->function;
+  CBO<ObjFunction> function = current->function;
 //< Calls and Functions not-yet
 //> dump-chunk
 #ifdef DEBUG_PRINT_CODE
@@ -394,7 +394,7 @@ static ObjFunction* endCompiler() {
 */
 //> Calls and Functions not-yet
     disassembleChunk(currentChunk(),
-        function->name != NULL ? function->name->chars : "<top>");
+        function.lp()->name.is_nil() ? "<top>" : function.lp()->name.lp()->chars);
 //< Calls and Functions not-yet
   }
 #endif
@@ -445,7 +445,7 @@ static void parsePrecedence(Precedence precedence);
 //< Compiling Expressions forward-declarations
 //> Global Variables identifier-constant
 static uint8_t identifierConstant(Token* name) {
-  return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+  return makeConstant(OBJ_VAL(copyString(name->start, name->length).o()));
 }
 //< Global Variables identifier-constant
 //> Local Variables not-yet
@@ -478,7 +478,7 @@ static int resolveLocal(Compiler* compiler, Token* name,
 // list. Returns the index of the upvalue.
 static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
   // Look for an existing one.
-  int upvalueCount = compiler->function->upvalueCount;
+  int upvalueCount = compiler->function.lp()->upvalueCount;
   for (int i = 0; i < upvalueCount; i++) {
     Upvalue* upvalue = &compiler->upvalues[i];
     if (upvalue->index == index && upvalue->isLocal == isLocal) {
@@ -494,7 +494,7 @@ static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
 
   compiler->upvalues[upvalueCount].isLocal = isLocal;
   compiler->upvalues[upvalueCount].index = index;
-  return compiler->function->upvalueCount++;
+  return compiler->function.lp()->upvalueCount++;
 }
 
 // Attempts to look up [name] in the functions enclosing the one being
@@ -777,7 +777,7 @@ static void string() {
 static void string(bool canAssign) {
 //< Global Variables string
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
-                                  parser.previous.length - 2)));
+                                  parser.previous.length - 2).o()));
 }
 //< Strings parse-string
 /* Global Variables read-named-variable < Global Variables named-variable-signature
@@ -1122,8 +1122,8 @@ static void function(FunctionType type) {
       uint8_t paramConstant = parseVariable("Expect parameter name.");
       defineVariable(paramConstant);
 
-      current->function->arity++;
-      if (current->function->arity > 8) {
+      current->function.lp()->arity++;
+      if (current->function.lp()->arity > 8) {
         error("Cannot have more than 8 parameters.");
       }
     } while (match(TOKEN_COMMA));
@@ -1137,18 +1137,18 @@ static void function(FunctionType type) {
 
   // Create the function object.
   endScope();
-  ObjFunction* function = endCompiler();
+  CBO<ObjFunction> function = endCompiler();
 /* Calls and Functions not-yet < Closures not-yet
   emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
 */
 //> Closures not-yet
 
   // Capture the upvalues in the new closure object.
-  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function.o())));
 
   // Emit arguments for each upvalue to know whether to capture a local
   // or an upvalue.
-  for (int i = 0; i < function->upvalueCount; i++) {
+  for (int i = 0; i < function.lp()->upvalueCount; i++) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
     emitByte(compiler.upvalues[i].index);
   }
@@ -1510,7 +1510,7 @@ bool compile(const char* source, Chunk* chunk) {
 */
 //> Calls and Functions not-yet
 
-ObjFunction* compile(const char* source) {
+CBO<ObjFunction> compile(const char* source) {
 //< Calls and Functions not-yet
   initScanner(source);
 /* Scanning on Demand dump-tokens < Compiling Expressions compile-chunk
@@ -1567,11 +1567,11 @@ ObjFunction* compile(const char* source) {
   return !parser.hadError;
 */
 //> Calls and Functions not-yet
-  ObjFunction* function = endCompiler();
+  CBO<ObjFunction> function = endCompiler();
 
   // If there was a compile error, the code is not valid, so don't
   // create a function.
-  return parser.hadError ? NULL : function;
+  return parser.hadError ? CBO<ObjFunction>(CB_NULL) : function;
 //< Calls and Functions not-yet
 }
 //> Garbage Collection not-yet
@@ -1579,7 +1579,7 @@ ObjFunction* compile(const char* source) {
 void grayCompilerRoots() {
   Compiler* compiler = current;
   while (compiler != NULL) {
-    grayObject((Obj*)compiler->function);
+    grayObject((Obj*)compiler->function.lp());
     compiler = compiler->enclosing;
   }
 }

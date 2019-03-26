@@ -2,6 +2,7 @@
 #ifndef clox_object_h
 #define clox_object_h
 
+#include "cb_integration.h"
 #include "common.h"
 //> Calls and Functions not-yet
 #include "chunk.h"
@@ -39,25 +40,25 @@
 //> as-string
 
 //> Methods and Initializers not-yet
-#define AS_BOUND_METHOD(value)  ((ObjBoundMethod*)AS_OBJ(value))
+#define AS_BOUND_METHOD_OFFSET(value)  (CBO<ObjBoundMethod>(value))
 //< Methods and Initializers not-yet
 //> Classes and Instances not-yet
-#define AS_CLASS(value)         ((ObjClass*)AS_OBJ(value))
+#define AS_CLASS_OFFSET(value)         (CBO<ObjClass>(value))
 //< Classes and Instances not-yet
 //> Closures not-yet
-#define AS_CLOSURE(value)       ((ObjClosure*)AS_OBJ(value))
+#define AS_CLOSURE_OFFSET(value)       (CBO<ObjClosure>(value))
 //< Closures not-yet
 //> Calls and Functions not-yet
-#define AS_FUNCTION(value)      ((ObjFunction*)AS_OBJ(value))
+#define AS_FUNCTION_OFFSET(value)      (CBO<ObjFunction>(value))
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
-#define AS_INSTANCE(value)      ((ObjInstance*)AS_OBJ(value))
+#define AS_INSTANCE_OFFSET(value)      (CBO<ObjInstance>(value))
 //< Classes and Instances not-yet
 //> Calls and Functions not-yet
-#define AS_NATIVE(value)        (((ObjNative*)AS_OBJ(value))->function)
+#define AS_NATIVE(value)        ((CBO<ObjNative>(value).lp())->function)
 //< Calls and Functions not-yet
-#define AS_STRING(value)        ((ObjString*)AS_OBJ(value))
-#define AS_CSTRING(value)       (((ObjString*)AS_OBJ(value))->chars)
+#define AS_STRING_OFFSET(value)        (CBO<ObjString>(value))
+#define AS_CSTRING(value)       ((CBO<ObjString>(value).lp())->chars)
 //< as-string
 //> obj-type
 
@@ -105,7 +106,7 @@ typedef struct {
   int upvalueCount;
 //< Closures not-yet
   Chunk chunk;
-  ObjString* name;
+  CBO<ObjString> name;
 } ObjFunction;
 
 typedef Value (*NativeFn)(int argCount, Value* args);
@@ -132,7 +133,7 @@ typedef struct sUpvalue {
   Obj obj;
 
   // Pointer to the variable this upvalue is referencing.
-  Value* value;
+  Value* value;  //CBINT FIXME How the fuck will this work?... will need to be offset
 
   // If the upvalue is closed (i.e. the local variable it was pointing
   // to has been popped off the stack) then the closed-over value is
@@ -142,13 +143,13 @@ typedef struct sUpvalue {
 
   // Open upvalues are stored in a linked list. This points to the next
   // one in that list.
-  struct sUpvalue* next;
+  CBO<struct sUpvalue> next;  //CBINT FIXME see above.
 } ObjUpvalue;
 
 typedef struct {
   Obj obj;
-  ObjFunction* function;
-  ObjUpvalue** upvalues;
+  CBO<ObjFunction> function;
+  CBO<CBO<ObjUpvalue> > upvalues;  //array of pointers, really!
   int upvalueCount;
 } ObjClosure;
 //< Closures not-yet
@@ -156,9 +157,9 @@ typedef struct {
 
 typedef struct sObjClass {
   Obj obj;
-  ObjString* name;
+  CBO<ObjString> name;
 //> Superclasses not-yet
-  struct sObjClass* superclass;
+  CBO<struct sObjClass> superclass;  //struct sObjClass* (only pointer, not array).
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
   Table methods;
@@ -167,7 +168,7 @@ typedef struct sObjClass {
 
 typedef struct {
   Obj obj;
-  ObjClass* klass;
+  CBO<ObjClass> klass;
   Table fields;
 } ObjInstance;
 //< Classes and Instances not-yet
@@ -176,38 +177,38 @@ typedef struct {
 typedef struct {
   Obj obj;
   Value receiver;
-  ObjClosure* method;
+  CBO<ObjClosure> method;
 } ObjBoundMethod;
 
-ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method);
+CBO<ObjBoundMethod> newBoundMethod(Value receiver, CBO<ObjClosure> method);
 //< Methods and Initializers not-yet
 /* Classes and Instances not-yet < Superclasses not-yet
 ObjClass* newClass(ObjString* name);
 */
 //> Superclasses not-yet
-ObjClass* newClass(ObjString* name, ObjClass* superclass);
+CBO<ObjClass> newClass(CBO<ObjString> name, CBO<ObjClass> superclass);
 //< Superclasses not-yet
 //> Closures not-yet
-ObjClosure* newClosure(ObjFunction* function);
+CBO<ObjClosure> newClosure(CBO<ObjFunction> function);
 //< Closures not-yet
 //> Calls and Functions not-yet
-ObjFunction* newFunction();
+CBO<ObjFunction> newFunction();
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
-ObjInstance* newInstance(ObjClass* klass);
+CBO<ObjInstance> newInstance(CBO<ObjClass> klass);
 //< Classes and Instances not-yet
 //> Calls and Functions not-yet
-ObjNative* newNative(NativeFn function);
+CBO<ObjNative> newNative(NativeFn function);
 //< Calls and Functions not-yet
 //> take-string-h
-ObjString* takeString(char* chars, int length);
+CBO<ObjString> takeString(CBO<char> /*char[]*/ chars, int length);
 //< take-string-h
 //> copy-string-h
-ObjString* copyString(const char* chars, int length);
+CBO<ObjString> copyString(const char* chars, int length);
 
 //< copy-string-h
 //> Closures not-yet
-ObjUpvalue* newUpvalue(Value* slot);
+CBO<ObjUpvalue> newUpvalue(Value* slot);
 //< Closures not-yet
 //> print-object-h
 void printObject(Value value);

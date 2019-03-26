@@ -2,6 +2,7 @@
 #ifndef clox_value_h
 #define clox_value_h
 
+#include "cb_integration.h"
 #include "common.h"
 
 //> Strings forward-declare-obj
@@ -35,7 +36,7 @@ typedef uint64_t Value;
 
 #define AS_BOOL(v)    ((v) == TRUE_VAL)
 #define AS_NUMBER(v)  valueToNum(v)
-#define AS_OBJ(v)     ((Obj*)(uintptr_t)((v) & ~(SIGN_BIT | QNAN)))
+#define AS_OBJ(v)     ((Obj*)cb_at(thread_cb, (cb_offset_t)((v) & ~(SIGN_BIT | QNAN))))
 
 #define BOOL_VAL(boolean) ((boolean) ? TRUE_VAL : FALSE_VAL)
 #define FALSE_VAL         ((Value)(uint64_t)(QNAN | TAG_FALSE))
@@ -43,12 +44,12 @@ typedef uint64_t Value;
 #define NIL_VAL           ((Value)(uint64_t)(QNAN | TAG_NIL))
 #define NUMBER_VAL(num)   numToValue(num)
 // The triple casting is necessary here to satisfy some compilers:
-// 1. (uintptr_t) Convert the pointer to a number of the right size.
+// 1. CBINT REMOVED (uintptr_t) Convert the pointer to a number of the right size.
 // 2. (uint64_t)  Pad it up to 64 bits in 32-bit builds.
 // 3. Or in the bits to make a tagged Nan.
 // 4. Cast to a typedef'd value.
-#define OBJ_VAL(obj) \
-    (Value)(SIGN_BIT | QNAN | (uint64_t)(uintptr_t)(obj))
+#define OBJ_VAL(obj_offset) \
+    (Value)(SIGN_BIT | QNAN | (uint64_t)(obj_offset))
 
 // A union to let us reinterpret a double as raw bits and back.
 typedef union {
@@ -93,7 +94,7 @@ typedef struct {
     bool boolean;
     double number;
 //> Strings union-object
-    Obj* obj;
+    cb_offset_t /* Obj* */ obj;
 //< Strings union-object
   } as; // [as]
 } Value;
@@ -110,7 +111,7 @@ typedef struct {
 //> Types of Values as-macros
 
 //> Strings as-obj
-#define AS_OBJ(value)     ((value).as.obj)
+#define AS_OBJ(value)     ((Obj*)cb_at(thread_cb, (value).as.obj))
 //< Strings as-obj
 #define AS_BOOL(value)    ((value).as.boolean)
 #define AS_NUMBER(value)  ((value).as.number)
@@ -121,7 +122,7 @@ typedef struct {
 #define NIL_VAL           ((Value){ VAL_NIL, { .number = 0 } })
 #define NUMBER_VAL(value) ((Value){ VAL_NUMBER, { .number = value } })
 //> Strings obj-val
-#define OBJ_VAL(object)   ((Value){ VAL_OBJ, { .obj = (Obj*)object } })
+#define OBJ_VAL(object_offset)   ((Value){ VAL_OBJ, { .obj = object_offset } })
 //< Strings obj-val
 //< Types of Values value-macros
 //> Optimization not-yet
@@ -133,7 +134,7 @@ typedef struct {
 typedef struct {
   int capacity;
   int count;
-  Value* values;
+  CBO<Value> values;
 } ValueArray;
 //< value-array
 //> array-fns-h
