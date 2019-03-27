@@ -224,7 +224,12 @@ void printObject(Value value) {
 //< Methods and Initializers not-yet
 //> Closures not-yet
     case OBJ_CLOSURE:
-      printf("<fn %s>", AS_CLOSURE(value)->function->name->chars);
+      if (AS_CLOSURE(value)->function &&
+          AS_CLOSURE(value)->function->name) {
+        printf("<fn %s>", AS_CLOSURE(value)->function->name->chars);
+      } else {
+        printf("<fn uninit%ju>", (uintmax_t)AS_CLOSURE(value)->function);
+      }
       break;
 //< Closures not-yet
 //> Calls and Functions not-yet
