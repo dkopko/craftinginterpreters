@@ -221,6 +221,11 @@ CBO<ObjUpvalue> newUpvalue(Value* slot) {
 //< Closures not-yet
 //> print-object
 void printObject(Value value) {
+  if (IS_NIL(value)) {
+    printf("nilval");
+    return;
+  }
+
   switch (OBJ_TYPE(value)) {
 //> Classes and Instances not-yet
     case OBJ_CLASS:
@@ -271,6 +276,9 @@ void printObject(Value value) {
       printf("upvalue");
       break;
 //< Closures not-yet
+    default:
+      printf("#?BADOBJ?#");
+      break;
   }
 }
 //< print-object
