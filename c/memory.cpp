@@ -54,7 +54,7 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
 //> Garbage Collection not-yet
 
 void grayObject(Obj* object) {
-  return; //CBINT FIXME
+  return; //CBINT
 
   if (object == NULL) return;
 
@@ -93,7 +93,7 @@ static void grayArray(ValueArray* array) {
 }
 
 static void blackenObject(Obj* object) {
-  return;  //CBINT FIXME
+  return;  //CBINT
 
 #ifdef DEBUG_TRACE_GC
   printf("%p blacken ", object);
