@@ -101,6 +101,12 @@ int main(int argc, const char* argv[]) {
     return EXIT_FAILURE;
   }
 
+  /* Make one allocation to preserve "NULL", for now FIXME*/
+  {
+    cb_offset_t new_offset;
+    cb_memalign(&thread_cb, &new_offset, 1, 1);
+  }
+
 //> A Virtual Machine main-init-vm
   initVM();
 
