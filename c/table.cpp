@@ -68,7 +68,7 @@ static Entry* findEntry(CBO<Entry> entries, int capacityMask,
         // We found a tombstone.
         if (tombstone == NULL) tombstone = entry;
       }
-    } else if (entry->key.o() == key.o()) {  //CBINT FIXME Will this be true, as an alternative to 'entry->key == key'?
+    } else if (entry->key.o() == key.o()) {
       // We found the key.
       return entry;
     }

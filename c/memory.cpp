@@ -19,7 +19,7 @@
 #define GC_HEAP_GROW_FACTOR 2
 //< Garbage Collection not-yet
 
-cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize) {
+cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment) {
 //> Garbage Collection not-yet
   vm.bytesAllocated += newSize - oldSize;
 
@@ -42,7 +42,7 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize) {
     int ret;
     cb_offset_t new_offset;
 
-    ret = cb_memalign(&thread_cb, &new_offset, 8 /*CBINT FIXME*/, newSize);
+    ret = cb_memalign(&thread_cb, &new_offset, alignment, newSize);
     if (ret != CB_SUCCESS) {
       return (cb_offset_t)0;
     }

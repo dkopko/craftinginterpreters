@@ -12,12 +12,12 @@
 //> allocate-obj
 
 #define ALLOCATE_OBJ(type, objectType) \
-    allocateObject(sizeof(type), objectType)
+    allocateObject(sizeof(type), cb_alignof(type), objectType)
 //< allocate-obj
 //> allocate-object
 
-static cb_offset_t allocateObject(size_t size, ObjType type) {
-  CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size);
+static cb_offset_t allocateObject(size_t size, size_t alignment, ObjType type) {
+  CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size, alignment);
   Obj* object = objectCBO.lp();
   object->type = type;
 //> Garbage Collection not-yet

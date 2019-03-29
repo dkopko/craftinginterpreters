@@ -9,7 +9,7 @@
 //< Strings memory-include-object
 //> Strings allocate
 #define ALLOCATE(type, count) \
-    reallocate(CB_NULL, 0, sizeof(type) * (count))
+    reallocate(CB_NULL, 0, sizeof(type) * (count), cb_alignof(type))
 //> free
 
 #define FREE(type, pointer) \
@@ -24,7 +24,7 @@
 
 #define GROW_ARRAY(previous, type, oldCount, count) \
     reallocate(previous, sizeof(type) * (oldCount), \
-        sizeof(type) * (count))
+        sizeof(type) * (count), cb_alignof(type))
 //> free-array
 
 #define FREE_ARRAY(type, pointer, oldCount) \
@@ -32,7 +32,7 @@
     //reallocate(pointer, sizeof(type) * (oldCount), 0)
 //< free-array
 
-cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize);
+cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment);
 //< grow-array
 //> Garbage Collection not-yet
 
