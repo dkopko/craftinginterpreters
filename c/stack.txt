@@ -1,0 +1,9 @@
+ObjUpvalue::value
+   to be modified to an index off of the stack.
+
+frame->slots
+   A pointer within the stack.  Must be changed analogously to ObjValue::value.
+
+vm.stackTop - Factor out into an independent structure, and have inline
+  accessors for present use cases.  Then have the tertiary split.
+

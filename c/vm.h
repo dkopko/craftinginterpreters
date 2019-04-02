@@ -63,7 +63,7 @@ typedef struct {
   CBO<ObjString> initString;
 //< Methods and Initializers not-yet
 //> Closures not-yet
-  CBO<ObjUpvalue> openUpvalues;  //openUpvalues[] array.
+  CBO<ObjUpvalue> openUpvalues;  //Head of singly-linked openUpvalue list, not an array.
 //< Closures not-yet
 //> Garbage Collection not-yet
 

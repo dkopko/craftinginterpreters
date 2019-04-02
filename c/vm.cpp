@@ -347,8 +347,17 @@ static CBO<ObjUpvalue> captureUpvalue(Value* local) {  //CBINT FIXME will need t
 }
 
 static void closeUpvalues(Value* last) {
+  //NOTE: The pointer comparison of vm.openValues.lp()->value vs. 'last' works
+  // because last must exist within the stack.  The intent of this function is
+  // to take every upvalue of stack positions greater-than-or-equal-to in
+  // address than 'last' and turn them into "closed" upvalues, which point to
+  // their own local storage instead of stack locations.  The 'last' argument
+  // which is passed is the first slot of a frame which is being exited (in the
+  // case of an OP_RETURN for leaving functions), or the top-of-stack (in the
+  // case of OP_CLOSE_UPVALUE for leaving scopes).
+
   while (!vm.openUpvalues.is_nil() &&
-         vm.openUpvalues.lp()->value >= last) {  //CBINT FIXME what the fuck is this pointer math?
+         vm.openUpvalues.lp()->value >= last) {
     CBO<ObjUpvalue> upvalue = vm.openUpvalues;
 
     // Move the value into the upvalue itself and point the upvalue to

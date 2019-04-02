@@ -149,7 +149,7 @@ typedef struct sUpvalue {
 typedef struct {
   Obj obj;
   CBO<ObjFunction> function;
-  CBO<CBO<ObjUpvalue> > upvalues;  //array of pointers, really!
+  CBO<CBO<ObjUpvalue> > upvalues;  //pointer to ObjUpvalue[] (used to be type ObjUpvalue**).
   int upvalueCount;
 } ObjClosure;
 //< Closures not-yet
