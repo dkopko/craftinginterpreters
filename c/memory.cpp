@@ -257,9 +257,10 @@ void collectGarbage() {
 #endif
 
   // Mark the stack roots.
-  for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
-    grayValue(*slot);
-  }
+  //CBINT FIXME
+  //for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
+  //  grayValue(*slot);
+  //}
 
   for (int i = 0; i < vm.frameCount; i++) {
     grayObject((Obj*)vm.frames[i].closure.lp());

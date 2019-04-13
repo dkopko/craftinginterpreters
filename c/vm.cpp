@@ -1,3 +1,4 @@
+#include <assert.h>
 //> A Virtual Machine vm-c
 //> Types of Values include-stdarg
 #include <stdarg.h>
@@ -11,6 +12,7 @@
 #include <time.h>
 //< Calls and Functions not-yet
 
+#include "cb_integration.h"
 //< vm-include-stdio
 #include "common.h"
 //> Scanning on Demand vm-include-compiler
@@ -25,6 +27,97 @@
 //< Strings vm-include-object-memory
 #include "vm.h"
 
+static void
+tristack_reset(TriStack *ts) {
+  cb_offset_t new_offset;
+  int ret;
+
+  ret = cb_memalign(&thread_cb,
+                    &new_offset,
+                    cb_alignof(Value),
+                    sizeof(Value) * STACK_MAX);
+  (void)ret;
+
+  ts->abo = new_offset;
+  ts->abi = 0;
+  ts->bbo = CB_NULL;
+  ts->bbi = 0;
+  ts->cbo = CB_NULL;
+  ts->cbi = 0;
+  ts->stackDepth = 0;
+}
+
+static Value*
+tristack_at_bc(TriStack *ts, unsigned int index) {
+  assert(index < ts->stackDepth);
+  //CBINT FIXME - add a way to check maximum index of B subsection?
+
+  unsigned int offset;
+
+  //Use appropriate location amongst only B and C subsections.
+  if (index < ts->bbi) {
+    offset = ts->cbo + (index - ts->cbi) * sizeof(Value);
+  } else {
+    offset = ts->bbo + (index - ts->bbi) * sizeof(Value);
+  }
+
+  return static_cast<Value*>(cb_at(thread_cb, offset));
+}
+
+static Value*
+tristack_at(TriStack *ts, unsigned int index) {
+  assert(index < ts->stackDepth);
+
+  unsigned int offset;
+
+  // Handle A section indices...
+  if (index >= ts->abi) {
+    offset = ts->abo + (index - ts->abi) * sizeof(Value);
+    return static_cast<Value*>(cb_at(thread_cb, offset));
+  }
+
+  // Otherwise, fall back to B and C sections.
+  return tristack_at_bc(ts, index);
+}
+
+static Value
+tristack_peek(TriStack *ts, unsigned int down) {
+  assert(down < ts->stackDepth);
+
+  unsigned int ei = (ts->stackDepth - 1 - down);  // "element index"
+  return *tristack_at(ts, ei);
+}
+
+static void
+tristack_discardn(TriStack *ts, unsigned int n) {
+  assert(n <= ts->stackDepth);
+
+  ts->stackDepth -= n;
+
+  //Adjust A region if we have popped down below it.
+  if (ts->stackDepth < ts->abi)
+    ts->abi = ts->stackDepth;
+}
+
+static void
+tristack_push(TriStack *ts, Value v) {
+  //CBINT FIXME how to check that there is room to push?  (old code didn't care)
+  // We could make all stack edges be followed by a page which faults and
+  // causes a reallocation of the stack.
+  Value *astack = static_cast<Value*>(cb_at(thread_cb, ts->abo));
+  astack[ts->stackDepth - ts->abi] = v;
+  ++(ts->stackDepth);
+}
+
+static Value
+tristack_pop(TriStack *ts) {
+  assert(ts->stackDepth > 0);
+
+  Value v = tristack_peek(ts, 0);
+  tristack_discardn(ts, 1);
+  return v;
+}
+
 VM vm; // [one]
 //> Calls and Functions not-yet
 
@@ -34,7 +127,7 @@ static Value clockNative(int argCount, Value* args) {
 //< Calls and Functions not-yet
 //> reset-stack
 static void resetStack() {
-  vm.stackTop = vm.stack;
+  tristack_reset(&(vm.tristack));
 //> Calls and Functions not-yet
   vm.frameCount = 0;
 //< Calls and Functions not-yet
@@ -84,9 +177,15 @@ static void runtimeError(const char* format, ...) {
 //> Calls and Functions not-yet
 
 static void defineNative(const char* name, NativeFn function) {
-  push(OBJ_VAL(copyString(name, (int)strlen(name)).o()));
-  push(OBJ_VAL(newNative(function).o()));
-  tableSet(&vm.globals, AS_STRING_OFFSET(vm.stack[0]), vm.stack[1]);
+  CBO<ObjString> nameCBO = copyString(name, (int)strlen(name));
+  Value nameVal = OBJ_VAL(nameCBO.o());
+  push(nameVal);  //Keep garbage collector happy. CBINT FIXME not needed
+
+  CBO<ObjNative> nativeCBO = newNative(function);
+  Value nativeVal = OBJ_VAL(nativeCBO.o());
+  push(nativeVal);  //Keep garbage collector happy.  CBINT FIXME not needed
+
+  tableSet(&vm.globals, nameCBO, nativeVal);
   pop();
   pop();
 }
@@ -138,21 +237,20 @@ void freeVM() {
   freeObjects();
 //< Strings call-free-objects
 }
+
 //> push
 void push(Value value) {
-  *vm.stackTop = value;
-  vm.stackTop++;
+  tristack_push(&(vm.tristack), value);
 }
 //< push
 //> pop
 Value pop() {
-  vm.stackTop--;
-  return *vm.stackTop;
+  return tristack_pop(&(vm.tristack));
 }
 //< pop
 //> Types of Values peek
 static Value peek(int distance) {
-  return vm.stackTop[-1 - distance];
+  return tristack_peek(&(vm.tristack), distance);
 }
 //< Types of Values peek
 /* Calls and Functions not-yet < Closures not-yet
@@ -189,7 +287,10 @@ static bool call(CBO<ObjClosure> closure, int argCount) {
 //< Closures not-yet
 
   // +1 to include either the called function or the receiver.
-  frame->slots = vm.stackTop - (argCount + 1);
+  frame->slotsCount = argCount + 1;
+  frame->slotsIndex = vm.tristack.stackDepth - frame->slotsCount;
+  frame->slots = tristack_at(&(vm.tristack), frame->slotsIndex);
+  assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Slots must be contiguous in mutable section A.
   return true;
 }
 
@@ -202,7 +303,9 @@ static bool callValue(Value callee, int argCount) {
 
         // Replace the bound method with the receiver so it's in the
         // right slot when the method is called.
-        vm.stackTop[-argCount - 1] = bound.lp()->receiver;
+        Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - (argCount + 1));
+        assert(loc >= cb_at(thread_cb, vm.tristack.abo));  // Must be in the mutable section A.
+        *loc = bound.lp()->receiver;
         return call(bound.lp()->method, argCount);
       }
 
@@ -212,7 +315,9 @@ static bool callValue(Value callee, int argCount) {
         CBO<ObjClass> klass = AS_CLASS_OFFSET(callee);
 
         // Create the instance.
-        vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass).o());
+        Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - (argCount + 1));
+        assert(loc >= cb_at(thread_cb, vm.tristack.abo));  // Must be in the mutable section A.
+        *loc = OBJ_VAL(newInstance(klass).o());
 //> Methods and Initializers not-yet
         // Call the initializer, if there is one.
         Value initializer;
@@ -240,8 +345,10 @@ static bool callValue(Value callee, int argCount) {
 */
       case OBJ_NATIVE: {
         NativeFn native = AS_NATIVE(callee);
-        Value result = native(argCount, vm.stackTop - argCount);
-        vm.stackTop -= argCount + 1;
+        Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - argCount);
+        assert(loc >= cb_at(thread_cb, vm.tristack.abo));
+        Value result = native(argCount, loc);
+        tristack_discardn(&(vm.tristack), argCount + 1);
         push(result);
         return true;
       }
@@ -283,7 +390,9 @@ static bool invoke(CBO<ObjString> name, int argCount) {
   // First look for a field which may shadow a method.
   Value value;
   if (tableGet(&instance.lp()->fields, name, &value)) {
-    vm.stackTop[-argCount] = value;
+    Value *loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - argCount);
+    assert(loc >= cb_at(thread_cb, vm.tristack.abo));
+    *loc = value;
     return callValue(value, argCount);
   }
 
@@ -490,9 +599,9 @@ static InterpretResult run() {
 #ifdef DEBUG_TRACE_EXECUTION
 //> trace-stack
     printf("          ");
-    for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
+    for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
       printf("[ ");
-      printValue(*slot);
+      printValue(*tristack_at(&(vm.tristack), i));
       printf(" ]");
     }
     printf("\n");
@@ -850,10 +959,13 @@ static InterpretResult run() {
         break;
       }
 
-      case OP_CLOSE_UPVALUE:
-        closeUpvalues(vm.stackTop - 1);
+      case OP_CLOSE_UPVALUE: {
+        Value *loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - 1);
+        assert(loc >= cb_at(thread_cb, vm.tristack.abo));
+        closeUpvalues(loc);
         pop();
         break;
+      }
 
 //< Closures not-yet
       case OP_RETURN: {
@@ -878,10 +990,34 @@ static InterpretResult run() {
         vm.frameCount--;
         if (vm.frameCount == 0) return INTERPRET_OK;
 
-        vm.stackTop = frame->slots;
+        //NOTE: The purpose of this section is to move "up" (read: lower in
+        // index) the stack. If we've returned to a position which is at a
+        // lower index than where abi begins, we must move everything which
+        // exists higher than this index into the mutable section A, and shift
+        // abi to the target index.  This will maintain the invariant that
+        // our function arguments are always contiguous in the mutable
+        // section A.
+        // The frame we're leaving should have always only existed in the
+        // mutable A region.
+        assert(frame->slotsIndex >= vm.tristack.abi);
+        // Shorten the stack.
+        vm.tristack.stackDepth = frame->slotsIndex;  //slotsIndex being one-past the highest index of new shorter stack
         push(result);
 
+        // Now move to the outer frame, but if we've returned into the B or C
+        // non-mutable regions of the stack, adjust the tristack to shift the
+        // outer frame's slots into the A region.
         frame = &vm.frames[vm.frameCount - 1];
+        if (frame->slotsIndex < vm.tristack.abi) {
+          vm.tristack.abi = frame->slotsIndex;
+          memcpy(tristack_at(&(vm.tristack), vm.tristack.abi),
+                 tristack_at_bc(&(vm.tristack), frame->slotsIndex),
+                 frame->slotsCount * sizeof(Value));
+          frame->slots = tristack_at(&(vm.tristack), frame->slotsIndex);  //re-derive.
+        }
+        assert(frame->slots == tristack_at(&(vm.tristack), frame->slotsIndex));
+        assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Must be contiguous, and in mutable section A.
+        assert(frame->slotsIndex >= vm.tristack.abi);
         break;
 //< Calls and Functions not-yet
       }
@@ -981,6 +1117,11 @@ InterpretResult interpret(const char* source) {
   pop();
 //< Garbage Collection not-yet
 //> Closures not-yet
+
+  //BUGFIX: without this, upstream code derived frames[0]->slots outside of stack.
+  //  This was harmless, but trips our careful assertions.
+  push(OBJ_VAL(closure.o()));
+
   callValue(OBJ_VAL(closure.o()), 0);
 
 //< Closures not-yet

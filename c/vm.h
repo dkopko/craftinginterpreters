@@ -33,8 +33,23 @@ typedef struct {
 //< Closures not-yet
   uint8_t* ip;
   Value* slots;
+  unsigned int slotsIndex;
+  unsigned int slotsCount;
 } CallFrame;
 //< Calls and Functions not-yet
+
+typedef struct {
+  //CBINT FIXME cache Value *astack, *bstack, *cstack in self-correcting pointer
+  // objects to speed access but allow for CB resizes?
+
+  cb_offset_t  abo; // A base offset (mutable region)
+  unsigned int abi; // A base index  (mutable region)
+  cb_offset_t  bbo; // B base offset
+  unsigned int bbi; // B base index
+  cb_offset_t  cbo; // C base offset
+  unsigned int cbi; // C base index (always 0, really)
+  unsigned int stackDepth;  // [0, stack_depth-1] are valid entries.
+} TriStack;
 
 typedef struct {
 /* A Virtual Machine vm-h < Calls and Functions not-yet
@@ -44,8 +59,7 @@ typedef struct {
   uint8_t* ip;
 */
 //> vm-stack
-  Value stack[STACK_MAX];
-  Value* stackTop;
+  TriStack tristack;
 //< vm-stack
 //> Calls and Functions not-yet
 

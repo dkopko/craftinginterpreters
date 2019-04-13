@@ -1,9 +1,32 @@
+frame->slots  DONE
+* A pointer within the stack.
+* Essentially, the base pointer of a frame.
+* The next 'argCount' elements can be expected to be contiguous.
+* If we can presume that green threads would only get context switched at loop
+  or function boundaries, then the slots would naturally be contiguous, as they
+  all would have been initially pushed together (into the A region), or else
+  they would have been collected together (and exist contiguously in the B or
+  C regions).
+* The frame->slots assignment in vm.cpp:call() must ensure the slots are
+  mutable. This will be guaranteed by not allowing any context switches
+  except at loop or function boundaries.
+* The behavior of OP_RETURN: when returning to outer frames we must make sure
+  that the newly-current frame's slots will exist in the mutable A section
+  (to allow their mutability).  If this isn't already true, the slots must be
+  moved there and the tristack adjusted.
+
+vm.stackTop  DONE
+* Factored out into an independent "tristack" structure.
+
+
+
+
 ObjUpvalue::value
-   to be modified to an index off of the stack.
+   Can it be done via modification to a cb_offset_t?  Seems unlikely as structs
+     will shift underneath it.
+   Can it be modified to an index off of the stack instead?  This may make
+     dereferencing sloppy and slow.
 
-frame->slots
-   A pointer within the stack.  Must be changed analogously to ObjValue::value.
-
-vm.stackTop - Factor out into an independent structure, and have inline
-  accessors for present use cases.  Then have the tertiary split.
-
+vm.frames -
+  To be modified into a linked-list of frames, or a linked-list of arrays of
+    frames.
