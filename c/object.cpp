@@ -209,11 +209,11 @@ CBO<ObjString> copyString(const char* chars, int length) {
 }
 //> Closures not-yet
 
-CBO<ObjUpvalue> newUpvalue(Value* slot) {
+CBO<ObjUpvalue> newUpvalue(unsigned int valueStackIndex) {
   CBO<ObjUpvalue> upvalueCBO = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
   ObjUpvalue* upvalue = upvalueCBO.lp();
   upvalue->closed = NIL_VAL;
-  upvalue->value = slot;
+  upvalue->valueStackIndex = valueStackIndex;
   upvalue->next = CB_NULL;
 
   return upvalueCBO;

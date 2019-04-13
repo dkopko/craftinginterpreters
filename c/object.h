@@ -133,7 +133,7 @@ typedef struct sUpvalue {
   Obj obj;
 
   // Pointer to the variable this upvalue is referencing.
-  Value* value;  //CBINT FIXME How the fuck will this work?... will need to be offset
+  int valueStackIndex;
 
   // If the upvalue is closed (i.e. the local variable it was pointing
   // to has been popped off the stack) then the closed-over value is
@@ -143,7 +143,7 @@ typedef struct sUpvalue {
 
   // Open upvalues are stored in a linked list. This points to the next
   // one in that list.
-  CBO<struct sUpvalue> next;  //CBINT FIXME see above.
+  CBO<struct sUpvalue> next;  //CBINT FIXME How will this linked list work under collection?
 } ObjUpvalue;
 
 typedef struct {
@@ -208,7 +208,7 @@ CBO<ObjString> copyString(const char* chars, int length);
 
 //< copy-string-h
 //> Closures not-yet
-CBO<ObjUpvalue> newUpvalue(Value* slot);
+CBO<ObjUpvalue> newUpvalue(unsigned int valueStackIndex);
 //< Closures not-yet
 //> print-object-h
 void printObject(Value value);

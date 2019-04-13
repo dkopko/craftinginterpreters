@@ -419,10 +419,10 @@ static bool bindMethod(CBO<ObjClass> klass, CBO<ObjString> name) {
 // important to ensure that multiple closures closing over the same
 // variable actually see the same variable.) Otherwise, it creates a
 // new open upvalue and adds it to the VM's list of upvalues.
-static CBO<ObjUpvalue> captureUpvalue(Value* local) {  //CBINT FIXME will need to be offset.
+static CBO<ObjUpvalue> captureUpvalue(unsigned int localStackIndex) {  //CBINT FIXME will need to be offset.
   // If there are no open upvalues at all, we must need a new one.
   if (vm.openUpvalues.is_nil()) {
-    vm.openUpvalues = newUpvalue(local);
+    vm.openUpvalues = newUpvalue(localStackIndex);
     return vm.openUpvalues;
   }
 
@@ -431,18 +431,18 @@ static CBO<ObjUpvalue> captureUpvalue(Value* local) {  //CBINT FIXME will need t
 
   // Walk towards the bottom of the stack until we find a previously
   // existing upvalue or reach where it should be.
-  while (!upvalue.is_nil() && upvalue.lp()->value > local) {
+  while (!upvalue.is_nil() && upvalue.lp()->valueStackIndex > (int)localStackIndex) {
     prevUpvalue = upvalue;
     upvalue = upvalue.lp()->next;
   }
 
   // If we found it, reuse it.
-  if (!upvalue.is_nil() && upvalue.lp()->value == local) return upvalue;
+  if (!upvalue.is_nil() && upvalue.lp()->valueStackIndex == (int)localStackIndex) return upvalue;
 
   // We walked past the local on the stack, so there must not be an
   // upvalue for it already. Make a new one and link it in in the right
   // place to keep the list sorted.
-  CBO<ObjUpvalue> createdUpvalue = newUpvalue(local);
+  CBO<ObjUpvalue> createdUpvalue = newUpvalue(localStackIndex);
   createdUpvalue.lp()->next = upvalue;
 
   if (prevUpvalue.is_nil()) {
@@ -455,24 +455,26 @@ static CBO<ObjUpvalue> captureUpvalue(Value* local) {  //CBINT FIXME will need t
   return createdUpvalue;
 }
 
-static void closeUpvalues(Value* last) {
-  //NOTE: The pointer comparison of vm.openValues.lp()->value vs. 'last' works
-  // because last must exist within the stack.  The intent of this function is
-  // to take every upvalue of stack positions greater-than-or-equal-to in
-  // address than 'last' and turn them into "closed" upvalues, which point to
-  // their own local storage instead of stack locations.  The 'last' argument
-  // which is passed is the first slot of a frame which is being exited (in the
-  // case of an OP_RETURN for leaving functions), or the top-of-stack (in the
-  // case of OP_CLOSE_UPVALUE for leaving scopes).
+static void closeUpvalues(unsigned int lastStackIndex) {
+  //NOTE: The pointer comparison of vm.openValues.lp()->valueStackIndex vs.
+  // 'lastStackIndex' works because lastStackIndex must exist within the stack.
+  // The intent of this function is to take every upvalue of stack positions
+  // greater-than-or-equal-to in index than 'lastStackIndex' and turn them into
+  // "closed" upvalues, which hold a value in their own local storage instead
+  // of referring to stack indices.  The 'lastStackIndex' argument which is
+  // passed is the index of the first slot of a frame which is being exited (in
+  // the case of an OP_RETURN for leaving functions), or the index of the
+  // last element of the stack (in the case of OP_CLOSE_UPVALUE for leaving
+  // scopes).
 
   while (!vm.openUpvalues.is_nil() &&
-         vm.openUpvalues.lp()->value >= last) {
+         vm.openUpvalues.lp()->valueStackIndex >= (int)lastStackIndex) {
     CBO<ObjUpvalue> upvalue = vm.openUpvalues;
 
     // Move the value into the upvalue itself and point the upvalue to
     // it.
-    upvalue.lp()->closed = *(upvalue.lp()->value);
-    upvalue.lp()->value = &(upvalue.lp()->closed);
+    upvalue.lp()->closed = *tristack_at(&(vm.tristack), upvalue.lp()->valueStackIndex);
+    upvalue.lp()->valueStackIndex = -1;
 
     // Pop it off the open upvalue list.
     vm.openUpvalues = upvalue.lp()->next;
@@ -704,13 +706,23 @@ static InterpretResult run() {
 
       case OP_GET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        push(*frame->closure.lp()->upvalues.lp()[slot].lp()->value);
+        ObjUpvalue* upvalue = frame->closure.lp()->upvalues.lp()[slot].lp();
+        if (upvalue->valueStackIndex == -1) {
+          push(upvalue->closed);
+        } else {
+          push(*tristack_at(&(vm.tristack), upvalue->valueStackIndex));
+        }
         break;
       }
 
       case OP_SET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        *frame->closure.lp()->upvalues.lp()[slot].lp()->value = peek(0);
+        ObjUpvalue* upvalue = frame->closure.lp()->upvalues.lp()[slot].lp();
+        if (upvalue->valueStackIndex == -1) {
+          upvalue->closed = peek(0);
+        } else {
+          *tristack_at(&(vm.tristack), upvalue->valueStackIndex) = peek(0);
+        }
         break;
       }
 //< Closures not-yet
@@ -945,11 +957,11 @@ static InterpretResult run() {
         // Capture upvalues.
         for (int i = 0; i < closure.lp()->upvalueCount; i++) {
           uint8_t isLocal = READ_BYTE();
-          uint8_t index = READ_BYTE();
+          uint8_t index = READ_BYTE();  // an index within the present frame's slots
           if (isLocal) {
             // Make an new upvalue to close over the parent's local
             // variable.
-            closure.lp()->upvalues.lp()[i] = captureUpvalue(frame->slots + index);
+            closure.lp()->upvalues.lp()[i] = captureUpvalue(frame->slotsIndex + index);
           } else {
             // Use the same upvalue as the current call frame.
             closure.lp()->upvalues.lp()[i] = frame->closure.lp()->upvalues.lp()[index];
@@ -960,9 +972,7 @@ static InterpretResult run() {
       }
 
       case OP_CLOSE_UPVALUE: {
-        Value *loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - 1);
-        assert(loc >= cb_at(thread_cb, vm.tristack.abo));
-        closeUpvalues(loc);
+        closeUpvalues(vm.tristack.stackDepth - 1);
         pop();
         break;
       }
@@ -984,7 +994,7 @@ static InterpretResult run() {
 //> Closures not-yet
 
         // Close any upvalues still in scope.
-        closeUpvalues(frame->slots);
+        closeUpvalues(frame->slotsIndex);
 //< Closures not-yet
 
         vm.frameCount--;
