@@ -262,9 +262,10 @@ void collectGarbage() {
   //  grayValue(*slot);
   //}
 
-  for (int i = 0; i < vm.frameCount; i++) {
-    grayObject((Obj*)vm.frames[i].closure.lp());
-  }
+  //CBINT FIXME
+  //for (int i = 0; i < vm.frameCount; i++) {
+  //  grayObject((Obj*)vm.frames[i].closure.lp());
+  //}
 
   // Mark the open upvalues.
   for (CBO<ObjUpvalue> upvalue = vm.openUpvalues;

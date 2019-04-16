@@ -118,6 +118,24 @@ tristack_pop(TriStack *ts) {
   return v;
 }
 
+static void
+enterFrame() {
+  CallFrame* newFrame = &vm.frames[vm.frameCount++];
+  vm.currentFrame = newFrame;
+}
+
+static CallFrame*
+parentFrame(CallFrame* frame) {
+  if (frame == &(vm.frames[0])) { return NULL; }
+  return &(frame[-1]);
+}
+
+static void
+leaveFrame() {
+  CallFrame* newFrame = &vm.frames[(--vm.frameCount) - 1];
+  vm.currentFrame = newFrame;
+}
+
 VM vm; // [one]
 //> Calls and Functions not-yet
 
@@ -129,6 +147,7 @@ static Value clockNative(int argCount, Value* args) {
 static void resetStack() {
   tristack_reset(&(vm.tristack));
 //> Calls and Functions not-yet
+  vm.currentFrame = NULL;
   vm.frameCount = 0;
 //< Calls and Functions not-yet
 //> Closures not-yet
@@ -150,8 +169,7 @@ static void runtimeError(const char* format, ...) {
           vm.chunk->lines[instruction]);
 */
 //> Calls and Functions not-yet
-  for (int i = vm.frameCount - 1; i >= 0; i--) {
-    CallFrame* frame = &vm.frames[i];
+  for (CallFrame *frame = vm.currentFrame; frame >= vm.frames; frame = parentFrame(frame)) {
 /* Calls and Functions not-yet < Closures not-yet
     ObjFunction* function = frame->function;
 */
@@ -276,7 +294,8 @@ static bool call(CBO<ObjClosure> closure, int argCount) {
     return false;
   }
 
-  CallFrame* frame = &vm.frames[vm.frameCount++];
+  enterFrame();
+  CallFrame* frame = vm.currentFrame;
 /* Calls and Functions not-yet < Closures not-yet
   frame->function = function;
   frame->ip = function->chunk.code;
@@ -544,7 +563,7 @@ static void concatenate() {
 //> run
 static InterpretResult run() {
 //> Calls and Functions not-yet
-  CallFrame* frame = &vm.frames[vm.frameCount - 1];
+  CallFrame* frame = vm.currentFrame;
 
 /* A Virtual Machine run < Calls and Functions not-yet
 #define READ_BYTE() (*vm.ip++)
@@ -899,7 +918,7 @@ static InterpretResult run() {
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = &vm.frames[vm.frameCount - 1];
+        frame = vm.currentFrame;
         break;
       }
 //< Calls and Functions not-yet
@@ -919,7 +938,7 @@ static InterpretResult run() {
         if (!invoke(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = &vm.frames[vm.frameCount - 1];
+        frame = vm.currentFrame;
         break;
       }
 //< Methods and Initializers not-yet
@@ -940,7 +959,7 @@ static InterpretResult run() {
         if (!invokeFromClass(superclass, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = &vm.frames[vm.frameCount - 1];
+        frame = vm.currentFrame;
         break;
       }
 //< Superclasses not-yet
@@ -997,7 +1016,7 @@ static InterpretResult run() {
         closeUpvalues(frame->slotsIndex);
 //< Closures not-yet
 
-        vm.frameCount--;
+        leaveFrame();  // NOTE: does not yet update our local variable 'frame'.
         if (vm.frameCount == 0) return INTERPRET_OK;
 
         //NOTE: The purpose of this section is to move "up" (read: lower in
@@ -1017,7 +1036,7 @@ static InterpretResult run() {
         // Now move to the outer frame, but if we've returned into the B or C
         // non-mutable regions of the stack, adjust the tristack to shift the
         // outer frame's slots into the A region.
-        frame = &vm.frames[vm.frameCount - 1];
+        frame = vm.currentFrame;
         if (frame->slotsIndex < vm.tristack.abi) {
           vm.tristack.abi = frame->slotsIndex;
           memcpy(tristack_at(&(vm.tristack), vm.tristack.abi),

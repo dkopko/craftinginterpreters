@@ -64,6 +64,7 @@ typedef struct {
 //> Calls and Functions not-yet
 
   CallFrame frames[FRAMES_MAX];
+  CallFrame *currentFrame;
   int frameCount;
 
 //< Calls and Functions not-yet

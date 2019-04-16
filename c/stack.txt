@@ -18,14 +18,9 @@ frame->slots  DONE
 vm.stackTop  DONE
 * Factored out into an independent "tristack" structure.
 
-
-
-
-ObjUpvalue::value
-   Can it be done via modification to a cb_offset_t?  Seems unlikely as structs
-     will shift underneath it.
-   Can it be modified to an index off of the stack instead?  This may make
-     dereferencing sloppy and slow.
+ObjUpvalue::value  DONE
+* Modified to not use a pointer, but instead hold an index within the stack
+  or -1 (meaning it points to itself).
 
 vm.frames -
   To be modified into a linked-list of frames, or a linked-list of arrays of
