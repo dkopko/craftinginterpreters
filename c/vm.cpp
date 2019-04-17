@@ -119,21 +119,98 @@ tristack_pop(TriStack *ts) {
 }
 
 static void
-enterFrame() {
-  CallFrame* newFrame = &vm.frames[vm.frameCount++];
-  vm.currentFrame = newFrame;
-}
+triframes_reset(TriFrames *tf) {
+  cb_offset_t new_offset;
+  int ret;
 
-static CallFrame*
-parentFrame(CallFrame* frame) {
-  if (frame == &(vm.frames[0])) { return NULL; }
-  return &(frame[-1]);
+  ret = cb_memalign(&thread_cb,
+                    &new_offset,
+                    cb_alignof(CallFrame),
+                    sizeof(CallFrame) * FRAMES_MAX);
+  (void)ret;
+
+  tf->abo = new_offset;
+  tf->abi = 0;
+  tf->bbo = CB_NULL;
+  tf->bbi = 0;
+  tf->cbo = CB_NULL;
+  tf->cbi = 0;
+  tf->frameCount = 0;
+  tf->currentFrame = NULL;
 }
 
 static void
-leaveFrame() {
-  CallFrame* newFrame = &vm.frames[(--vm.frameCount) - 1];
-  vm.currentFrame = newFrame;
+triframes_enterFrame(TriFrames *tf) {
+  CallFrame *framesSubsection;
+
+  assert(tf->frameCount >= tf->abi);
+
+  framesSubsection = static_cast<CallFrame*>(cb_at(thread_cb, tf->abo));
+  tf->currentFrame = &(framesSubsection[tf->frameCount - tf->abi]);
+  ++(tf->frameCount);
+}
+
+static void
+triframes_leaveFrame(TriFrames *tf) {
+  CallFrame *newFrame;
+  cb_offset_t offset;
+  unsigned int parentFrameIndex;
+
+  assert(tf->frameCount > 0);
+
+  --(tf->frameCount);
+  parentFrameIndex = tf->frameCount - 1;
+
+  if (parentFrameIndex >= tf->abi) {
+    // Parent frame we are returning to is already in the mutable A section.
+    offset = tf->abo + (parentFrameIndex - tf->abi) * sizeof(CallFrame);
+    tf->currentFrame = static_cast<CallFrame*>(cb_at(thread_cb, offset));
+    return;
+  }
+
+  // Otherwise, parent frame we are returning to is in either the B or C
+  // read-only sections. It must be copied to the mutable A section (will
+  // have destination of abo), and abi adjustment must be made.
+  if (parentFrameIndex < tf->bbi) {
+    offset = tf->cbo + (parentFrameIndex - tf->cbi) * sizeof(CallFrame);
+  } else {
+    offset = tf->bbo + (parentFrameIndex - tf->bbi) * sizeof(CallFrame);
+  }
+  newFrame = static_cast<CallFrame*>(cb_at(thread_cb, tf->abo));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+  memcpy(newFrame,
+         static_cast<CallFrame*>(cb_at(thread_cb, offset)),
+         sizeof(CallFrame));
+#pragma GCC diagnostic pop
+  tf->abi = parentFrameIndex;
+  tf->currentFrame = newFrame;
+}
+
+static CallFrame*
+triframes_at(TriFrames *tf, unsigned int index) {
+  cb_offset_t offset;
+
+  if (index >= tf->abi) {
+    offset = tf->abo + (index - tf->abi) * sizeof(CallFrame);
+  } else if (index < tf->bbi) {
+    offset = tf->cbo + (index - tf->cbi) * sizeof(CallFrame);
+  } else {
+    offset = tf->bbo + (index - tf->bbi) * sizeof(CallFrame);
+  }
+
+  return static_cast<CallFrame*>(cb_at(thread_cb, offset));
+}
+
+static unsigned int
+triframes_frameCount(TriFrames *tf) {
+  return tf->frameCount;
+}
+
+static CallFrame*
+triframes_currentFrame(TriFrames *tf) {
+  assert(tf->currentFrame == triframes_at(tf, triframes_frameCount(tf) - 1));
+  return tf->currentFrame;
 }
 
 VM vm; // [one]
@@ -147,8 +224,7 @@ static Value clockNative(int argCount, Value* args) {
 static void resetStack() {
   tristack_reset(&(vm.tristack));
 //> Calls and Functions not-yet
-  vm.currentFrame = NULL;
-  vm.frameCount = 0;
+  triframes_reset(&(vm.triframes));
 //< Calls and Functions not-yet
 //> Closures not-yet
   vm.openUpvalues = CB_NULL;
@@ -169,7 +245,9 @@ static void runtimeError(const char* format, ...) {
           vm.chunk->lines[instruction]);
 */
 //> Calls and Functions not-yet
-  for (CallFrame *frame = vm.currentFrame; frame >= vm.frames; frame = parentFrame(frame)) {
+  for (unsigned int i = triframes_frameCount(&(vm.triframes)); i > 0; --i) {
+    CallFrame *frame = triframes_at(&(vm.triframes), i - 1);
+
 /* Calls and Functions not-yet < Closures not-yet
     ObjFunction* function = frame->function;
 */
@@ -289,13 +367,13 @@ static bool call(CBO<ObjClosure> closure, int argCount) {
     return false;
   }
 
-  if (vm.frameCount == FRAMES_MAX) {
+  if (triframes_frameCount(&(vm.triframes)) == FRAMES_MAX) {
     runtimeError("Stack overflow.");
     return false;
   }
 
-  enterFrame();
-  CallFrame* frame = vm.currentFrame;
+  triframes_enterFrame(&(vm.triframes));
+  CallFrame* frame = triframes_currentFrame(&(vm.triframes));
 /* Calls and Functions not-yet < Closures not-yet
   frame->function = function;
   frame->ip = function->chunk.code;
@@ -563,7 +641,7 @@ static void concatenate() {
 //> run
 static InterpretResult run() {
 //> Calls and Functions not-yet
-  CallFrame* frame = vm.currentFrame;
+  CallFrame* frame = triframes_currentFrame(&(vm.triframes));
 
 /* A Virtual Machine run < Calls and Functions not-yet
 #define READ_BYTE() (*vm.ip++)
@@ -918,7 +996,7 @@ static InterpretResult run() {
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = vm.currentFrame;
+        frame = triframes_currentFrame(&(vm.triframes));
         break;
       }
 //< Calls and Functions not-yet
@@ -938,7 +1016,7 @@ static InterpretResult run() {
         if (!invoke(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = vm.currentFrame;
+        frame = triframes_currentFrame(&(vm.triframes));
         break;
       }
 //< Methods and Initializers not-yet
@@ -959,7 +1037,7 @@ static InterpretResult run() {
         if (!invokeFromClass(superclass, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = vm.currentFrame;
+        frame = triframes_currentFrame(&(vm.triframes));
         break;
       }
 //< Superclasses not-yet
@@ -1016,8 +1094,8 @@ static InterpretResult run() {
         closeUpvalues(frame->slotsIndex);
 //< Closures not-yet
 
-        leaveFrame();  // NOTE: does not yet update our local variable 'frame'.
-        if (vm.frameCount == 0) return INTERPRET_OK;
+        triframes_leaveFrame(&(vm.triframes));  // NOTE: does not yet update our local variable 'frame'.
+        if (triframes_frameCount(&(vm.triframes)) == 0) return INTERPRET_OK;
 
         //NOTE: The purpose of this section is to move "up" (read: lower in
         // index) the stack. If we've returned to a position which is at a
@@ -1036,7 +1114,7 @@ static InterpretResult run() {
         // Now move to the outer frame, but if we've returned into the B or C
         // non-mutable regions of the stack, adjust the tristack to shift the
         // outer frame's slots into the A region.
-        frame = vm.currentFrame;
+        frame = triframes_currentFrame(&(vm.triframes));
         if (frame->slotsIndex < vm.tristack.abi) {
           vm.tristack.abi = frame->slotsIndex;
           memcpy(tristack_at(&(vm.tristack), vm.tristack.abi),

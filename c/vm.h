@@ -52,6 +52,20 @@ typedef struct {
 } TriStack;
 
 typedef struct {
+  //CBINT FIXME cache Value *aframes, *bframes, *cframes in self-correcting pointer
+  // objects to speed access but allow for CB resizes?
+
+  cb_offset_t  abo; // A base offset (mutable region)
+  unsigned int abi; // A base index  (mutable region)
+  cb_offset_t  bbo; // B base offset
+  unsigned int bbi; // B base index
+  cb_offset_t  cbo; // C base offset
+  unsigned int cbi; // C base index (always 0, really)
+  unsigned int frameCount;  // [0, frameCount-1] are valid entries.
+  CallFrame *currentFrame;
+} TriFrames;
+
+typedef struct {
 /* A Virtual Machine vm-h < Calls and Functions not-yet
   Chunk* chunk;
 */
@@ -62,11 +76,7 @@ typedef struct {
   TriStack tristack;
 //< vm-stack
 //> Calls and Functions not-yet
-
-  CallFrame frames[FRAMES_MAX];
-  CallFrame *currentFrame;
-  int frameCount;
-
+  TriFrames triframes;
 //< Calls and Functions not-yet
 //> Global Variables vm-globals
   Table globals;

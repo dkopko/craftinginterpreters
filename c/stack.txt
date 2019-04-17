@@ -22,6 +22,6 @@ ObjUpvalue::value  DONE
 * Modified to not use a pointer, but instead hold an index within the stack
   or -1 (meaning it points to itself).
 
-vm.frames -
-  To be modified into a linked-list of frames, or a linked-list of arrays of
-    frames.
+vm.frames PARTIALLY DONE
+* Modified into a tristack-like structure.
+* NEEDED: Modify into a linked-list of array-of-frames.
