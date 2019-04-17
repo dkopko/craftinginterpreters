@@ -52,7 +52,7 @@ tristack_at_bc(TriStack *ts, unsigned int index) {
   assert(index < ts->stackDepth);
   //CBINT FIXME - add a way to check maximum index of B subsection?
 
-  unsigned int offset;
+  cb_offset_t offset;
 
   //Use appropriate location amongst only B and C subsections.
   if (index < ts->bbi) {
@@ -68,7 +68,7 @@ static Value*
 tristack_at(TriStack *ts, unsigned int index) {
   assert(index < ts->stackDepth);
 
-  unsigned int offset;
+  cb_offset_t offset;
 
   // Handle A section indices...
   if (index >= ts->abi) {
