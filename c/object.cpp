@@ -141,10 +141,10 @@ static CBO<ObjString> allocateString(char* chars, int length,
 //< Hash Tables allocate-store-hash
 
 //> Garbage Collection not-yet
-  push(OBJ_VAL(string));
+  push(OBJ_VAL(stringCBO.o()));
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  tableSet(&vm.strings, stringCBO, NIL_VAL);
+  tableSet(&vm.strings, OBJ_VAL(stringCBO.o()), NIL_VAL);
 //> Garbage Collection not-yet
   pop();
 //< Garbage Collection not-yet

@@ -84,7 +84,7 @@ static Entry* findEntry(CBO<Entry> entries, int capacityMask,
 }
 //< find-entry
 //> table-get
-bool tableGet(Table* table, CBO<ObjString> key, Value* value) {
+bool tableGet(Table* table, Value key, Value* value) {
   if (table->entries.is_nil()) return false;
 
 /* Hash Tables table-get < Optimization not-yet
@@ -162,7 +162,7 @@ static void adjustCapacity(Table* table, int capacityMask) {
 }
 //< table-adjust-capacity
 //> table-set
-bool tableSet(Table* table, CBO<ObjString> key, Value value) {
+bool tableSet(Table* table, Value key, Value value) {
 /* Hash Tables table-set-grow < Optimization not-yet
   if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
@@ -199,7 +199,7 @@ bool tableSet(Table* table, CBO<ObjString> key, Value value) {
 }
 //< table-set
 //> table-delete
-bool tableDelete(Table* table, CBO<ObjString> key) {
+bool tableDelete(Table* table, Value key) {
   if (table->count == 0) return false;
 
   // Find the entry.
@@ -228,7 +228,7 @@ void tableAddAll(Table* from, Table* to) {
 //< Optimization not-yet
     Entry* entry = &from->entries.lp()[i];
     if (!entry->key.is_nil()) {
-      tableSet(to, entry->key, entry->value);
+      tableSet(to, OBJ_VAL(entry->key.o()), entry->value);
     }
   }
 }
@@ -281,7 +281,7 @@ void tableRemoveWhite(Table* table) {
 //< Optimization not-yet
     Entry* entry = &table->entries.lp()[i];
     if (!entry->key.is_nil() && !entry->key.lp()->obj.isDark) {
-      tableDelete(table, entry->key);
+      tableDelete(table, OBJ_VAL(entry->key.o()));
     }
   }
 }

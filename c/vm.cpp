@@ -281,7 +281,7 @@ static void defineNative(const char* name, NativeFn function) {
   Value nativeVal = OBJ_VAL(nativeCBO.o());
   push(nativeVal);  //Keep garbage collector happy.  CBINT FIXME not needed
 
-  tableSet(&vm.globals, nameCBO, nativeVal);
+  tableSet(&vm.globals, nameVal, nativeVal);
   pop();
   pop();
 }
@@ -418,7 +418,7 @@ static bool callValue(Value callee, int argCount) {
 //> Methods and Initializers not-yet
         // Call the initializer, if there is one.
         Value initializer;
-        if (tableGet(&klass.lp()->methods, vm.initString, &initializer)) {
+        if (tableGet(&klass.lp()->methods, OBJ_VAL(vm.initString.o()), &initializer)) {
           return call(AS_CLOSURE_OFFSET(initializer), argCount);
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
@@ -466,7 +466,7 @@ static bool invokeFromClass(CBO<ObjClass> klass, CBO<ObjString> name,
                             int argCount) {
   // Look for the method.
   Value method;
-  if (!tableGet(&klass.lp()->methods, name, &method)) {
+  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.o()), &method)) {
     runtimeError("Undefined property '%s'.", name.lp()->chars);
     return false;
   }
@@ -486,7 +486,7 @@ static bool invoke(CBO<ObjString> name, int argCount) {
 
   // First look for a field which may shadow a method.
   Value value;
-  if (tableGet(&instance.lp()->fields, name, &value)) {
+  if (tableGet(&instance.lp()->fields, OBJ_VAL(name.o()), &value)) {
     Value *loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - argCount);
     assert(loc >= cb_at(thread_cb, vm.tristack.abo));
     *loc = value;
@@ -498,7 +498,7 @@ static bool invoke(CBO<ObjString> name, int argCount) {
 
 static bool bindMethod(CBO<ObjClass> klass, CBO<ObjString> name) {
   Value method;
-  if (!tableGet(&klass.lp()->methods, name, &method)) {
+  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.o()), &method)) {
     runtimeError("Undefined property '%s'.", name.lp()->chars);
     return false;
   }
@@ -583,7 +583,7 @@ static void closeUpvalues(unsigned int lastStackIndex) {
 static void defineMethod(CBO<ObjString> name) {
   Value method = peek(0);
   CBO<ObjClass> klass = AS_CLASS_OFFSET(peek(1));
-  tableSet(&klass.lp()->methods, name, method);
+  tableSet(&klass.lp()->methods, OBJ_VAL(name.o()), method);
   pop();
 }
 //< Methods and Initializers not-yet
@@ -771,7 +771,7 @@ static InterpretResult run() {
       case OP_GET_GLOBAL: {
         CBO<ObjString> name = READ_STRING();
         Value value;
-        if (!tableGet(&vm.globals, name, &value)) {
+        if (!tableGet(&vm.globals, OBJ_VAL(name.o()), &value)) {
           runtimeError("Undefined variable '%s'.", name.lp()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -783,7 +783,7 @@ static InterpretResult run() {
 
       case OP_DEFINE_GLOBAL: {
         CBO<ObjString> name = READ_STRING();
-        tableSet(&vm.globals, name, peek(0));
+        tableSet(&vm.globals, OBJ_VAL(name.o()), peek(0));
         pop();
         break;
       }
@@ -792,7 +792,7 @@ static InterpretResult run() {
 
       case OP_SET_GLOBAL: {
         CBO<ObjString> name = READ_STRING();
-        if (tableSet(&vm.globals, name, peek(0))) {
+        if (tableSet(&vm.globals, OBJ_VAL(name.o()), peek(0))) {
           runtimeError("Undefined variable '%s'.", name.lp()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -834,7 +834,7 @@ static InterpretResult run() {
         CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(peek(0));
         CBO<ObjString> name = READ_STRING();
         Value value;
-        if (tableGet(&instance.lp()->fields, name, &value)) {
+        if (tableGet(&instance.lp()->fields, OBJ_VAL(name.o()), &value)) {
           pop(); // Instance.
           push(value);
           break;
@@ -859,7 +859,7 @@ static InterpretResult run() {
         }
 
         CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(peek(1));
-        tableSet(&instance.lp()->fields, READ_STRING(), peek(0));
+        tableSet(&instance.lp()->fields, OBJ_VAL(READ_STRING().o()), peek(0));
         Value value = pop();
         pop();
         push(value);

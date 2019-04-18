@@ -30,13 +30,13 @@ void initTable(Table* table);
 void freeTable(Table* table);
 //< free-table-h
 //> table-get-h
-bool tableGet(Table* table, CBO<ObjString> key, Value* value);
+bool tableGet(Table* table, Value key, Value* value);
 //< table-get-h
 //> table-set-h
-bool tableSet(Table* table, CBO<ObjString> key, Value value);
+bool tableSet(Table* table, Value key, Value value);
 //< table-set-h
 //> table-delete-h
-bool tableDelete(Table* table, CBO<ObjString> key);
+bool tableDelete(Table* table, Value key);
 //< table-delete-h
 //> table-add-all-h
 void tableAddAll(Table* from, Table* to);
