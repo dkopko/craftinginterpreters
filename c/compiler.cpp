@@ -394,7 +394,7 @@ static CBO<ObjFunction> endCompiler() {
 */
 //> Calls and Functions not-yet
     disassembleChunk(currentChunk(),
-        function.lp()->name.is_nil() ? "<top>" : function.lp()->name.lp()->chars);
+        function.lp()->name.is_nil() ? "<top>" : function.lp()->name.lp()->chars.lp());
 //< Calls and Functions not-yet
   }
 #endif

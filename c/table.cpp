@@ -254,7 +254,7 @@ CBO<ObjString> tableFindString(Table* table, const char* chars, int length,
       if (IS_NIL(entry->value)) return CB_NULL;
     } else if (entry->key.lp()->length == length &&
         entry->key.lp()->hash == hash &&
-        memcmp(entry->key.lp()->chars, chars, length) == 0) {
+        memcmp(entry->key.lp()->chars.lp(), chars, length) == 0) {
       // We found it.
       return entry->key;
     }

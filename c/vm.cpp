@@ -262,7 +262,7 @@ static void runtimeError(const char* format, ...) {
     if (function.lp()->name.is_nil()) {
       fprintf(stderr, "script\n");
     } else {
-      fprintf(stderr, "%s()\n", function.lp()->name.lp()->chars);
+      fprintf(stderr, "%s()\n", function.lp()->name.lp()->chars.lp());
     }
   }
 //< Calls and Functions not-yet
@@ -626,8 +626,8 @@ static void concatenate() {
 
   int length = a.lp()->length + b.lp()->length;
   CBO<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
-  memcpy(chars.lp(), a.lp()->chars, a.lp()->length);
-  memcpy(chars.lp() + a.lp()->length, b.lp()->chars, b.lp()->length);
+  memcpy(chars.lp(), a.lp()->chars.lp(), a.lp()->length);
+  memcpy(chars.lp() + a.lp()->length, b.lp()->chars.lp(), b.lp()->length);
   chars.lp()[length] = '\0';
 
   CBO<ObjString> result = takeString(chars, length);

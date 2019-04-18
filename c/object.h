@@ -58,7 +58,7 @@
 #define AS_NATIVE(value)        ((CBO<ObjNative>(value).lp())->function)
 //< Calls and Functions not-yet
 #define AS_STRING_OFFSET(value)        (CBO<ObjString>(value))
-#define AS_CSTRING(value)       ((CBO<ObjString>(value).lp())->chars)
+#define AS_CSTRING(value)       ((CBO<ObjString>(value).lp())->chars.lp())
 //< as-string
 //> obj-type
 
@@ -121,7 +121,7 @@ typedef struct {
 struct sObjString {
   Obj obj;
   int length;
-  char* chars;
+  CBO<char> chars; // char[]
 //> Hash Tables obj-string-hash
   uint32_t hash;
 //< Hash Tables obj-string-hash

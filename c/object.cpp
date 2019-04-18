@@ -125,17 +125,17 @@ CBO<ObjNative> newNative(NativeFn function) {
 //< Calls and Functions not-yet
 
 /* Strings allocate-string < Hash Tables allocate-string
-static ObjString* allocateString(char* chars, int length) {
+static ObjString* allocateXString(char* chars, int length) {
 */
 //> allocate-string
 //> Hash Tables allocate-string
-static CBO<ObjString> allocateString(char* chars, int length,
+static CBO<ObjString> allocateString(CBO<char> adoptedChars, int length,
                                       uint32_t hash) {
 //< Hash Tables allocate-string
   CBO<ObjString> stringCBO = ALLOCATE_OBJ(ObjString, OBJ_STRING);
   ObjString* string = stringCBO.lp();
   string->length = length;
-  string->chars = chars;
+  string->chars = adoptedChars;
 //> Hash Tables allocate-store-hash
   string->hash = hash;
 //< Hash Tables allocate-store-hash
@@ -166,22 +166,22 @@ static uint32_t hashString(const char* key, int length) {
 }
 //< Hash Tables hash-string
 //> take-string
-CBO<ObjString> takeString(CBO<char> /*char[]*/ chars, int length) {
+CBO<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
 /* Strings take-string < Hash Tables take-string-hash
-  return allocateString(chars, length);
+  return allocateXString(chars, length);
 */
 //> Hash Tables take-string-hash
-  uint32_t hash = hashString(chars.lp(), length);
+  uint32_t hash = hashString(adoptedChars.lp(), length);
 //> take-string-intern
-  CBO<ObjString> internedCBO = tableFindString(&vm.strings, chars.lp(), length,
+  CBO<ObjString> internedCBO = tableFindString(&vm.strings, adoptedChars.lp(), length,
                                                 hash);
   if (!internedCBO.is_nil()) {
-    FREE_ARRAY(char, chars, length + 1);
+    FREE_ARRAY(char, adoptedChars, length + 1);
     return internedCBO;
   }
 
 //< take-string-intern
-  return allocateString(chars.lp(), length, hash);
+  return allocateString(adoptedChars, length, hash);
 //< Hash Tables take-string-hash
 }
 //< take-string
@@ -201,10 +201,10 @@ CBO<ObjString> copyString(const char* chars, int length) {
   heapChars[length] = '\0';
 
 /* Strings object-c < Hash Tables copy-string-allocate
-  return allocateString(heapChars, length);
+  return allocateXString(heapChars, length);
 */
 //> Hash Tables copy-string-allocate
-  return allocateString(heapChars, length, hash);
+  return allocateString(heapCharsCBO, length, hash);
 //< Hash Tables copy-string-allocate
 }
 //> Closures not-yet
@@ -229,20 +229,20 @@ void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
 //> Classes and Instances not-yet
     case OBJ_CLASS:
-      printf("%s", AS_CLASS_OFFSET(value).lp()->name.lp()->chars);
+      printf("%s", AS_CLASS_OFFSET(value).lp()->name.lp()->chars.lp());
       break;
 //< Classes and Instances not-yet
 //> Methods and Initializers not-yet
     case OBJ_BOUND_METHOD:
       printf("<fn %s>",
-             AS_BOUND_METHOD_OFFSET(value).lp()->method.lp()->function.lp()->name.lp()->chars);
+             AS_BOUND_METHOD_OFFSET(value).lp()->method.lp()->function.lp()->name.lp()->chars.lp());
       break;
 //< Methods and Initializers not-yet
 //> Closures not-yet
     case OBJ_CLOSURE:
       if (!AS_CLOSURE_OFFSET(value).lp()->function.is_nil() &&
           !AS_CLOSURE_OFFSET(value).lp()->function.lp()->name.is_nil()) {
-        printf("<fn %s>", AS_CLOSURE_OFFSET(value).lp()->function.lp()->name.lp()->chars);
+        printf("<fn %s>", AS_CLOSURE_OFFSET(value).lp()->function.lp()->name.lp()->chars.lp());
       } else {
         printf("<fn uninit%ju>", (uintmax_t)AS_CLOSURE_OFFSET(value).lp()->function.o());
       }
@@ -251,7 +251,7 @@ void printObject(Value value) {
 //> Calls and Functions not-yet
     case OBJ_FUNCTION: {
       if (!AS_FUNCTION_OFFSET(value).lp()->name.is_nil()) {
-        printf("<fn %p>", AS_FUNCTION_OFFSET(value).lp()->name.lp()->chars);
+        printf("<fn %p>", AS_FUNCTION_OFFSET(value).lp()->name.lp()->chars.lp());
       } else {
         printf("<fn anon%ju>", (uintmax_t)AS_FUNCTION_OFFSET(value).o());
       }
@@ -260,7 +260,7 @@ void printObject(Value value) {
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
     case OBJ_INSTANCE:
-      printf("%s instance", AS_INSTANCE_OFFSET(value).lp()->klass.lp()->name.lp()->chars);
+      printf("%s instance", AS_INSTANCE_OFFSET(value).lp()->klass.lp()->name.lp()->chars.lp());
       break;
 //< Classes and Instances not-yet
 //> Calls and Functions not-yet
