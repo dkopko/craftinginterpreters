@@ -2,8 +2,12 @@
 #define clox_cb_integration_h
 
 #include <cb.h>
+#include <cb_region.h>
+#include <cb_term.h>
 
-extern __thread struct cb *thread_cb;
+extern __thread struct cb        *thread_cb;
+extern __thread struct cb_region  thread_region;
+extern __thread cb_offset_t       thread_cutoff_offset;
 
 #define CB_NULL ((cb_offset_t)0)  //FIXME
 
@@ -38,4 +42,13 @@ struct CBO
   }
 };
 
+int
+clox_value_deep_comparator(const struct cb *cb,
+                           const struct cb_term *lhs,
+                           const struct cb_term *rhs);
+
+int
+clox_value_shallow_comparator(const struct cb *cb,
+                              const struct cb_term *lhs,
+                              const struct cb_term *rhs);
 #endif

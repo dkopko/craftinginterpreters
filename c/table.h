@@ -22,10 +22,12 @@ typedef struct {
   int capacityMask;
 //< Optimization not-yet
   CBO<Entry> entries;
+
+  cb_offset_t root;
 } Table;
 
 //> init-table-h
-void initTable(Table* table);
+void initTable(Table* table, cb_term_comparator_t term_cmp);
 //> free-table-h
 void freeTable(Table* table);
 //< free-table-h

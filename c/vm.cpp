@@ -304,10 +304,10 @@ void initVM() {
 //< Garbage Collection not-yet
 //> Global Variables init-globals
 
-  initTable(&vm.globals);
+  initTable(&vm.globals, &clox_value_shallow_comparator);
 //< Global Variables init-globals
 //> Hash Tables init-strings
-  initTable(&vm.strings);
+  initTable(&vm.strings, &clox_value_deep_comparator);
 //< Hash Tables init-strings
 //> Methods and Initializers not-yet
 

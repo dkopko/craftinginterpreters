@@ -101,6 +101,14 @@ int main(int argc, const char* argv[]) {
     return EXIT_FAILURE;
   }
 
+  /* Create thread-local continuous buffer region. */
+  ret = cb_region_create(&thread_cb, &thread_region, 1, 1024, 0);
+  if (ret != CB_SUCCESS)
+  {
+      fprintf(stderr, "Could not create region.\n");
+      return EXIT_FAILURE;
+  }
+
   /* Make one allocation to preserve "NULL", for now FIXME*/
   {
     cb_offset_t new_offset;

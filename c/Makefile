@@ -23,30 +23,30 @@ clean :
 .PHONY : debug
 debug :
 	mkdir -p "$(BUILDROOT)/Debug"
-	cd "$(BUILDROOT)/Debug" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
+	cd "$(BUILDROOT)/Debug" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src\;/home/daniel/workspace/cb
 	$(MAKE) -C "$(BUILDROOT)/Debug"
 
 .PHONY : release
 release :
 	mkdir -p "$(BUILDROOT)/Release"
-	cd "$(BUILDROOT)/Release" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
+	cd "$(BUILDROOT)/Release" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src\;/home/daniel/workspace/cb
 	$(MAKE) -C "$(BUILDROOT)/Release"
 
 .PHONY : RelWithDebInfo
 relwithdebinfo :
 	mkdir -p "$(BUILDROOT)/RelWithDebInfo"
-	cd "$(BUILDROOT)/RelWithDebInfo" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
+	cd "$(BUILDROOT)/RelWithDebInfo" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src\;/home/daniel/workspace/cb
 	$(MAKE) -C "$(BUILDROOT)/RelWithDebInfo"
 
 .PHONY : minsizerel
 minsizerel :
 	mkdir -p "$(BUILDROOT)/MinSizeRel"
-	cd "$(BUILDROOT)/MinSizeRel" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
+	cd "$(BUILDROOT)/MinSizeRel" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src\;/home/daniel/workspace/cb
 	$(MAKE) -C "$(BUILDROOT)/MinSizeRel"
 
 .PHONY : coverage
 coverage :
 	mkdir -p "$(BUILDROOT)/Coverage"
-	cd "$(BUILDROOT)/Coverage" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Coverage -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src
+	cd "$(BUILDROOT)/Coverage" ; cmake "$(PROJECTROOT)" -DCMAKE_BUILD_TYPE=Coverage -DCMAKE_PREFIX_PATH=/home/daniel/workspace/cb/BUILD/Release -DCMAKE_INCLUDE_PATH=/home/daniel/workspace/cb/src\;/home/daniel/workspace/cb
 	$(MAKE) -C "$(BUILDROOT)/Coverage"
 

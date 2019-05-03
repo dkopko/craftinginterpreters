@@ -65,7 +65,7 @@ CBO<ObjClass> newClass(CBO<ObjString> name, CBO<ObjClass> superclass) {
   klass->superclass = superclass;
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
-  initTable(&klass->methods);
+  initTable(&klass->methods, clox_value_shallow_comparator);
 //< Methods and Initializers not-yet
   return klassCBO;
 }
@@ -110,7 +110,7 @@ CBO<ObjInstance> newInstance(CBO<ObjClass> klass) {
   CBO<ObjInstance> instanceCBO = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   ObjInstance* instance = instanceCBO.lp();
   instance->klass = klass;
-  initTable(&instance->fields);
+  initTable(&instance->fields, clox_value_shallow_comparator);
   return instanceCBO;
 }
 //< Classes and Instances not-yet
@@ -141,10 +141,15 @@ static CBO<ObjString> allocateString(CBO<char> adoptedChars, int length,
 //< Hash Tables allocate-store-hash
 
 //> Garbage Collection not-yet
-  push(OBJ_VAL(stringCBO.o()));
+  Value stringValue = OBJ_VAL(stringCBO.o());
+  push(stringValue);
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  tableSet(&vm.strings, OBJ_VAL(stringCBO.o()), NIL_VAL);
+  printf("DANDEBUG interned string \"%.*s\"(%ju)\n",
+         length,
+         adoptedChars.lp(),
+         adoptedChars.o());
+  tableSet(&vm.strings, stringValue, stringValue);
 //> Garbage Collection not-yet
   pop();
 //< Garbage Collection not-yet
@@ -165,6 +170,30 @@ static uint32_t hashString(const char* key, int length) {
   return hash;
 }
 //< Hash Tables hash-string
+
+//NOTE: 'length' does not include the null-terminator.
+CBO<ObjString> rawAllocateString(const char* chars, int length) {
+  uint32_t hash = hashString(chars, length);
+
+  CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);
+  char* heapChars = heapCharsCBO.lp();
+  memcpy(heapChars, chars, length);
+  heapChars[length] = '\0';
+
+  CBO<ObjString> stringCBO = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+  ObjString* string = stringCBO.lp();
+  string->length = length;
+  string->chars = heapCharsCBO;
+  string->hash = hash;
+
+  printf("DANDEBUG rawAllocateString() created new ObjString@%ju: \"%s\"(%ju)\n",
+         (uintmax_t)stringCBO.o(),
+         heapChars,
+         (uintmax_t)heapCharsCBO.o());
+
+  return stringCBO;
+}
+
 //> take-string
 CBO<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
 /* Strings take-string < Hash Tables take-string-hash
@@ -177,9 +206,19 @@ CBO<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
                                                 hash);
   if (!internedCBO.is_nil()) {
     FREE_ARRAY(char, adoptedChars, length + 1);
+    printf("DANDEBUG takeString() interned string \"%.*s\"(%ju) to \"%s\"(%ju)\n",
+           length,
+           adoptedChars.lp(),
+           (uintmax_t)adoptedChars.o(),
+           internedCBO.lp()->chars.lp(),
+           internedCBO.lp()->chars.o());
     return internedCBO;
   }
 
+    printf("DANDEBUG takeString() could not find interned string \"%.*s\"(%ju)\n",
+           length,
+           adoptedChars.lp(),
+           (uintmax_t)adoptedChars.o());
 //< take-string-intern
   return allocateString(adoptedChars, length, hash);
 //< Hash Tables take-string-hash
@@ -191,8 +230,18 @@ CBO<ObjString> copyString(const char* chars, int length) {
 //> copy-string-intern
   CBO<ObjString> internedCBO = tableFindString(&vm.strings, chars, length,
                                                 hash);
-  if (!internedCBO.is_nil()) return internedCBO;
+  if (!internedCBO.is_nil()) {
+    printf("DANDEBUG copyString() interned string \"%.*s\" to \"%s\"(%ju)\n",
+           length,
+           chars,
+           internedCBO.lp()->chars.lp(),
+           internedCBO.lp()->chars.o());
+    return internedCBO;
+  }
 //< copy-string-intern
+
+  printf("DANDEBUG copyString() could not find interned string \"%.*s\"\n",
+         length, chars);
 
 //< Hash Tables copy-string-hash
   CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);

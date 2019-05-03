@@ -200,6 +200,7 @@ CBO<ObjInstance> newInstance(CBO<ObjClass> klass);
 //> Calls and Functions not-yet
 CBO<ObjNative> newNative(NativeFn function);
 //< Calls and Functions not-yet
+CBO<ObjString> rawAllocateString(const char* chars, int length);
 //> take-string-h
 CBO<ObjString> takeString(CBO<char> /*char[]*/ chars, int length);
 //< take-string-h

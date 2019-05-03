@@ -4,12 +4,24 @@
 
 #include "cb_integration.h"
 #include "common.h"
+#include <assert.h>
 
 //> Strings forward-declare-obj
 typedef struct sObj Obj;
 //> forward-declare-obj-string
 typedef struct sObjString ObjString;
 //< forward-declare-obj-string
+
+//< Optimization not-yet
+//> Types of Values value-type
+typedef enum {
+  VAL_BOOL,
+  VAL_NIL, // [user-types]
+  VAL_NUMBER,
+//> Strings val-obj
+  VAL_OBJ
+//< Strings val-obj
+} ValueType;
 
 //< Strings forward-declare-obj
 //> Optimization not-yet
@@ -36,7 +48,8 @@ typedef uint64_t Value;
 
 #define AS_BOOL(v)    ((v) == TRUE_VAL)
 #define AS_NUMBER(v)  valueToNum(v)
-#define AS_OBJ(v)     ((Obj*)cb_at(thread_cb, (cb_offset_t)((v) & ~(SIGN_BIT | QNAN))))
+#define AS_OBJ_OFFSET(v)     (cb_offset_t)((v) & ~(SIGN_BIT | QNAN))
+#define AS_OBJ(v)     ((Obj*)cb_at(thread_cb, AS_OBJ_OFFSET(v)))
 
 #define BOOL_VAL(boolean) ((boolean) ? TRUE_VAL : FALSE_VAL)
 #define FALSE_VAL         ((Value)(uint64_t)(QNAN | TAG_FALSE))
@@ -70,18 +83,14 @@ static inline Value numToValue(double num) {
   return data.bits64;
 }
 
+static inline ValueType getValueType(Value v) {
+  if (IS_BOOL(v)) return VAL_BOOL;
+  if (IS_NIL(v)) return VAL_NIL;
+  if (IS_NUMBER(v)) return VAL_NUMBER;
+  assert(IS_OBJ(v));
+  return VAL_OBJ;
+}
 #else
-
-//< Optimization not-yet
-//> Types of Values value-type
-typedef enum {
-  VAL_BOOL,
-  VAL_NIL, // [user-types]
-  VAL_NUMBER,
-//> Strings val-obj
-  VAL_OBJ
-//< Strings val-obj
-} ValueType;
 
 //< Types of Values value-type
 /* Chunks of Bytecode value-h < Types of Values value
