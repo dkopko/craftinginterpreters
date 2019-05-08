@@ -42,7 +42,11 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     int ret;
     cb_offset_t new_offset;
 
-    ret = cb_memalign(&thread_cb, &new_offset, alignment, newSize);
+    ret = cb_region_memalign_auto(&thread_cb,
+                                  &thread_region,
+                                  &new_offset,
+                                  alignment,
+                                  newSize);
     if (ret != CB_SUCCESS) {
       return (cb_offset_t)0;
     }
