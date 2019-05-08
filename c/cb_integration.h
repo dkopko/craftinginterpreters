@@ -59,5 +59,7 @@ clox_value_render(cb_offset_t           *dest_offset,
                   const struct cb_term  *term,
                   unsigned int           flags);
 
+void
+clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb);
 
 #endif

@@ -243,3 +243,12 @@ clox_value_render(cb_offset_t           *dest_offset,
       return -1;
   }
 }
+
+void
+clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb)
+{
+  fprintf(stderr, "~~~~~~~~~~~~RESIZED from %ju to %ju ~~~~~~~~~~~\n",
+          (uintmax_t)cb_ring_size(old_cb), (uintmax_t)cb_ring_size(new_cb));
+  fprintf(stderr, "~~~~~~~~~~~~UNIMPLEMENTED (SORRY) ~~~~~~~~~~~\n");
+  abort();
+}
