@@ -101,18 +101,22 @@ int main(int argc, const char* argv[]) {
     return EXIT_FAILURE;
   }
 
+  /* Make one allocation to preserve "NULL", for now FIXME*/
+  {
+    cb_offset_t new_offset;
+    printf("DANDEBUG before null allocation\n");
+    cb_memalign(&thread_cb, &new_offset, 1, 1);
+    printf("DANDEBUG after null allocation\n");
+  }
+
   /* Create thread-local continuous buffer region. */
+  printf("DANDEBUG before region allocation\n");
   ret = cb_region_create(&thread_cb, &thread_region, 1, 1024, 0);
+  printf("DANDEBUG after region allocation\n");
   if (ret != CB_SUCCESS)
   {
       fprintf(stderr, "Could not create region.\n");
       return EXIT_FAILURE;
-  }
-
-  /* Make one allocation to preserve "NULL", for now FIXME*/
-  {
-    cb_offset_t new_offset;
-    cb_memalign(&thread_cb, &new_offset, 1, 1);
   }
 
 //> A Virtual Machine main-init-vm
