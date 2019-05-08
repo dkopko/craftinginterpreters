@@ -102,11 +102,12 @@ int main(int argc, const char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  /* Make one allocation to preserve "NULL", for now FIXME*/
+  /* Make one allocation to preserve "CB_NULL", for now FIXME*/
   {
     cb_offset_t new_offset;
     printf("DANDEBUG before null allocation\n");
     cb_memalign(&thread_cb, &new_offset, 1, 1);
+    assert(new_offset == CB_NULL);
     printf("DANDEBUG after null allocation\n");
   }
 
