@@ -31,7 +31,8 @@ static cb_offset_t allocateObject(size_t size, size_t alignment, ObjType type) {
 //> Garbage Collection not-yet
 
 #ifdef DEBUG_TRACE_GC
-  printf("%p allocate %ld for %d\n", object, size, type);
+  //printf("%p allocate %ld for %d\n", object, size, type);
+  printf("@%ju object was allocated (%ld bytes for type %d)\n", objectCBO.o(), size, type);
 #endif
 
 //< Garbage Collection not-yet
@@ -65,7 +66,7 @@ CBO<ObjClass> newClass(CBO<ObjString> name, CBO<ObjClass> superclass) {
   klass->superclass = superclass;
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
-  initTable(&klass->methods, clox_value_shallow_comparator);
+  initTable(&klass->methods, &clox_value_shallow_comparator, &clox_value_render);
 //< Methods and Initializers not-yet
   return klassCBO;
 }
@@ -110,7 +111,7 @@ CBO<ObjInstance> newInstance(CBO<ObjClass> klass) {
   CBO<ObjInstance> instanceCBO = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   ObjInstance* instance = instanceCBO.lp();
   instance->klass = klass;
-  initTable(&instance->fields, clox_value_shallow_comparator);
+  initTable(&instance->fields, &clox_value_shallow_comparator, &clox_value_render);
   return instanceCBO;
 }
 //< Classes and Instances not-yet
@@ -145,7 +146,8 @@ static CBO<ObjString> allocateString(CBO<char> adoptedChars, int length,
   push(stringValue);
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  printf("DANDEBUG interned string \"%.*s\"(%ju)\n",
+  printf("DANDEBUG interned string@%ju\"%.*s\"(%ju)\n",
+         (uintmax_t)stringCBO.o(),
          length,
          adoptedChars.lp(),
          adoptedChars.o());
@@ -186,7 +188,7 @@ CBO<ObjString> rawAllocateString(const char* chars, int length) {
   string->chars = heapCharsCBO;
   string->hash = hash;
 
-  printf("DANDEBUG rawAllocateString() created new ObjString@%ju: \"%s\"(%ju)\n",
+  printf("DANDEBUG rawAllocateString() created new string@%ju\"%s\"(%ju)\n",
          (uintmax_t)stringCBO.o(),
          heapChars,
          (uintmax_t)heapCharsCBO.o());
@@ -206,16 +208,17 @@ CBO<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
                                                 hash);
   if (!internedCBO.is_nil()) {
     FREE_ARRAY(char, adoptedChars, length + 1);
-    printf("DANDEBUG takeString() interned string \"%.*s\"(%ju) to \"%s\"(%ju)\n",
+    printf("DANDEBUG takeString() interned rawchars\"%.*s\"(%ju) to string@%ju\"%s\"(%ju)\n",
            length,
            adoptedChars.lp(),
            (uintmax_t)adoptedChars.o(),
+           (uintmax_t)internedCBO.o(),
            internedCBO.lp()->chars.lp(),
            internedCBO.lp()->chars.o());
     return internedCBO;
   }
 
-    printf("DANDEBUG takeString() could not find interned string \"%.*s\"(%ju)\n",
+    printf("DANDEBUG takeString() could not find interned string for rawchars\"%.*s\"(%ju)\n",
            length,
            adoptedChars.lp(),
            (uintmax_t)adoptedChars.o());
@@ -223,6 +226,7 @@ CBO<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
   return allocateString(adoptedChars, length, hash);
 //< Hash Tables take-string-hash
 }
+
 //< take-string
 CBO<ObjString> copyString(const char* chars, int length) {
 //> Hash Tables copy-string-hash
@@ -231,16 +235,17 @@ CBO<ObjString> copyString(const char* chars, int length) {
   CBO<ObjString> internedCBO = tableFindString(&vm.strings, chars, length,
                                                 hash);
   if (!internedCBO.is_nil()) {
-    printf("DANDEBUG copyString() interned string \"%.*s\" to \"%s\"(%ju)\n",
+    printf("DANDEBUG copyString() interned C-string \"%.*s\" to string@%ju\"%s\"(%ju)\n",
            length,
            chars,
+           (uintmax_t)internedCBO.o(),
            internedCBO.lp()->chars.lp(),
            internedCBO.lp()->chars.o());
     return internedCBO;
   }
 //< copy-string-intern
 
-  printf("DANDEBUG copyString() could not find interned string \"%.*s\"\n",
+  printf("DANDEBUG copyString() could not find interned string for C-string \"%.*s\"\n",
          length, chars);
 
 //< Hash Tables copy-string-hash

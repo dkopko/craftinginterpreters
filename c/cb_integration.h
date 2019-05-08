@@ -2,6 +2,7 @@
 #define clox_cb_integration_h
 
 #include <cb.h>
+#include <cb_print.h>
 #include <cb_region.h>
 #include <cb_term.h>
 
@@ -51,4 +52,12 @@ int
 clox_value_shallow_comparator(const struct cb *cb,
                               const struct cb_term *lhs,
                               const struct cb_term *rhs);
+
+int
+clox_value_render(cb_offset_t           *dest_offset,
+                  struct cb            **cb,
+                  const struct cb_term  *term,
+                  unsigned int           flags);
+
+
 #endif

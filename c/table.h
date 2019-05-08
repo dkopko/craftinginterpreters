@@ -27,7 +27,7 @@ typedef struct {
 } Table;
 
 //> init-table-h
-void initTable(Table* table, cb_term_comparator_t term_cmp);
+void initTable(Table* table, cb_term_comparator_t term_cmp, cb_term_render_t term_render);
 //> free-table-h
 void freeTable(Table* table);
 //< free-table-h

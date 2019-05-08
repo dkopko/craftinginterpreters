@@ -40,25 +40,26 @@
 //> as-string
 
 //> Methods and Initializers not-yet
-#define AS_BOUND_METHOD_OFFSET(value)  (CBO<ObjBoundMethod>(value))
+#define AS_BOUND_METHOD_OFFSET(value)  (CBO<ObjBoundMethod>(AS_OBJ_OFFSET(value)))
 //< Methods and Initializers not-yet
 //> Classes and Instances not-yet
-#define AS_CLASS_OFFSET(value)         (CBO<ObjClass>(value))
+#define AS_CLASS_OFFSET(value)         (CBO<ObjClass>(AS_OBJ_OFFSET(value)))
 //< Classes and Instances not-yet
 //> Closures not-yet
-#define AS_CLOSURE_OFFSET(value)       (CBO<ObjClosure>(value))
+#define AS_CLOSURE_OFFSET(value)       (CBO<ObjClosure>(AS_OBJ_OFFSET(value)))
 //< Closures not-yet
 //> Calls and Functions not-yet
-#define AS_FUNCTION_OFFSET(value)      (CBO<ObjFunction>(value))
+#define AS_FUNCTION_OFFSET(value)      (CBO<ObjFunction>(AS_OBJ_OFFSET(value)))
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
-#define AS_INSTANCE_OFFSET(value)      (CBO<ObjInstance>(value))
+#define AS_INSTANCE_OFFSET(value)      (CBO<ObjInstance>(AS_OBJ_OFFSET(value)))
 //< Classes and Instances not-yet
+#define AS_UPVALUE_OFFSET(value)      (CBO<ObjUpvalue>(AS_OBJ_OFFSET(value)))
 //> Calls and Functions not-yet
-#define AS_NATIVE(value)        ((CBO<ObjNative>(value).lp())->function)
+#define AS_NATIVE(value)        ((CBO<ObjNative>(AS_OBJ_OFFSET(value)).lp())->function)
 //< Calls and Functions not-yet
-#define AS_STRING_OFFSET(value)        (CBO<ObjString>(value))
-#define AS_CSTRING(value)       ((CBO<ObjString>(value).lp())->chars.lp())
+#define AS_STRING_OFFSET(value)        (CBO<ObjString>(AS_OBJ_OFFSET(value)))
+#define AS_CSTRING(value)       ((CBO<ObjString>(AS_OBJ_OFFSET(value)).lp())->chars.lp())
 //< as-string
 //> obj-type
 

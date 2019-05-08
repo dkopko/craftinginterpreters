@@ -14,7 +14,7 @@
 #define TABLE_MAX_LOAD 0.75
 
 //< max-load
-void initTable(Table* table, cb_term_comparator_t term_cmp) {
+void initTable(Table* table, cb_term_comparator_t term_cmp, cb_term_render_t term_render) {
   int ret;
   table->count = 0;
 /* Hash Tables table-c < Optimization not-yet
@@ -28,7 +28,8 @@ void initTable(Table* table, cb_term_comparator_t term_cmp) {
   ret = cb_bst_init(&thread_cb,
                     &thread_region,
                     &(table->root),
-                    term_cmp);
+                    term_cmp,
+                    term_render);
   assert(ret == 0);
   (void)ret;
 }
@@ -40,7 +41,7 @@ void freeTable(Table* table) {
 //> Optimization not-yet
   FREE_ARRAY(Entry, table->entries, table->capacityMask + 1);
 //< Optimization not-yet
-  initTable(table, cb_bst_cmp_get(thread_cb, table->root));
+  initTable(table, cb_bst_cmp_get(thread_cb, table->root), cb_bst_render_get(thread_cb, table->root));
 }
 //< free-table
 //> find-entry
@@ -227,14 +228,14 @@ bool tableSet(Table* table, Value key, Value value) {
                       &value_term);
   assert(ret == 0);
 
-  printf("DANDEBUG %p(o:%ju) new table is: ", &(table->root), (uintmax_t)table->root);
+  printf("DANDEBUG %p(o:%ju) new table is: \n", &(table->root), (uintmax_t)table->root);
   cb_bst_print(&thread_cb, table->root);
   printf("(endtable)\n");
 
   printf("About to do cb_bst_contains_key()\n");
   lookup_ret2 = cb_bst_contains_key(thread_cb, table->root, &key_term);
   (void)lookup_ret2;
-  printf("Completed cb_bst_contains_key(), ret: %d\n", lookup_ret2);
+  printf("Completed cb_bst_contains_key(), ret: %s\n", (lookup_ret2 ? "true" : "false"));
 
   printf("DANDEBUG %p end tableSet ", &(table->root));
   printValue(key);
@@ -341,6 +342,7 @@ void tableAddAll(Table* from, Table* to) {
                         &traversalAdd,
                         to);
   assert(ret == 0);
+  (void)ret;
 #if 0
 /* Hash Tables table-add-all < Optimization not-yet
   for (int i = 0; i < from->capacity; i++) {
@@ -372,18 +374,24 @@ CBO<ObjString> tableFindString(Table* table, const char* chars, int length,
 
   ret = cb_bst_lookup(thread_cb, table->root, &key_term, &value_term);
   if (ret != 0) {
-    printf("DANDEBUG %p tableFindString \"", &(table->root));
-    printValue(lookupStringValue);
-    printf("\" -> NOT FOUND\n");
+    printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> NOT FOUND\n",
+           &(table->root),
+           (uintmax_t)lookupStringCBO.o(),
+           lookupStringCBO.lp()->chars.lp(),
+           lookupStringCBO.lp()->chars.o());
     return CB_NULL;
   }
 
   internedStringValue = numToValue(cb_term_get_dbl(&value_term));
-  printf("DANDEBUG %p tableFindString \"", &(table->root));
-  printValue(lookupStringValue);
-  printf("\" (%ju) -> \"", (uintmax_t)lookupStringCBO.o());
-  printValue(internedStringValue);
-  printf("\" (%ju)\n", (uintmax_t)AS_OBJ_OFFSET(internedStringValue));
+  printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> string@%ju\"%s\"(%ju)\n",
+      &(table->root),
+      (uintmax_t)lookupStringCBO.o(),
+      lookupStringCBO.lp()->chars.lp(),
+      (uintmax_t)lookupStringCBO.lp()->chars.o(),
+      (uintmax_t)AS_OBJ_OFFSET(internedStringValue),
+      ((ObjString*)AS_OBJ(internedStringValue))->chars.lp(),
+      (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.o());
+
   return AS_OBJ_OFFSET(internedStringValue);
 
 #if 0

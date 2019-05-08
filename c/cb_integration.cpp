@@ -118,6 +118,10 @@ clox_value_shallow_comparator(const struct cb *cb,
                               const struct cb_term *lhs,
                               const struct cb_term *rhs)
 {
+  // We expect to only use the double value of cb_terms.
+  assert(lhs->tag == CB_TERM_DBL);
+  assert(rhs->tag == CB_TERM_DBL);
+
   Value lhsValue = numToValue(cb_term_get_dbl(lhs));
   Value rhsValue = numToValue(cb_term_get_dbl(rhs));
 
@@ -145,4 +149,97 @@ clox_value_shallow_comparator(const struct cb *cb,
   if (lhsValue < rhsValue) return -1;
   if (lhsValue > rhsValue) return 1;
   return 0;
+}
+
+static int
+clox_object_render(cb_offset_t           *dest_offset,
+                   struct cb            **cb,
+                   const struct cb_term  *term,
+                   unsigned int           flags)
+{
+  // We expect to only use the double value of cb_terms.
+  assert(term->tag == CB_TERM_DBL);
+
+  // We expect to only be used on object-type Values.
+  Value value = numToValue(cb_term_get_dbl(term));
+  assert(getValueType(value) == VAL_OBJ);
+
+  ObjType objType = OBJ_TYPE(value);
+  switch (objType) {
+    case OBJ_BOUND_METHOD:
+      return cb_asprintf(dest_offset, cb, "<bound_method@%ju>", (uintmax_t)AS_BOUND_METHOD_OFFSET(value).o());
+    case OBJ_CLASS:
+      return cb_asprintf(dest_offset, cb, "<class@%ju>", (uintmax_t)AS_CLASS_OFFSET(value).o());
+    case OBJ_CLOSURE:
+      return cb_asprintf(dest_offset, cb, "<closure@%ju>", (uintmax_t)AS_CLOSURE_OFFSET(value).o());
+    case OBJ_FUNCTION:
+      return cb_asprintf(dest_offset, cb, "<fun@%ju>", (uintmax_t)AS_FUNCTION_OFFSET(value).o());
+    case OBJ_INSTANCE:
+      return cb_asprintf(dest_offset, cb, "<instance@%ju>", (uintmax_t)AS_INSTANCE_OFFSET(value).o());
+    case OBJ_NATIVE:
+      return cb_asprintf(dest_offset, cb, "<nativefun%p>", (void*)AS_NATIVE(value));
+    case OBJ_STRING:{
+      ObjString *str = AS_STRING_OFFSET(value).lp();
+
+      if (str->length < 13) {
+        return cb_asprintf(dest_offset, cb, "<string@%ju\"%.*s\">",
+            (uintmax_t)AS_STRING_OFFSET(value).o(),
+            str->length,
+            str->chars.lp());
+      } else {
+        return cb_asprintf(dest_offset, cb, "<string@%ju\"%.*s...%.*s\">",
+            (uintmax_t)AS_STRING_OFFSET(value).o(),
+            5,
+            str->chars.lp(),
+            5,
+            str->chars.lp() + str->length - 5);
+      }
+    }
+    case OBJ_UPVALUE:
+      return cb_asprintf(dest_offset, cb, "<upvalue@%ju>", (uintmax_t)AS_UPVALUE_OFFSET(value).o());
+    default:
+      assert(objType == OBJ_BOUND_METHOD
+             || objType == OBJ_CLASS
+             || objType == OBJ_CLOSURE
+             || objType == OBJ_FUNCTION
+             || objType == OBJ_INSTANCE
+             || objType == OBJ_NATIVE
+             || objType == OBJ_STRING
+             || objType == OBJ_UPVALUE);
+      return 0;
+  }
+}
+
+int
+clox_value_render(cb_offset_t           *dest_offset,
+                  struct cb            **cb,
+                  const struct cb_term  *term,
+                  unsigned int           flags)
+{
+  // We expect to only use the double value of cb_terms.
+  assert(term->tag == CB_TERM_DBL);
+
+  Value value = numToValue(cb_term_get_dbl(term));
+
+  ValueType valType = getValueType(value);
+  switch (valType) {
+    case VAL_BOOL:
+      return cb_asprintf(dest_offset, cb, "<%db>", (int)AS_BOOL(value));
+
+    case VAL_NIL:
+      return cb_asprintf(dest_offset, cb, "<nil>");
+
+    case VAL_NUMBER:
+      return cb_asprintf(dest_offset, cb, "<%ff>", AS_NUMBER(value));
+
+    case VAL_OBJ:
+      return clox_object_render(dest_offset, cb, term, flags);
+
+    default:
+      assert(valType == VAL_BOOL
+             || valType == VAL_NIL
+             || valType == VAL_NUMBER
+             || valType == VAL_OBJ);
+      return -1;
+  }
 }
