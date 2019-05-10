@@ -33,11 +33,11 @@ tristack_reset(TriStack *ts) {
   int ret;
 
   printf("DANDEBUG before tristack reset\n");
-  ret = cb_region_memalign_auto(&thread_cb,
-                                &thread_region,
-                                &new_offset,
-                                cb_alignof(Value),
-                                sizeof(Value) * STACK_MAX);
+  ret = cb_region_memalign(&thread_cb,
+                           &thread_region,
+                           &new_offset,
+                           cb_alignof(Value),
+                           sizeof(Value) * STACK_MAX);
   printf("DANDEBUG after tristack reset\n");
   (void)ret;
 
@@ -127,11 +127,11 @@ triframes_reset(TriFrames *tf) {
   int ret;
 
   printf("DANDEBUG before triframes reset\n");
-  ret = cb_region_memalign_auto(&thread_cb,
-                                &thread_region,
-                                &new_offset,
-                                cb_alignof(CallFrame),
-                                sizeof(CallFrame) * FRAMES_MAX);
+  ret = cb_region_memalign(&thread_cb,
+                           &thread_region,
+                           &new_offset,
+                           cb_alignof(CallFrame),
+                           sizeof(CallFrame) * FRAMES_MAX);
   printf("DANDEBUG after triframes reset\n");
   (void)ret;
 
