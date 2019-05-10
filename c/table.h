@@ -6,7 +6,9 @@
 #include "value.h"
 
 typedef struct {
-  cb_offset_t root;
+  cb_offset_t root_a;
+  cb_offset_t root_b;
+  cb_offset_t root_c;
 } Table;
 
 void initTable(Table                *table,

@@ -15,21 +15,37 @@ initTable(Table                *table,
           cb_term_render_t      term_render)
 {
   int ret;
+
+  (void)ret;
+
   ret = cb_bst_init(&thread_cb,
                     &thread_region,
-                    &(table->root),
+                    &(table->root_a),
                     term_cmp,
                     term_render);
   assert(ret == 0);
-  (void)ret;
+
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(table->root_b),
+                    term_cmp,
+                    term_render);
+  assert(ret == 0);
+
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(table->root_c),
+                    term_cmp,
+                    term_render);
+  assert(ret == 0);
+
 }
 
 void
 freeTable(Table* table)
 {
-  initTable(table,
-            cb_bst_cmp_get(thread_cb, table->root),
-            cb_bst_render_get(thread_cb, table->root));
+  //CBINT Redundant
+  (void)table;
 }
 
 bool
@@ -41,25 +57,20 @@ tableGet(Table *table,
   struct cb_term value_term;
   int ret;
 
-  DANDEBUG("Looking up ");
-  printValue(key);
-
   cb_term_set_dbl(&key_term, valueToNum(key));
 
-  ret = cb_bst_lookup(thread_cb, table->root, &key_term, &value_term);
-  if (ret != 0) {
-    printf("DANDEBUG %p tableGet ", &(table->root));
-    printValue(key);
-    printf(" -> NOT FOUND\n");
+  ret = cb_bst_lookup(thread_cb, table->root_a, &key_term, &value_term);
+  if (ret == 0) goto done;
+  ret = cb_bst_lookup(thread_cb, table->root_b, &key_term, &value_term);
+  if (ret == 0) goto done;
+  ret = cb_bst_lookup(thread_cb, table->root_c, &key_term, &value_term);
+
+done:
+  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)) == TOMBSTONE_VAL) {
     return false;
   }
 
   *value = numToValue(cb_term_get_dbl(&value_term));
-  printf("DANDEBUG %p tableGet ", &(table->root));
-  printValue(key);
-  printf(" -> ");
-  printValue(*value);
-  printf("\n");
   return true;
 }
 
@@ -68,49 +79,27 @@ tableSet(Table* table, Value key, Value value)
 {
   struct cb_term key_term;
   struct cb_term value_term;
-  int lookup_ret, ret;
-  bool lookup_ret2;
+  Value temp_value;
+  bool already_exists;
+  int ret;
 
   cb_term_set_dbl(&key_term, valueToNum(key));
   cb_term_set_dbl(&value_term, valueToNum(value));
 
-  printf("DANDEBUG %p(o:%ju) about to tableSet ", &(table->root), (uintmax_t)table->root);
-  printValue(key);
-  printf(" -> ");
-  printValue(value);
-  printf(", Table looks like:\n");
-  cb_bst_print(&thread_cb, table->root);
-  printf("(endtable)\n");
+  //CBINT FIXME would be nice to avoid this lookup by leveraging
+  // cb_bst_insert()'s lookup.
+  already_exists = tableGet(table, key, &temp_value);
 
-
-  lookup_ret = cb_bst_contains_key(thread_cb, table->root, &key_term);
   ret = cb_bst_insert(&thread_cb,
                       &thread_region,
-                      &(table->root),
+                      &(table->root_a),
                       thread_cutoff_offset,
                       &key_term,
                       &value_term);
   assert(ret == 0);
 
-  printf("DANDEBUG %p(o:%ju) new table is: \n", &(table->root), (uintmax_t)table->root);
-  cb_bst_print(&thread_cb, table->root);
-  printf("(endtable)\n");
-
-  printf("About to do cb_bst_contains_key()\n");
-  lookup_ret2 = cb_bst_contains_key(thread_cb, table->root, &key_term);
-  (void)lookup_ret2;
-  printf("Completed cb_bst_contains_key(), ret: %s\n", (lookup_ret2 ? "true" : "false"));
-
-  printf("DANDEBUG %p end tableSet ", &(table->root));
-  printValue(key);
-  printf(" -> ");
-  printValue(value);
-  printf("\n");
-
-  assert(lookup_ret2 == true);
-
   //true if new key and we succeeded at inserting it.
-  return (!lookup_ret && ret == 0);
+  return (!already_exists && ret == 0);
 }
 
 bool
@@ -118,28 +107,46 @@ tableDelete(Table *table,
             Value  key)
 {
   struct cb_term key_term;
+  struct cb_term value_term;
   int ret;
 
   cb_term_set_dbl(&key_term, valueToNum(key));
+  cb_term_set_dbl(&value_term, valueToNum(TOMBSTONE_VAL));
 
-  ret = cb_bst_delete(&thread_cb,
+  ret = cb_bst_insert(&thread_cb,
                       &thread_region,
-                      &(table->root),
+                      &(table->root_a),
                       thread_cutoff_offset,
-                      &key_term);
+                      &key_term,
+                      &value_term);
   return (ret == 0);
 }
+
+struct TraversalAddClosure
+{
+  Table *src;
+  Table *dest;
+};
 
 static int
 traversalAdd(const struct cb_term *key_term,
              const struct cb_term *value_term,
              void                 *closure)
 {
-  Table *dest = (Table *)closure;
+  TraversalAddClosure *taclosure = (TraversalAddClosure *)closure;
 
-  tableSet(dest,
-           numToValue(cb_term_get_dbl(key_term)),
-           numToValue(cb_term_get_dbl(value_term)));
+  Value key = numToValue(cb_term_get_dbl(key_term));
+  Value value = numToValue(cb_term_get_dbl(value_term));
+  Value tempValue;
+
+  //CBINT FIXME: This need not check all BSTs in the tritable for all
+  //  traversals, but I don't want to write the specializations now.
+  //need to traverse C, inserting those not tombstone in A or B or C (C can't happen).
+  //need to traverse B, inserting those not tombstone in A or B.
+  //need to traverse A, inserting those not tombstone in A.
+  if (tableGet(taclosure->src, key, &tempValue)) {
+    tableSet(taclosure->dest, key, value);
+  }
 
   return 0;
 }
@@ -148,12 +155,25 @@ void
 tableAddAll(Table *from,
             Table* to)
 {
+  TraversalAddClosure taclosure = { from, to };
   int ret;
 
   ret = cb_bst_traverse(thread_cb,
-                        from->root,
+                        from->root_c,
                         &traversalAdd,
-                        to);
+                        &taclosure);
+  assert(ret == 0);
+
+  ret = cb_bst_traverse(thread_cb,
+                        from->root_b,
+                        &traversalAdd,
+                        &taclosure);
+  assert(ret == 0);
+
+  ret = cb_bst_traverse(thread_cb,
+                        from->root_a,
+                        &traversalAdd,
+                        &taclosure);
   assert(ret == 0);
   (void)ret;
 }
@@ -164,7 +184,7 @@ tableFindString(Table      *table,
                 int         length,
                 uint32_t    hash)
 {
-  printf("DANDEBUG tableFindString(%.*s)\n", length, chars);
+  printf("DANDEBUG %p tableFindString(%.*s)\n", table, length, chars);
   //FIXME CBINT rewind if lookup fails?
   CBO<ObjString> lookupStringCBO = rawAllocateString(chars, length);
   Value lookupStringValue = OBJ_VAL(lookupStringCBO.o());
@@ -175,10 +195,16 @@ tableFindString(Table      *table,
 
   cb_term_set_dbl(&key_term, valueToNum(lookupStringValue));
 
-  ret = cb_bst_lookup(thread_cb, table->root, &key_term, &value_term);
-  if (ret != 0) {
+  ret = cb_bst_lookup(thread_cb, table->root_a, &key_term, &value_term);
+  if (ret == 0) goto done;
+  ret = cb_bst_lookup(thread_cb, table->root_b, &key_term, &value_term);
+  if (ret == 0) goto done;
+  ret = cb_bst_lookup(thread_cb, table->root_c, &key_term, &value_term);
+
+done:
+  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term) == TOMBSTONE_VAL)) {
     printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> NOT FOUND\n",
-           &(table->root),
+           table,
            (uintmax_t)lookupStringCBO.o(),
            lookupStringCBO.lp()->chars.lp(),
            lookupStringCBO.lp()->chars.o());
@@ -187,7 +213,7 @@ tableFindString(Table      *table,
 
   internedStringValue = numToValue(cb_term_get_dbl(&value_term));
   printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> string@%ju\"%s\"(%ju)\n",
-      &(table->root),
+      table,
       (uintmax_t)lookupStringCBO.o(),
       lookupStringCBO.lp()->chars.lp(),
       (uintmax_t)lookupStringCBO.lp()->chars.o(),
