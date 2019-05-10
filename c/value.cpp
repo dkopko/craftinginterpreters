@@ -74,7 +74,7 @@ void printValue(Value value) {
 bool valuesEqual(Value a, Value b) {
 //> Optimization not-yet
 #ifdef NAN_TAGGING
-  return a == b;
+  return a.val == b.val;
 #else
 //< Optimization not-yet
   if (a.type != b.type) return false;

@@ -28,8 +28,8 @@ clox_object_cmp(Value lhs, Value rhs)
     case OBJ_INSTANCE:
     case OBJ_NATIVE:
     case OBJ_UPVALUE:
-      if (lhs < rhs) return -1;
-      if (lhs > rhs) return 1;
+      if (lhs.val < rhs.val) return -1;
+      if (lhs.val > rhs.val) return 1;
       return 0;
 
     case OBJ_STRING: {
@@ -94,8 +94,8 @@ clox_value_deep_comparator(const struct cb *cb,
       //NOTE: This comparator should rely on bitwise comparison when the doubles
       // are not less than and not greater than one another, just in case we are
       // in weird NaN territory.
-      if (lhs_val < rhs_val) return -1;
-      if (lhs_val > rhs_val) return 1;
+      if (lhs_val.val < rhs_val.val) return -1;
+      if (lhs_val.val > rhs_val.val) return 1;
       return 0;
     }
 
@@ -133,21 +133,21 @@ clox_value_shallow_comparator(const struct cb *cb,
 
       if (lhsString->length == rhsString->length
           && memcmp(lhsString->chars.lp(), rhsString->chars.lp(), lhsString->length) == 0
-          && lhsValue != rhsValue) {
+          && lhsValue.val != rhsValue.val) {
         fprintf(stderr, "String interning error detected! ObjString(%ju, %ju), \"%.*s\"(%ju, %ju)\n",
-               (uintmax_t)lhsValue,
-               (uintmax_t)rhsValue,
+               (uintmax_t)lhsValue.val,
+               (uintmax_t)rhsValue.val,
                lhsString->length,
                lhsString->chars.lp(),
                (uintmax_t)lhsString->chars.o(),
                (uintmax_t)rhsString->chars.o());
-        assert(lhsValue == rhsValue);
+        assert(lhsValue.val == rhsValue.val);
       }
   }
 #endif //NDEBUG
 
-  if (lhsValue < rhsValue) return -1;
-  if (lhsValue > rhsValue) return 1;
+  if (lhsValue.val < rhsValue.val) return -1;
+  if (lhsValue.val > rhsValue.val) return 1;
   return 0;
 }
 

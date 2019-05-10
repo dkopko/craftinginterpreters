@@ -66,7 +66,7 @@ tableGet(Table *table,
   ret = cb_bst_lookup(thread_cb, table->root_c, &key_term, &value_term);
 
 done:
-  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)) == TOMBSTONE_VAL) {
+  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)).val == TOMBSTONE_VAL.val) {
     return false;
   }
 
@@ -202,7 +202,7 @@ tableFindString(Table      *table,
   ret = cb_bst_lookup(thread_cb, table->root_c, &key_term, &value_term);
 
 done:
-  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term) == TOMBSTONE_VAL)) {
+  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)).val == TOMBSTONE_VAL.val) {
     printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> NOT FOUND\n",
            table,
            (uintmax_t)lookupStringCBO.o(),

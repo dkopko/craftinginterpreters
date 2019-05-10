@@ -39,24 +39,24 @@ typedef enum {
 #define TAG_TRUE      3 // 011
 #define TAG_TOMBSTONE 4 // 100
 
-typedef uint64_t Value;
+typedef struct { uint64_t val; } Value;
 
-#define IS_BOOL(v)    (((v) & (QNAN | TAG_FALSE)) == (QNAN | TAG_FALSE))
-#define IS_NIL(v)     ((v) == NIL_VAL)
+#define IS_BOOL(v)    (((v.val) & (QNAN | TAG_FALSE)) == (QNAN | TAG_FALSE))
+#define IS_NIL(v)     ((v.val) == NIL_VAL.val)
 // If the NaN bits are set, it's not a number.
-#define IS_NUMBER(v)  (((v) & QNAN) != QNAN)
-#define IS_OBJ(v)     (((v) & (QNAN | SIGN_BIT)) == (QNAN | SIGN_BIT))
+#define IS_NUMBER(v)  (((v.val) & QNAN) != QNAN)
+#define IS_OBJ(v)     (((v.val) & (QNAN | SIGN_BIT)) == (QNAN | SIGN_BIT))
 
-#define AS_BOOL(v)    ((v) == TRUE_VAL)
+#define AS_BOOL(v)    ((v.val) == TRUE_VAL.val)
 #define AS_NUMBER(v)  valueToNum(v)
-#define AS_OBJ_OFFSET(v)     (cb_offset_t)((v) & ~(SIGN_BIT | QNAN))
+#define AS_OBJ_OFFSET(v)     (cb_offset_t)((v.val) & ~(SIGN_BIT | QNAN))
 #define AS_OBJ(v)     ((Obj*)cb_at(thread_cb, AS_OBJ_OFFSET(v)))
 
-#define BOOL_VAL(boolean) ((boolean) ? TRUE_VAL : FALSE_VAL)
-#define FALSE_VAL         ((Value)(uint64_t)(QNAN | TAG_FALSE))
-#define TRUE_VAL          ((Value)(uint64_t)(QNAN | TAG_TRUE))
-#define NIL_VAL           ((Value)(uint64_t)(QNAN | TAG_NIL))
-#define TOMBSTONE_VAL     ((Value)(uint64_t)(QNAN | TAG_TOMBSTONE))
+#define BOOL_VAL(boolean) ((Value) { ((boolean) ? TRUE_VAL : FALSE_VAL) })
+#define FALSE_VAL         ((Value) { (uint64_t)(QNAN | TAG_FALSE) })
+#define TRUE_VAL          ((Value) { (uint64_t)(QNAN | TAG_TRUE) })
+#define NIL_VAL           ((Value) { (uint64_t)(QNAN | TAG_NIL) })
+#define TOMBSTONE_VAL     ((Value) { (uint64_t)(QNAN | TAG_TOMBSTONE) })
 #define NUMBER_VAL(num)   numToValue(num)
 // The triple casting is necessary here to satisfy some compilers:
 // 1. CBINT REMOVED (uintptr_t) Convert the pointer to a number of the right size.
@@ -64,7 +64,7 @@ typedef uint64_t Value;
 // 3. Or in the bits to make a tagged Nan.
 // 4. Cast to a typedef'd value.
 #define OBJ_VAL(obj_offset) \
-    (Value)(SIGN_BIT | QNAN | (uint64_t)(obj_offset))
+    ((Value) { (SIGN_BIT | QNAN | (uint64_t)(obj_offset)) })
 
 // A union to let us reinterpret a double as raw bits and back.
 typedef union {
@@ -75,14 +75,14 @@ typedef union {
 
 static inline double valueToNum(Value value) {
   DoubleUnion data;
-  data.bits64 = value;
+  data.bits64 = value.val;
   return data.num;
 }
 
 static inline Value numToValue(double num) {
   DoubleUnion data;
   data.num = num;
-  return data.bits64;
+  return (Value) { data.bits64 };
 }
 
 static inline ValueType getValueType(Value v) {
