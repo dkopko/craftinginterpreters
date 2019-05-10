@@ -34,9 +34,10 @@ typedef enum {
 #define QNAN ((uint64_t)0x7ffc000000000000)
 
 // Tag values for the different singleton values.
-#define TAG_NIL   1 // 01
-#define TAG_FALSE 2 // 10
-#define TAG_TRUE  3 // 11
+#define TAG_NIL       1 // 001
+#define TAG_FALSE     2 // 010
+#define TAG_TRUE      3 // 011
+#define TAG_TOMBSTONE 4 // 100
 
 typedef uint64_t Value;
 
@@ -55,6 +56,7 @@ typedef uint64_t Value;
 #define FALSE_VAL         ((Value)(uint64_t)(QNAN | TAG_FALSE))
 #define TRUE_VAL          ((Value)(uint64_t)(QNAN | TAG_TRUE))
 #define NIL_VAL           ((Value)(uint64_t)(QNAN | TAG_NIL))
+#define TOMBSTONE_VAL     ((Value)(uint64_t)(QNAN | TAG_TOMBSTONE))
 #define NUMBER_VAL(num)   numToValue(num)
 // The triple casting is necessary here to satisfy some compilers:
 // 1. CBINT REMOVED (uintptr_t) Convert the pointer to a number of the right size.
