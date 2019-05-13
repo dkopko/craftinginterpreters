@@ -9,6 +9,7 @@
 extern __thread struct cb        *thread_cb;
 extern __thread struct cb_region  thread_region;
 extern __thread cb_offset_t       thread_cutoff_offset;
+extern __thread struct ObjTable   thread_objtable;
 
 #define CB_NULL ((cb_offset_t)0)  //FIXME
 
@@ -41,6 +42,52 @@ struct CBO
   T* rp(struct cb *remote_cb) {
     return static_cast<T*>(cb_at(remote_cb, offset_));
   }
+};
+
+typedef struct { unsigned int id; } ObjID;
+
+typedef struct ObjTable {
+  cb_offset_t root_a;
+  cb_offset_t root_b;
+  cb_offset_t root_c;
+  ObjID next_obj_id;
+} ObjTable;
+
+void objtable_init(ObjTable *obj_table);
+ObjID objtable_add(ObjTable *obj_table, cb_offset_t offset);
+cb_offset_t objtable_lookup(ObjTable *obj_table, ObjID obj_id);
+
+
+template<typename T>
+struct OID
+{
+  ObjID objid_;
+
+  OID() : objid_(0) { } //FIXME factor out constant
+
+  OID(ObjID objid) : objid_(objid) { }
+
+  OID(OID<T> const &rhs) : objid_(rhs.objid_) { }
+
+  bool is_nil() {
+    return (objid_.id == 0); //FIXME factor out constant
+  }
+
+  //Underlying id
+  OID id() {
+    return objid_;
+  }
+
+  //Local dereference
+  T* lp() {
+    return static_cast<T*>(cb_at(thread_cb, objtable_lookup(&thread_objtable, objid_)));
+  }
+
+  //Remote dereference
+  //FIXME
+  //T* rp(struct cb *remote_cb) {
+  //  return static_cast<T*>(cb_at(remote_cb, offset_));
+  //}
 };
 
 int

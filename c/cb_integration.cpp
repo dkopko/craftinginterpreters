@@ -1,4 +1,5 @@
 #include "cb_integration.h"
+#include "cb_bst.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -9,7 +10,63 @@
 __thread struct cb        *thread_cb            = NULL;
 __thread struct cb_region  thread_region;
 __thread cb_offset_t       thread_cutoff_offset = (cb_offset_t)0ULL;
+__thread struct ObjTable   thread_objtable;
 
+void
+objtable_init(ObjTable *obj_table)
+{
+  obj_table->root_a = CB_BST_SENTINEL;
+  obj_table->root_b = CB_BST_SENTINEL;
+  obj_table->root_c = CB_BST_SENTINEL;
+  obj_table->next_obj_id.id  = 1;
+}
+
+ObjID
+objtable_add(ObjTable *obj_table, cb_offset_t offset)
+{
+  cb_term key_term;
+  cb_term value_term;
+  ObjID obj_id = obj_table->next_obj_id;
+  int ret;
+
+  cb_term_set_u64(&key_term, obj_table->next_obj_id.id);
+  cb_term_set_u64(&value_term, offset);
+
+  ret = cb_bst_insert(&thread_cb,
+                      &thread_region,
+                      &(obj_table->root_a),
+                      thread_cutoff_offset,
+                      &key_term,
+                      &value_term);
+  assert(ret == 0);
+  (void)ret;
+
+  (obj_table->next_obj_id.id)++;
+
+  return obj_id;
+}
+
+cb_offset_t
+objtable_lookup(ObjTable *obj_table, ObjID obj_id)
+{
+  cb_term key_term;
+  cb_term value_term;
+  int ret;
+
+  cb_term_set_u64(&key_term, obj_id.id);
+
+  ret = cb_bst_lookup(thread_cb, obj_table->root_a, &key_term, &value_term);
+  if (ret == 0) goto done;
+  ret = cb_bst_lookup(thread_cb, obj_table->root_b, &key_term, &value_term);
+  if (ret == 0) goto done;
+  ret = cb_bst_lookup(thread_cb, obj_table->root_c, &key_term, &value_term);
+  if (ret == 0) goto done;
+
+  return CB_NULL;
+
+done:
+  return (cb_offset_t)cb_term_get_u64(&value_term);
+}
 
 static int
 clox_object_cmp(Value lhs, Value rhs)

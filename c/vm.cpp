@@ -310,6 +310,8 @@ void initVM() {
 //< Garbage Collection not-yet
 //> Global Variables init-globals
 
+  objtable_init(&thread_objtable);
+
   initTable(&vm.globals, &clox_value_shallow_comparator, &clox_value_render);
 //< Global Variables init-globals
 //> Hash Tables init-strings
