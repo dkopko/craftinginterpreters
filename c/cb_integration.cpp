@@ -62,10 +62,32 @@ objtable_lookup(ObjTable *obj_table, ObjID obj_id)
   ret = cb_bst_lookup(thread_cb, obj_table->root_c, &key_term, &value_term);
   if (ret == 0) goto done;
 
-  return CB_NULL;
-
 done:
+  if (ret != CB_SUCCESS || cb_term_get_u64(&value_term) == CB_NULL) {
+    return CB_NULL;
+  }
+
   return (cb_offset_t)cb_term_get_u64(&value_term);
+}
+
+void
+objtable_invalidate(ObjTable *obj_table, ObjID obj_id)
+{
+  struct cb_term key_term;
+  struct cb_term value_term;
+  int ret;
+
+  cb_term_set_u64(&key_term, (uint64_t)obj_id.id);
+  cb_term_set_u64(&value_term, (uint64_t)CB_NULL);
+
+  ret = cb_bst_insert(&thread_cb,
+                      &thread_region,
+                      &(obj_table->root_a),
+                      thread_cutoff_offset,
+                      &key_term,
+                      &value_term);
+  assert(ret == CB_SUCCESS);
+  (void)ret;
 }
 
 static int
@@ -196,8 +218,8 @@ clox_value_shallow_comparator(const struct cb *cb,
                (uintmax_t)rhsValue.val,
                lhsString->length,
                lhsString->chars.lp(),
-               (uintmax_t)lhsString->chars.o(),
-               (uintmax_t)rhsString->chars.o());
+               (uintmax_t)lhsString->chars.id().id,
+               (uintmax_t)rhsString->chars.id().id);
         assert(lhsValue.val == rhsValue.val);
       }
   }
@@ -224,28 +246,28 @@ clox_object_render(cb_offset_t           *dest_offset,
   ObjType objType = OBJ_TYPE(value);
   switch (objType) {
     case OBJ_BOUND_METHOD:
-      return cb_asprintf(dest_offset, cb, "<bound_method@%ju>", (uintmax_t)AS_BOUND_METHOD_OFFSET(value).o());
+      return cb_asprintf(dest_offset, cb, "<bound_method@%ju>", (uintmax_t)AS_BOUND_METHOD_OID(value).id().id);
     case OBJ_CLASS:
-      return cb_asprintf(dest_offset, cb, "<class@%ju>", (uintmax_t)AS_CLASS_OFFSET(value).o());
+      return cb_asprintf(dest_offset, cb, "<class@%ju>", (uintmax_t)AS_CLASS_OID(value).id().id);
     case OBJ_CLOSURE:
-      return cb_asprintf(dest_offset, cb, "<closure@%ju>", (uintmax_t)AS_CLOSURE_OFFSET(value).o());
+      return cb_asprintf(dest_offset, cb, "<closure@%ju>", (uintmax_t)AS_CLOSURE_OID(value).id().id);
     case OBJ_FUNCTION:
-      return cb_asprintf(dest_offset, cb, "<fun@%ju>", (uintmax_t)AS_FUNCTION_OFFSET(value).o());
+      return cb_asprintf(dest_offset, cb, "<fun@%ju>", (uintmax_t)AS_FUNCTION_OID(value).id().id);
     case OBJ_INSTANCE:
-      return cb_asprintf(dest_offset, cb, "<instance@%ju>", (uintmax_t)AS_INSTANCE_OFFSET(value).o());
+      return cb_asprintf(dest_offset, cb, "<instance@%ju>", (uintmax_t)AS_INSTANCE_OID(value).id().id);
     case OBJ_NATIVE:
       return cb_asprintf(dest_offset, cb, "<nativefun%p>", (void*)AS_NATIVE(value));
     case OBJ_STRING:{
-      ObjString *str = AS_STRING_OFFSET(value).lp();
+      ObjString *str = AS_STRING_OID(value).lp();
 
       if (str->length < 13) {
         return cb_asprintf(dest_offset, cb, "<string@%ju\"%.*s\">",
-            (uintmax_t)AS_STRING_OFFSET(value).o(),
+            (uintmax_t)AS_STRING_OID(value).id().id,
             str->length,
             str->chars.lp());
       } else {
         return cb_asprintf(dest_offset, cb, "<string@%ju\"%.*s...%.*s\">",
-            (uintmax_t)AS_STRING_OFFSET(value).o(),
+            (uintmax_t)AS_STRING_OID(value).id().id,
             5,
             str->chars.lp(),
             5,
@@ -253,7 +275,7 @@ clox_object_render(cb_offset_t           *dest_offset,
       }
     }
     case OBJ_UPVALUE:
-      return cb_asprintf(dest_offset, cb, "<upvalue@%ju>", (uintmax_t)AS_UPVALUE_OFFSET(value).o());
+      return cb_asprintf(dest_offset, cb, "<upvalue@%ju>", (uintmax_t)AS_UPVALUE_OID(value).id().id);
     default:
       assert(objType == OBJ_BOUND_METHOD
              || objType == OBJ_CLASS

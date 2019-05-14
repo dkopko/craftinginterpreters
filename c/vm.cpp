@@ -233,7 +233,7 @@ static void resetStack() {
   triframes_reset(&(vm.triframes));
 //< Calls and Functions not-yet
 //> Closures not-yet
-  vm.openUpvalues = CB_NULL;
+  vm.openUpvalues = CB_NULL_OID;
 //< Closures not-yet
 }
 //< reset-stack
@@ -258,7 +258,7 @@ static void runtimeError(const char* format, ...) {
     ObjFunction* function = frame->function;
 */
 //> Closures not-yet
-    CBO<ObjFunction> function = frame->closure.lp()->function;
+    OID<ObjFunction> function = frame->closure.lp()->function;
 //< Closures not-yet
     // -1 because the IP is sitting on the next instruction to be
     // executed.
@@ -279,12 +279,12 @@ static void runtimeError(const char* format, ...) {
 //> Calls and Functions not-yet
 
 static void defineNative(const char* name, NativeFn function) {
-  CBO<ObjString> nameCBO = copyString(name, (int)strlen(name));
-  Value nameVal = OBJ_VAL(nameCBO.o());
+  OID<ObjString> nameOID = copyString(name, (int)strlen(name));
+  Value nameVal = OBJ_VAL(nameOID.id());
   push(nameVal);  //Keep garbage collector happy. CBINT FIXME not needed
 
-  CBO<ObjNative> nativeCBO = newNative(function);
-  Value nativeVal = OBJ_VAL(nativeCBO.o());
+  OID<ObjNative> nativeOID = newNative(function);
+  Value nativeVal = OBJ_VAL(nativeOID.id());
   push(nativeVal);  //Keep garbage collector happy.  CBINT FIXME not needed
 
   tableSet(&vm.globals, nameVal, nativeVal);
@@ -335,7 +335,7 @@ void freeVM() {
   freeTable(&vm.strings);
 //< Hash Tables free-strings
 //> Methods and Initializers not-yet
-  vm.initString = CB_NULL;
+  vm.initString = CB_NULL_OID;
 //< Methods and Initializers not-yet
 //> Strings call-free-objects
   freeObjects();
@@ -367,7 +367,7 @@ static bool call(ObjFunction* function, int argCount) {
 //> Calls and Functions not-yet
 //> Closures not-yet
 
-static bool call(CBO<ObjClosure> closure, int argCount) {
+static bool call(OID<ObjClosure> closure, int argCount) {
   if (argCount != closure.lp()->function.lp()->arity) {
     runtimeError("Expected %d arguments but got %d.",
         closure.lp()->function.lp()->arity, argCount);
@@ -404,7 +404,7 @@ static bool callValue(Value callee, int argCount) {
     switch (OBJ_TYPE(callee)) {
 //> Methods and Initializers not-yet
       case OBJ_BOUND_METHOD: {
-        CBO<ObjBoundMethod> bound = AS_BOUND_METHOD_OFFSET(callee);
+        OID<ObjBoundMethod> bound = AS_BOUND_METHOD_OID(callee);
 
         // Replace the bound method with the receiver so it's in the
         // right slot when the method is called.
@@ -417,17 +417,17 @@ static bool callValue(Value callee, int argCount) {
 //< Methods and Initializers not-yet
 //> Classes and Instances not-yet
       case OBJ_CLASS: {
-        CBO<ObjClass> klass = AS_CLASS_OFFSET(callee);
+        OID<ObjClass> klass = AS_CLASS_OID(callee);
 
         // Create the instance.
         Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - (argCount + 1));
         assert(loc >= cb_at(thread_cb, vm.tristack.abo));  // Must be in the mutable section A.
-        *loc = OBJ_VAL(newInstance(klass).o());
+        *loc = OBJ_VAL(newInstance(klass).id());
 //> Methods and Initializers not-yet
         // Call the initializer, if there is one.
         Value initializer;
-        if (tableGet(&klass.lp()->methods, OBJ_VAL(vm.initString.o()), &initializer)) {
-          return call(AS_CLOSURE_OFFSET(initializer), argCount);
+        if (tableGet(&klass.lp()->methods, OBJ_VAL(vm.initString.id()), &initializer)) {
+          return call(AS_CLOSURE_OID(initializer), argCount);
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
           return false;
@@ -440,7 +440,7 @@ static bool callValue(Value callee, int argCount) {
 //> Closures not-yet
 
       case OBJ_CLOSURE:
-        return call(AS_CLOSURE_OFFSET(callee), argCount);
+        return call(AS_CLOSURE_OID(callee), argCount);
 
 //< Closures not-yet
 /* Calls and Functions not-yet < Closures not-yet
@@ -470,19 +470,19 @@ static bool callValue(Value callee, int argCount) {
 //< Calls and Functions not-yet
 //> Methods and Initializers not-yet
 
-static bool invokeFromClass(CBO<ObjClass> klass, CBO<ObjString> name,
+static bool invokeFromClass(OID<ObjClass> klass, OID<ObjString> name,
                             int argCount) {
   // Look for the method.
   Value method;
-  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.o()), &method)) {
+  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.id()), &method)) {
     runtimeError("Undefined property '%s'.", name.lp()->chars);
     return false;
   }
 
-  return call(AS_CLOSURE_OFFSET(method), argCount);
+  return call(AS_CLOSURE_OID(method), argCount);
 }
 
-static bool invoke(CBO<ObjString> name, int argCount) {
+static bool invoke(OID<ObjString> name, int argCount) {
   Value receiver = peek(argCount);
 
   if (!IS_INSTANCE(receiver)) {
@@ -490,11 +490,11 @@ static bool invoke(CBO<ObjString> name, int argCount) {
     return false;
   }
 
-  CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(receiver);
+  OID<ObjInstance> instance = AS_INSTANCE_OID(receiver);
 
   // First look for a field which may shadow a method.
   Value value;
-  if (tableGet(&instance.lp()->fields, OBJ_VAL(name.o()), &value)) {
+  if (tableGet(&instance.lp()->fields, OBJ_VAL(name.id()), &value)) {
     Value *loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - argCount);
     assert(loc >= cb_at(thread_cb, vm.tristack.abo));
     *loc = value;
@@ -504,16 +504,16 @@ static bool invoke(CBO<ObjString> name, int argCount) {
   return invokeFromClass(instance.lp()->klass, name, argCount);
 }
 
-static bool bindMethod(CBO<ObjClass> klass, CBO<ObjString> name) {
+static bool bindMethod(OID<ObjClass> klass, OID<ObjString> name) {
   Value method;
-  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.o()), &method)) {
+  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.id()), &method)) {
     runtimeError("Undefined property '%s'.", name.lp()->chars);
     return false;
   }
 
-  CBO<ObjBoundMethod> bound = newBoundMethod(peek(0), AS_CLOSURE_OFFSET(method));
+  OID<ObjBoundMethod> bound = newBoundMethod(peek(0), AS_CLOSURE_OID(method));
   pop(); // Instance.
-  push(OBJ_VAL(bound.o()));
+  push(OBJ_VAL(bound.id()));
   return true;
 }
 //< Methods and Initializers not-yet
@@ -524,15 +524,15 @@ static bool bindMethod(CBO<ObjClass> klass, CBO<ObjString> name) {
 // important to ensure that multiple closures closing over the same
 // variable actually see the same variable.) Otherwise, it creates a
 // new open upvalue and adds it to the VM's list of upvalues.
-static CBO<ObjUpvalue> captureUpvalue(unsigned int localStackIndex) {  //CBINT FIXME will need to be offset.
+static OID<ObjUpvalue> captureUpvalue(unsigned int localStackIndex) {  //CBINT FIXME will need to be offset.
   // If there are no open upvalues at all, we must need a new one.
   if (vm.openUpvalues.is_nil()) {
     vm.openUpvalues = newUpvalue(localStackIndex);
     return vm.openUpvalues;
   }
 
-  CBO<ObjUpvalue> prevUpvalue = CB_NULL;
-  CBO<ObjUpvalue> upvalue = vm.openUpvalues;
+  OID<ObjUpvalue> prevUpvalue = CB_NULL_OID;
+  OID<ObjUpvalue> upvalue = vm.openUpvalues;
 
   // Walk towards the bottom of the stack until we find a previously
   // existing upvalue or reach where it should be.
@@ -547,7 +547,7 @@ static CBO<ObjUpvalue> captureUpvalue(unsigned int localStackIndex) {  //CBINT F
   // We walked past the local on the stack, so there must not be an
   // upvalue for it already. Make a new one and link it in in the right
   // place to keep the list sorted.
-  CBO<ObjUpvalue> createdUpvalue = newUpvalue(localStackIndex);
+  OID<ObjUpvalue> createdUpvalue = newUpvalue(localStackIndex);
   createdUpvalue.lp()->next = upvalue;
 
   if (prevUpvalue.is_nil()) {
@@ -574,7 +574,7 @@ static void closeUpvalues(unsigned int lastStackIndex) {
 
   while (!vm.openUpvalues.is_nil() &&
          vm.openUpvalues.lp()->valueStackIndex >= (int)lastStackIndex) {
-    CBO<ObjUpvalue> upvalue = vm.openUpvalues;
+    OID<ObjUpvalue> upvalue = vm.openUpvalues;
 
     // Move the value into the upvalue itself and point the upvalue to
     // it.
@@ -588,10 +588,10 @@ static void closeUpvalues(unsigned int lastStackIndex) {
 //< Closures not-yet
 //> Methods and Initializers not-yet
 
-static void defineMethod(CBO<ObjString> name) {
+static void defineMethod(OID<ObjString> name) {
   Value method = peek(0);
-  CBO<ObjClass> klass = AS_CLASS_OFFSET(peek(1));
-  tableSet(&klass.lp()->methods, OBJ_VAL(name.o()), method);
+  OID<ObjClass> klass = AS_CLASS_OID(peek(1));
+  tableSet(&klass.lp()->methods, OBJ_VAL(name.id()), method);
   pop();
 }
 //< Methods and Initializers not-yet
@@ -603,10 +603,10 @@ static void createClass(ObjString* name) {
 //> Classes and Instances not-yet
 //> Superclasses not-yet
 
-static void createClass(CBO<ObjString> name, CBO<ObjClass> superclass) {
-  CBO<ObjClass> klass = newClass(name, superclass);
+static void createClass(OID<ObjString> name, OID<ObjClass> superclass) {
+  OID<ObjClass> klass = newClass(name, superclass);
 //< Superclasses not-yet
-  push(OBJ_VAL(klass.o()));
+  push(OBJ_VAL(klass.id()));
 //> Superclasses not-yet
 
   // Inherit methods.
@@ -628,22 +628,22 @@ static void concatenate() {
   ObjString* a = AS_STRING(pop());
 */
 //> Garbage Collection not-yet
-  CBO<ObjString> b = AS_STRING_OFFSET(peek(0));
-  CBO<ObjString> a = AS_STRING_OFFSET(peek(1));
+  OID<ObjString> b = AS_STRING_OID(peek(0));
+  OID<ObjString> a = AS_STRING_OID(peek(1));
 //< Garbage Collection not-yet
 
   int length = a.lp()->length + b.lp()->length;
-  CBO<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
+  OID<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
   memcpy(chars.lp(), a.lp()->chars.lp(), a.lp()->length);
   memcpy(chars.lp() + a.lp()->length, b.lp()->chars.lp(), b.lp()->length);
   chars.lp()[length] = '\0';
 
-  CBO<ObjString> result = takeString(chars, length);
+  OID<ObjString> result = takeString(chars, length);
 //> Garbage Collection not-yet
   pop();
   pop();
 //< Garbage Collection not-yet
-  push(OBJ_VAL(result.o()));
+  push(OBJ_VAL(result.id()));
 }
 //< Strings concatenate
 //> run
@@ -674,7 +674,7 @@ static InterpretResult run() {
     (frame->closure.lp()->function.lp()->chunk.constants.values.lp()[READ_BYTE()])
 //< Closures not-yet
 //> Global Variables read-string
-#define READ_STRING() AS_STRING_OFFSET(READ_CONSTANT())
+#define READ_STRING() AS_STRING_OID(READ_CONSTANT())
 //< Global Variables read-string
 //> binary-op
 
@@ -777,9 +777,9 @@ static InterpretResult run() {
 //> Global Variables interpret-get-global
 
       case OP_GET_GLOBAL: {
-        CBO<ObjString> name = READ_STRING();
+        OID<ObjString> name = READ_STRING();
         Value value;
-        if (!tableGet(&vm.globals, OBJ_VAL(name.o()), &value)) {
+        if (!tableGet(&vm.globals, OBJ_VAL(name.id()), &value)) {
           runtimeError("Undefined variable '%s'.", name.lp()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -790,8 +790,8 @@ static InterpretResult run() {
 //> Global Variables interpret-define-global
 
       case OP_DEFINE_GLOBAL: {
-        CBO<ObjString> name = READ_STRING();
-        tableSet(&vm.globals, OBJ_VAL(name.o()), peek(0));
+        OID<ObjString> name = READ_STRING();
+        tableSet(&vm.globals, OBJ_VAL(name.id()), peek(0));
         pop();
         break;
       }
@@ -799,8 +799,8 @@ static InterpretResult run() {
 //> Global Variables interpret-set-global
 
       case OP_SET_GLOBAL: {
-        CBO<ObjString> name = READ_STRING();
-        if (tableSet(&vm.globals, OBJ_VAL(name.o()), peek(0))) {
+        OID<ObjString> name = READ_STRING();
+        if (tableSet(&vm.globals, OBJ_VAL(name.id()), peek(0))) {
           runtimeError("Undefined variable '%s'.", name.lp()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -839,10 +839,10 @@ static InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
 
-        CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(peek(0));
-        CBO<ObjString> name = READ_STRING();
+        OID<ObjInstance> instance = AS_INSTANCE_OID(peek(0));
+        OID<ObjString> name = READ_STRING();
         Value value;
-        if (tableGet(&instance.lp()->fields, OBJ_VAL(name.o()), &value)) {
+        if (tableGet(&instance.lp()->fields, OBJ_VAL(name.id()), &value)) {
           pop(); // Instance.
           push(value);
           break;
@@ -866,8 +866,8 @@ static InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
 
-        CBO<ObjInstance> instance = AS_INSTANCE_OFFSET(peek(1));
-        tableSet(&instance.lp()->fields, OBJ_VAL(READ_STRING().o()), peek(0));
+        OID<ObjInstance> instance = AS_INSTANCE_OID(peek(1));
+        tableSet(&instance.lp()->fields, OBJ_VAL(READ_STRING().id()), peek(0));
         Value value = pop();
         pop();
         push(value);
@@ -877,8 +877,8 @@ static InterpretResult run() {
 //> Superclasses not-yet
 
       case OP_GET_SUPER: {
-        CBO<ObjString> name = READ_STRING();
-        CBO<ObjClass> superclass = AS_CLASS_OFFSET(pop());
+        OID<ObjString> name = READ_STRING();
+        OID<ObjClass> superclass = AS_CLASS_OID(pop());
         if (!bindMethod(superclass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -1019,7 +1019,7 @@ static InterpretResult run() {
       case OP_INVOKE_6:
       case OP_INVOKE_7:
       case OP_INVOKE_8: {
-        CBO<ObjString> method = READ_STRING();
+        OID<ObjString> method = READ_STRING();
         int argCount = instruction - OP_INVOKE_0;
         if (!invoke(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
@@ -1039,9 +1039,9 @@ static InterpretResult run() {
       case OP_SUPER_6:
       case OP_SUPER_7:
       case OP_SUPER_8: {
-        CBO<ObjString> method = READ_STRING();
+        OID<ObjString> method = READ_STRING();
         int argCount = instruction - OP_SUPER_0;
-        CBO<ObjClass> superclass = AS_CLASS_OFFSET(pop());
+        OID<ObjClass> superclass = AS_CLASS_OID(pop());
         if (!invokeFromClass(superclass, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -1052,12 +1052,12 @@ static InterpretResult run() {
 //> Closures not-yet
 
       case OP_CLOSURE: {
-        CBO<ObjFunction> function = AS_FUNCTION_OFFSET(READ_CONSTANT());
+        OID<ObjFunction> function = AS_FUNCTION_OID(READ_CONSTANT());
 
         // Create the closure and push it on the stack before creating
         // upvalues so that it doesn't get collected.
-        CBO<ObjClosure> closure = newClosure(function);
-        push(OBJ_VAL(closure.o()));
+        OID<ObjClosure> closure = newClosure(function);
+        push(OBJ_VAL(closure.id()));
 
         // Capture upvalues.
         for (int i = 0; i < closure.lp()->upvalueCount; i++) {
@@ -1143,7 +1143,7 @@ static InterpretResult run() {
         createClass(READ_STRING());
 */
 //> Superclasses not-yet
-        createClass(READ_STRING(), CB_NULL);
+        createClass(READ_STRING(), CB_NULL_OID);
 //< Superclasses not-yet
         break;
 //< Classes and Instances not-yet
@@ -1156,7 +1156,7 @@ static InterpretResult run() {
           return INTERPRET_RUNTIME_ERROR;
         }
 
-        createClass(READ_STRING(), AS_CLASS_OFFSET(superclass));
+        createClass(READ_STRING(), AS_CLASS_OID(superclass));
         break;
       }
 //< Superclasses not-yet
@@ -1215,7 +1215,7 @@ InterpretResult interpret(const char* source) {
   vm.ip = vm.chunk->code;
 */
 //> Calls and Functions not-yet
-  CBO<ObjFunction> function = compile(source);
+  OID<ObjFunction> function = compile(source);
   if (function.is_nil()) return INTERPRET_COMPILE_ERROR;
 
 //< Calls and Functions not-yet
@@ -1223,10 +1223,10 @@ InterpretResult interpret(const char* source) {
   callValue(OBJ_VAL(function), 0);
 */
 //> Garbage Collection not-yet
-  push(OBJ_VAL(function.o()));
+  push(OBJ_VAL(function.id()));
 //< Garbage Collection not-yet
 //> Closures not-yet
-  CBO<ObjClosure> closure = newClosure(function);
+  OID<ObjClosure> closure = newClosure(function);
 //< Closures not-yet
 //> Garbage Collection not-yet
   pop();
@@ -1235,9 +1235,9 @@ InterpretResult interpret(const char* source) {
 
   //BUGFIX: without this, upstream code derived frames[0]->slots outside of stack.
   //  This was harmless, but trips our careful assertions.
-  push(OBJ_VAL(closure.o()));
+  push(OBJ_VAL(closure.id()));
 
-  callValue(OBJ_VAL(closure.o()), 0);
+  callValue(OBJ_VAL(closure.id()), 0);
 
 //< Closures not-yet
 //< Scanning on Demand vm-interpret-c

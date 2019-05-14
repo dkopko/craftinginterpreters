@@ -44,7 +44,7 @@ struct CBO
   }
 };
 
-typedef struct { unsigned int id; } ObjID;
+typedef struct { uint64_t id; } ObjID;
 
 typedef struct ObjTable {
   cb_offset_t root_a;
@@ -56,14 +56,17 @@ typedef struct ObjTable {
 void objtable_init(ObjTable *obj_table);
 ObjID objtable_add(ObjTable *obj_table, cb_offset_t offset);
 cb_offset_t objtable_lookup(ObjTable *obj_table, ObjID obj_id);
+void objtable_invalidate(ObjTable *obj_table, ObjID obj_id);
 
+
+#define CB_NULL_OID ((ObjID) { 0 })  //FIXME
 
 template<typename T>
 struct OID
 {
   ObjID objid_;
 
-  OID() : objid_(0) { } //FIXME factor out constant
+  OID() : objid_(CB_NULL_OID) { } //FIXME factor out constant
 
   OID(ObjID objid) : objid_(objid) { }
 
@@ -74,13 +77,18 @@ struct OID
   }
 
   //Underlying id
-  OID id() {
+  ObjID id() {
     return objid_;
+  }
+
+  //Underlying offset
+  cb_offset_t o() {
+    return objtable_lookup(&thread_objtable, objid_);
   }
 
   //Local dereference
   T* lp() {
-    return static_cast<T*>(cb_at(thread_cb, objtable_lookup(&thread_objtable, objid_)));
+    return static_cast<T*>(cb_at(thread_cb, o()));
   }
 
   //Remote dereference

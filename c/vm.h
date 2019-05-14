@@ -29,7 +29,7 @@ typedef struct {
   ObjFunction* function;
 */
 //> Closures not-yet
-  CBO<ObjClosure> closure;
+  OID<ObjClosure> closure;
 //< Closures not-yet
   uint8_t* ip;
   Value* slots;
@@ -85,10 +85,10 @@ typedef struct {
   Table strings;
 //< Hash Tables vm-strings
 //> Methods and Initializers not-yet
-  CBO<ObjString> initString;
+  OID<ObjString> initString;
 //< Methods and Initializers not-yet
 //> Closures not-yet
-  CBO<ObjUpvalue> openUpvalues;  //Head of singly-linked openUpvalue list, not an array.
+  OID<ObjUpvalue> openUpvalues;  //Head of singly-linked openUpvalue list, not an array.
 //< Closures not-yet
 //> Garbage Collection not-yet
 

@@ -126,9 +126,9 @@ typedef struct {
   int count;
   int capacity;
 //< count-and-capacity
-  CBO<uint8_t> code;  //uint8_t*
+  OID<uint8_t> code;  //uint8_t*
 //> chunk-lines
-  CBO<int> lines;  //int*
+  OID<int> lines;  //int*
 //< chunk-lines
 //> chunk-constants
   ValueArray constants;

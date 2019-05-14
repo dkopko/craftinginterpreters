@@ -49,8 +49,8 @@ typedef struct { uint64_t val; } Value;
 
 #define AS_BOOL(v)    ((v.val) == TRUE_VAL.val)
 #define AS_NUMBER(v)  valueToNum(v)
-#define AS_OBJ_OFFSET(v)     (cb_offset_t)((v.val) & ~(SIGN_BIT | QNAN))
-#define AS_OBJ(v)     ((Obj*)cb_at(thread_cb, AS_OBJ_OFFSET(v)))
+#define AS_OBJ_ID(v)     ((ObjID) { (v.val) & ~(SIGN_BIT | QNAN) })
+#define AS_OBJ(v)     ((Obj*)cb_at(thread_cb, objtable_lookup(&thread_objtable, AS_OBJ_ID(v))))
 
 #define BOOL_VAL(boolean) ((Value) { ((boolean) ? TRUE_VAL : FALSE_VAL) })
 #define FALSE_VAL         ((Value) { (uint64_t)(QNAN | TAG_FALSE) })
@@ -63,8 +63,8 @@ typedef struct { uint64_t val; } Value;
 // 2. (uint64_t)  Pad it up to 64 bits in 32-bit builds.
 // 3. Or in the bits to make a tagged Nan.
 // 4. Cast to a typedef'd value.
-#define OBJ_VAL(obj_offset) \
-    ((Value) { (SIGN_BIT | QNAN | (uint64_t)(obj_offset)) })
+#define OBJ_VAL(objid) \
+    ((Value) { (SIGN_BIT | QNAN | (uint64_t)(objid.id)) })
 
 // A union to let us reinterpret a double as raw bits and back.
 typedef union {
@@ -145,7 +145,7 @@ typedef struct {
 typedef struct {
   int capacity;
   int count;
-  CBO<Value> values;
+  OID<Value> values;
 } ValueArray;
 //< value-array
 //> array-fns-h

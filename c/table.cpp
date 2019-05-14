@@ -178,7 +178,7 @@ tableAddAll(Table *from,
   (void)ret;
 }
 
-CBO<ObjString>
+OID<ObjString>
 tableFindString(Table      *table,
                 const char *chars,
                 int         length,
@@ -186,8 +186,8 @@ tableFindString(Table      *table,
 {
   printf("DANDEBUG %p tableFindString(%.*s)\n", table, length, chars);
   //FIXME CBINT rewind if lookup fails?
-  CBO<ObjString> lookupStringCBO = rawAllocateString(chars, length);
-  Value lookupStringValue = OBJ_VAL(lookupStringCBO.o());
+  OID<ObjString> lookupStringOID = rawAllocateString(chars, length);
+  Value lookupStringValue = OBJ_VAL(lookupStringOID.id());
   Value internedStringValue;
   struct cb_term key_term;
   struct cb_term value_term;
@@ -205,23 +205,23 @@ done:
   if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)).val == TOMBSTONE_VAL.val) {
     printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> NOT FOUND\n",
            table,
-           (uintmax_t)lookupStringCBO.o(),
-           lookupStringCBO.lp()->chars.lp(),
-           lookupStringCBO.lp()->chars.o());
-    return CB_NULL;
+           (uintmax_t)lookupStringOID.id().id,
+           lookupStringOID.lp()->chars.lp(),
+           lookupStringOID.lp()->chars.id().id);
+    return CB_NULL_OID;
   }
 
   internedStringValue = numToValue(cb_term_get_dbl(&value_term));
   printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> string@%ju\"%s\"(%ju)\n",
       table,
-      (uintmax_t)lookupStringCBO.o(),
-      lookupStringCBO.lp()->chars.lp(),
-      (uintmax_t)lookupStringCBO.lp()->chars.o(),
-      (uintmax_t)AS_OBJ_OFFSET(internedStringValue),
+      (uintmax_t)lookupStringOID.id().id,
+      lookupStringOID.lp()->chars.lp(),
+      (uintmax_t)lookupStringOID.lp()->chars.id().id,
+      (uintmax_t)AS_OBJ_ID(internedStringValue).id,
       ((ObjString*)AS_OBJ(internedStringValue))->chars.lp(),
-      (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.o());
+      (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.id().id);
 
-  return AS_OBJ_OFFSET(internedStringValue);
+  return AS_OBJ_ID(internedStringValue);
 }
 
 void

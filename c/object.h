@@ -40,26 +40,26 @@
 //> as-string
 
 //> Methods and Initializers not-yet
-#define AS_BOUND_METHOD_OFFSET(value)  (CBO<ObjBoundMethod>(AS_OBJ_OFFSET(value)))
+#define AS_BOUND_METHOD_OID(value)  (OID<ObjBoundMethod>(AS_OBJ_ID(value)))
 //< Methods and Initializers not-yet
 //> Classes and Instances not-yet
-#define AS_CLASS_OFFSET(value)         (CBO<ObjClass>(AS_OBJ_OFFSET(value)))
+#define AS_CLASS_OID(value)         (OID<ObjClass>(AS_OBJ_ID(value)))
 //< Classes and Instances not-yet
 //> Closures not-yet
-#define AS_CLOSURE_OFFSET(value)       (CBO<ObjClosure>(AS_OBJ_OFFSET(value)))
+#define AS_CLOSURE_OID(value)       (OID<ObjClosure>(AS_OBJ_ID(value)))
 //< Closures not-yet
 //> Calls and Functions not-yet
-#define AS_FUNCTION_OFFSET(value)      (CBO<ObjFunction>(AS_OBJ_OFFSET(value)))
+#define AS_FUNCTION_OID(value)      (OID<ObjFunction>(AS_OBJ_ID(value)))
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
-#define AS_INSTANCE_OFFSET(value)      (CBO<ObjInstance>(AS_OBJ_OFFSET(value)))
+#define AS_INSTANCE_OID(value)      (OID<ObjInstance>(AS_OBJ_ID(value)))
 //< Classes and Instances not-yet
-#define AS_UPVALUE_OFFSET(value)      (CBO<ObjUpvalue>(AS_OBJ_OFFSET(value)))
+#define AS_UPVALUE_OID(value)      (OID<ObjUpvalue>(AS_OBJ_ID(value)))
 //> Calls and Functions not-yet
-#define AS_NATIVE(value)        ((CBO<ObjNative>(AS_OBJ_OFFSET(value)).lp())->function)
+#define AS_NATIVE(value)        ((OID<ObjNative>(AS_OBJ_ID(value)).lp())->function)
 //< Calls and Functions not-yet
-#define AS_STRING_OFFSET(value)        (CBO<ObjString>(AS_OBJ_OFFSET(value)))
-#define AS_CSTRING(value)       ((CBO<ObjString>(AS_OBJ_OFFSET(value)).lp())->chars.lp())
+#define AS_STRING_OID(value)        (OID<ObjString>(AS_OBJ_ID(value)))
+#define AS_CSTRING(value)       ((OID<ObjString>(AS_OBJ_ID(value)).lp())->chars.lp())
 //< as-string
 //> obj-type
 
@@ -107,7 +107,7 @@ typedef struct {
   int upvalueCount;
 //< Closures not-yet
   Chunk chunk;
-  CBO<ObjString> name;
+  OID<ObjString> name;
 } ObjFunction;
 
 typedef Value (*NativeFn)(int argCount, Value* args);
@@ -122,7 +122,7 @@ typedef struct {
 struct sObjString {
   Obj obj;
   int length;
-  CBO<char> chars; // char[]
+  OID<char> chars; // char[]
 //> Hash Tables obj-string-hash
   uint32_t hash;
 //< Hash Tables obj-string-hash
@@ -144,13 +144,13 @@ typedef struct sUpvalue {
 
   // Open upvalues are stored in a linked list. This points to the next
   // one in that list.
-  CBO<struct sUpvalue> next;  //CBINT FIXME How will this linked list work under collection?
+  OID<struct sUpvalue> next;  //CBINT FIXME How will this linked list work under collection?
 } ObjUpvalue;
 
 typedef struct {
   Obj obj;
-  CBO<ObjFunction> function;
-  CBO<CBO<ObjUpvalue> > upvalues;  //pointer to ObjUpvalue[] (used to be type ObjUpvalue**).
+  OID<ObjFunction> function;
+  OID<OID<ObjUpvalue> > upvalues;  //pointer to ObjUpvalue[] (used to be type ObjUpvalue**).
   int upvalueCount;
 } ObjClosure;
 //< Closures not-yet
@@ -158,9 +158,9 @@ typedef struct {
 
 typedef struct sObjClass {
   Obj obj;
-  CBO<ObjString> name;
+  OID<ObjString> name;
 //> Superclasses not-yet
-  CBO<struct sObjClass> superclass;  //struct sObjClass* (only pointer, not array).
+  OID<struct sObjClass> superclass;  //struct sObjClass* (only pointer, not array).
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
   Table methods;
@@ -169,7 +169,7 @@ typedef struct sObjClass {
 
 typedef struct {
   Obj obj;
-  CBO<ObjClass> klass;
+  OID<ObjClass> klass;
   Table fields;
 } ObjInstance;
 //< Classes and Instances not-yet
@@ -178,39 +178,39 @@ typedef struct {
 typedef struct {
   Obj obj;
   Value receiver;
-  CBO<ObjClosure> method;
+  OID<ObjClosure> method;
 } ObjBoundMethod;
 
-CBO<ObjBoundMethod> newBoundMethod(Value receiver, CBO<ObjClosure> method);
+OID<ObjBoundMethod> newBoundMethod(Value receiver, OID<ObjClosure> method);
 //< Methods and Initializers not-yet
 /* Classes and Instances not-yet < Superclasses not-yet
 ObjClass* newClass(ObjString* name);
 */
 //> Superclasses not-yet
-CBO<ObjClass> newClass(CBO<ObjString> name, CBO<ObjClass> superclass);
+OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass);
 //< Superclasses not-yet
 //> Closures not-yet
-CBO<ObjClosure> newClosure(CBO<ObjFunction> function);
+OID<ObjClosure> newClosure(OID<ObjFunction> function);
 //< Closures not-yet
 //> Calls and Functions not-yet
-CBO<ObjFunction> newFunction();
+OID<ObjFunction> newFunction();
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
-CBO<ObjInstance> newInstance(CBO<ObjClass> klass);
+OID<ObjInstance> newInstance(OID<ObjClass> klass);
 //< Classes and Instances not-yet
 //> Calls and Functions not-yet
-CBO<ObjNative> newNative(NativeFn function);
+OID<ObjNative> newNative(NativeFn function);
 //< Calls and Functions not-yet
-CBO<ObjString> rawAllocateString(const char* chars, int length);
+OID<ObjString> rawAllocateString(const char* chars, int length);
 //> take-string-h
-CBO<ObjString> takeString(CBO<char> /*char[]*/ chars, int length);
+OID<ObjString> takeString(OID<char> /*char[]*/ chars, int length);
 //< take-string-h
 //> copy-string-h
-CBO<ObjString> copyString(const char* chars, int length);
+OID<ObjString> copyString(const char* chars, int length);
 
 //< copy-string-h
 //> Closures not-yet
-CBO<ObjUpvalue> newUpvalue(unsigned int valueStackIndex);
+OID<ObjUpvalue> newUpvalue(unsigned int valueStackIndex);
 //< Closures not-yet
 //> print-object-h
 void printObject(Value value);

@@ -25,7 +25,7 @@ bool tableDelete(Table *table, Value key);
 
 void tableAddAll(Table *from, Table *to);
 
-CBO<ObjString> tableFindString(Table      *table,
+OID<ObjString> tableFindString(Table      *table,
                                const char *chars,
                                int         length,
                                uint32_t    hash);

@@ -19,7 +19,7 @@
 #define GC_HEAP_GROW_FACTOR 2
 //< Garbage Collection not-yet
 
-cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment) {
+ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignment) {
 //> Garbage Collection not-yet
   vm.bytesAllocated += newSize - oldSize;
 
@@ -35,12 +35,13 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
 
 //< Garbage Collection not-yet
   if (newSize == 0) {
-    return (cb_offset_t)0;
+    return CB_NULL_OID;
   } else if (newSize < oldSize) {
     return previous;
   } else {
-    int ret;
+    cb_offset_t old_offset = objtable_lookup(&thread_objtable, previous);
     cb_offset_t new_offset;
+    int ret;
 
     ret = cb_region_memalign(&thread_cb,
                              &thread_region,
@@ -48,10 +49,17 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
                              alignment,
                              newSize);
     if (ret != CB_SUCCESS) {
-      return (cb_offset_t)0;
+      return CB_NULL_OID;
     }
-    memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, previous), oldSize);
-    return new_offset;
+
+    //Q: Should we keep the ObjID the same over reallocation?
+    //A: No, changing it adheres to the earlier API which expects a shift of
+    // offset (or earlier API than that, pointer).  Although it may work to
+    // leave the ObjID the same, this may gloss over errors elsewhere, so we
+    // force it to change for the sake of provoking any such errors.
+    memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, old_offset), oldSize);
+    objtable_invalidate(&thread_objtable, previous);
+    return objtable_add(&thread_objtable, new_offset);
   }
 }
 
@@ -67,7 +75,7 @@ void grayObject(Obj* object) {
 
 #ifdef DEBUG_TRACE_GC
   printf("%p gray ", object);
-  printValue(OBJ_VAL(object));
+  //printValue(OBJ_VAL(object));
   printf("\n");
 #endif
 
@@ -101,7 +109,7 @@ static void blackenObject(Obj* object) {
 
 #ifdef DEBUG_TRACE_GC
   printf("%p blacken ", object);
-  printValue(OBJ_VAL(object));
+  //printValue(OBJ_VAL(object));
   printf("\n");
 #endif
 
@@ -272,7 +280,7 @@ void collectGarbage() {
   //}
 
   // Mark the open upvalues.
-  for (CBO<ObjUpvalue> upvalue = vm.openUpvalues;
+  for (OID<ObjUpvalue> upvalue = vm.openUpvalues;
        !upvalue.is_nil();
        upvalue = upvalue.lp()->next) {
     grayObject((Obj*)upvalue.lp());

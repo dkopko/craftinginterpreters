@@ -109,7 +109,7 @@ typedef struct Compiler {
   struct Compiler* enclosing;
 
   // The function being compiled.
-  CBO<ObjFunction> function;
+  OID<ObjFunction> function;
   FunctionType type;
 
 //< Calls and Functions not-yet
@@ -321,7 +321,7 @@ static void initCompiler(Compiler* compiler) {
 static void initCompiler(Compiler* compiler, int scopeDepth,
                          FunctionType type) {
   compiler->enclosing = current;
-  compiler->function = CB_NULL;
+  compiler->function = CB_NULL_OID;
   compiler->type = type;
 //< Calls and Functions not-yet
   compiler->localCount = 0;
@@ -345,7 +345,7 @@ static void initCompiler(Compiler* compiler, int scopeDepth,
                                            parser.previous.length);
       break;
     case TYPE_TOP_LEVEL:
-      current->function.lp()->name = CB_NULL;
+      current->function.lp()->name = CB_NULL_OID;
       break;
   }
 
@@ -379,12 +379,12 @@ static void initCompiler(Compiler* compiler, int scopeDepth,
 static void endCompiler() {
 */
 //> Calls and Functions not-yet
-static CBO<ObjFunction> endCompiler() {
+static OID<ObjFunction> endCompiler() {
 //< Calls and Functions not-yet
   emitReturn();
 //> Calls and Functions not-yet
 
-  CBO<ObjFunction> function = current->function;
+  OID<ObjFunction> function = current->function;
 //< Calls and Functions not-yet
 //> dump-chunk
 #ifdef DEBUG_PRINT_CODE
@@ -445,7 +445,7 @@ static void parsePrecedence(Precedence precedence);
 //< Compiling Expressions forward-declarations
 //> Global Variables identifier-constant
 static uint8_t identifierConstant(Token* name) {
-  return makeConstant(OBJ_VAL(copyString(name->start, name->length).o()));
+  return makeConstant(OBJ_VAL(copyString(name->start, name->length).id()));
 }
 //< Global Variables identifier-constant
 //> Local Variables not-yet
@@ -777,7 +777,7 @@ static void string() {
 static void string(bool canAssign) {
 //< Global Variables string
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
-                                  parser.previous.length - 2).o()));
+                                  parser.previous.length - 2).id()));
 }
 //< Strings parse-string
 /* Global Variables read-named-variable < Global Variables named-variable-signature
@@ -1137,14 +1137,14 @@ static void function(FunctionType type) {
 
   // Create the function object.
   endScope();
-  CBO<ObjFunction> function = endCompiler();
+  OID<ObjFunction> function = endCompiler();
 /* Calls and Functions not-yet < Closures not-yet
   emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
 */
 //> Closures not-yet
 
   // Capture the upvalues in the new closure object.
-  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function.o())));
+  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function.id())));
 
   // Emit arguments for each upvalue to know whether to capture a local
   // or an upvalue.
@@ -1510,7 +1510,7 @@ bool compile(const char* source, Chunk* chunk) {
 */
 //> Calls and Functions not-yet
 
-CBO<ObjFunction> compile(const char* source) {
+OID<ObjFunction> compile(const char* source) {
 //< Calls and Functions not-yet
   initScanner(source);
 /* Scanning on Demand dump-tokens < Compiling Expressions compile-chunk
@@ -1567,11 +1567,11 @@ CBO<ObjFunction> compile(const char* source) {
   return !parser.hadError;
 */
 //> Calls and Functions not-yet
-  CBO<ObjFunction> function = endCompiler();
+  OID<ObjFunction> function = endCompiler();
 
   // If there was a compile error, the code is not valid, so don't
   // create a function.
-  return parser.hadError ? CBO<ObjFunction>(CB_NULL) : function;
+  return parser.hadError ? OID<ObjFunction>(CB_NULL_OID) : function;
 //< Calls and Functions not-yet
 }
 //> Garbage Collection not-yet

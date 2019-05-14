@@ -218,7 +218,7 @@ int disassembleInstruction(Chunk* chunk, int offset) {
       printValue(chunk->constants.values.lp()[constant]);
       printf("\n");
 
-      CBO<ObjFunction> function = AS_FUNCTION_OFFSET(
+      OID<ObjFunction> function = AS_FUNCTION_OID(
           chunk->constants.values.lp()[constant]);
       for (int j = 0; j < function.lp()->upvalueCount; j++) {
         int isLocal = chunk->code.lp()[offset++];

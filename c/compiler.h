@@ -17,7 +17,7 @@ void compile(const char* source);
 bool compile(const char* source, Chunk* chunk);
 */
 //> Calls and Functions not-yet
-CBO<ObjFunction> compile(const char* source);
+OID<ObjFunction> compile(const char* source);
 //< Calls and Functions not-yet
 //> Garbage Collection not-yet
 void grayCompilerRoots();

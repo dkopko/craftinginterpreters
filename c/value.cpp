@@ -11,7 +11,7 @@
 #include "value.h"
 
 void initValueArray(ValueArray* array) {
-  array->values = CB_NULL;
+  array->values = CB_NULL_OID;
   array->capacity = 0;
   array->count = 0;
 }
@@ -20,7 +20,7 @@ void writeValueArray(ValueArray* array, Value value) {
   if (array->capacity < array->count + 1) {
     int oldCapacity = array->capacity;
     array->capacity = GROW_CAPACITY(oldCapacity);
-    array->values = GROW_ARRAY(array->values.o(), Value,
+    array->values = GROW_ARRAY(array->values.id(), Value,
                                oldCapacity, array->capacity);
   }
   
