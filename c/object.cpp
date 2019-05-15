@@ -82,7 +82,7 @@ OID<ObjClosure> newClosure(OID<ObjFunction> function) {
     upvalues[i] = CB_NULL_OID;
   }
 
-  OID<ObjClosure> closureOID= ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+  OID<ObjClosure> closureOID = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
   ObjClosure* closure = closureOID.lp();
   closure->function = function;
   closure->upvalues = upvaluesOID;
@@ -93,7 +93,7 @@ OID<ObjClosure> newClosure(OID<ObjFunction> function) {
 //> Calls and Functions not-yet
 
 OID<ObjFunction> newFunction() {
-  OID<ObjFunction> functionOID= ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+  OID<ObjFunction> functionOID = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
   ObjFunction* function = functionOID.lp();
 
   function->arity = 0;
