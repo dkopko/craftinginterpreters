@@ -261,17 +261,19 @@ clox_object_render(cb_offset_t           *dest_offset,
       ObjString *str = AS_STRING_OID(value).lp();
 
       if (str->length < 13) {
-        return cb_asprintf(dest_offset, cb, "<string@%ju\"%.*s\">",
+        return cb_asprintf(dest_offset, cb, "<string#%ju\"%.*s\"#%ju>",
             (uintmax_t)AS_STRING_OID(value).id().id,
             str->length,
-            str->chars.lp());
+            str->chars.lp(),
+            (uintmax_t)str->chars.id().id);
       } else {
-        return cb_asprintf(dest_offset, cb, "<string@%ju\"%.*s...%.*s\">",
+        return cb_asprintf(dest_offset, cb, "<string#%ju\"%.*s...%.*s\"%ju>",
             (uintmax_t)AS_STRING_OID(value).id().id,
             5,
             str->chars.lp(),
             5,
-            str->chars.lp() + str->length - 5);
+            str->chars.lp() + str->length - 5,
+            (uintmax_t)str->chars.id().id);
       }
     }
     case OBJ_UPVALUE:

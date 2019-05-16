@@ -206,7 +206,7 @@ tableFindString(Table      *table,
 
 done:
   if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)).val == TOMBSTONE_VAL.val) {
-    printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> NOT FOUND\n",
+    printf("DANDEBUG %p tableFindString string#%ju\"%s\"#%ju -> NOT FOUND\n",
            table,
            (uintmax_t)lookupStringOID.id().id,
            lookupStringOID.lp()->chars.lp(),
@@ -215,7 +215,7 @@ done:
   }
 
   internedStringValue = numToValue(cb_term_get_dbl(&value_term));
-  printf("DANDEBUG %p tableFindString string@%ju\"%s\"(%ju) -> string@%ju\"%s\"(%ju)\n",
+  printf("DANDEBUG %p tableFindString string#%ju\"%s\"#%ju -> string#%ju\"%s\"#%ju\n",
       table,
       (uintmax_t)lookupStringOID.id().id,
       lookupStringOID.lp()->chars.lp(),

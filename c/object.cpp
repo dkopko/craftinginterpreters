@@ -16,6 +16,23 @@
 //< allocate-obj
 //> allocate-object
 
+static const char *
+objTypeString(ObjType objType)
+{
+  switch (objType)
+  {
+    case OBJ_BOUND_METHOD: return "ObjBoundMethod";
+    case OBJ_CLASS:        return "ObjClass";
+    case OBJ_CLOSURE:      return "ObjClosure";
+    case OBJ_FUNCTION:     return "ObjFunction";
+    case OBJ_INSTANCE:     return "ObjInstance";
+    case OBJ_NATIVE:       return "ObjNative";
+    case OBJ_STRING:       return "ObjString";
+    case OBJ_UPVALUE:      return "ObjUpvalue";
+    default:               return "Obj???";
+  }
+}
+
 static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
   OID<Obj> objectOID = reallocate(CB_NULL_OID, 0, size, alignment);
   Obj* object = objectOID.lp();
@@ -32,7 +49,10 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
 
 #ifdef DEBUG_TRACE_GC
   //printf("%p allocate %ld for %d\n", object, size, type);
-  printf("@%ju object was allocated (%ld bytes for type %d)\n", (uintmax_t)objectOID.id().id, size, type);
+  printf("#%ju %s object was allocated (%ld bytes)\n",
+         (uintmax_t)objectOID.id().id,
+         objTypeString(type),
+         size);
 #endif
 
 //< Garbage Collection not-yet
@@ -146,7 +166,7 @@ static OID<ObjString> allocateString(OID<char> adoptedChars, int length,
   push(stringValue);
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  printf("DANDEBUG interned string@%ju\"%.*s\"(%ju)\n",
+  printf("DANDEBUG interned string#%ju\"%.*s\"#%ju\n",
          (uintmax_t)stringOID.id().id,
          length,
          adoptedChars.lp(),
@@ -188,7 +208,7 @@ OID<ObjString> rawAllocateString(const char* chars, int length) {
   string->chars = heapCharsOID;
   string->hash = hash;
 
-  printf("DANDEBUG rawAllocateString() created new string@%ju\"%s\"(%ju)\n",
+  printf("DANDEBUG rawAllocateString() created new string#%ju\"%s\"#%ju\n",
          (uintmax_t)stringOID.id().id,
          heapChars,
          (uintmax_t)heapCharsOID.id().id);
@@ -208,7 +228,7 @@ OID<ObjString> takeString(OID<char> /*char[]*/ adoptedChars, int length) {
                                                 hash);
   if (!internedOID.is_nil()) {
     FREE_ARRAY(char, adoptedChars, length + 1);
-    printf("DANDEBUG takeString() interned rawchars\"%.*s\"(%ju) to string@%ju\"%s\"(%ju)\n",
+    printf("DANDEBUG takeString() interned rawchars\"%.*s\"(%ju) to string#%ju\"%s\"#%ju\n",
            length,
            adoptedChars.lp(),
            (uintmax_t)adoptedChars.id().id,
@@ -235,7 +255,7 @@ OID<ObjString> copyString(const char* chars, int length) {
   OID<ObjString> internedOID = tableFindString(&vm.strings, chars, length,
                                                hash);
   if (!internedOID.is_nil()) {
-    printf("DANDEBUG copyString() interned C-string \"%.*s\" to string@%ju\"%s\"(%ju)\n",
+    printf("DANDEBUG copyString() interned C-string \"%.*s\" to string#%ju\"%s\"#%ju\n",
            length,
            chars,
            (uintmax_t)internedOID.id().id,
