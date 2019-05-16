@@ -37,6 +37,11 @@ ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignmen
   if (newSize == 0) {
     return CB_NULL_OID;
   } else if (newSize < oldSize) {
+#ifdef DEBUG_TRACE_GC
+    // Clobber old values.
+    cb_offset_t old_offset = objtable_lookup(&thread_objtable, previous);
+    memset(((char *)cb_at(thread_cb, old_offset)) + newSize, '#', oldSize - newSize);
+#endif
     return previous;
   } else {
     cb_offset_t old_offset = objtable_lookup(&thread_objtable, previous);
@@ -58,6 +63,10 @@ ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignmen
     // leave the ObjID the same, this may gloss over errors elsewhere, so we
     // force it to change for the sake of provoking any such errors.
     memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, old_offset), oldSize);
+#ifdef DEBUG_TRACE_GC
+    // Clobber old values.
+    memset(cb_at(thread_cb, old_offset), '!', oldSize);
+#endif
     objtable_invalidate(&thread_objtable, previous);
     return objtable_add(&thread_objtable, new_offset);
   }
