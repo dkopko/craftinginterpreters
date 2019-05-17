@@ -95,7 +95,7 @@ struct sObj {
   bool isDark;
 //< Garbage Collection not-yet
 //> next-field
-  struct sObj* next;
+  OID<struct sObj> next;
 //< next-field
 };
 //> Calls and Functions not-yet

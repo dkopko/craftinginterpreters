@@ -43,7 +43,7 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
 //> add-to-list
   
   object->next = vm.objects;
-  vm.objects = object;
+  vm.objects = objectOID;
 //< add-to-list
 //> Garbage Collection not-yet
 

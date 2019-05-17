@@ -97,7 +97,7 @@ typedef struct {
 //< Garbage Collection not-yet
 //> Strings objects-root
 
-  Obj* objects;
+  OID<Obj> objects;  //head of a singly-linked list via OID<> references.
 //< Strings objects-root
 //> Garbage Collection not-yet
   int grayCount;

@@ -161,69 +161,64 @@ static void blackenObject(Obj* object) {
   }
 }
 
-static void freeObject(Obj* object) {
-}
-
-#if 0
-static void freeObject(Obj* object) {
+static void freeObject(OID<Obj> object) {
 //> Garbage Collection not-yet
 #ifdef DEBUG_TRACE_GC
-  printf("%p free ", object);
-  printValue(OBJ_VAL(object));
+  printf("%ju free ", (uintmax_t)object.id().id);
+  printValue(OBJ_VAL(object.id()));
   printf("\n");
 #endif
 
-  switch (object->type) {
+  switch (object.lp()->type) {
     case OBJ_BOUND_METHOD:
-      FREE(ObjBoundMethod, object);
+      FREE(ObjBoundMethod, object.id());
       break;
 
     case OBJ_CLASS: {
-      ObjClass* klass = (ObjClass*)object;
+      ObjClass* klass = (ObjClass*)object.lp();
       freeTable(&klass->methods);
-      FREE(ObjClass, object);
+      FREE(ObjClass, object.id());
       break;
     }
 
     case OBJ_CLOSURE: {
-      ObjClosure* closure = (ObjClosure*)object;
-      FREE_ARRAY(Value, closure->upvalues, closure->upvalueCount);
-      FREE(ObjClosure, object);
+      ObjClosure* closure = (ObjClosure*)object.lp();
+      FREE_ARRAY(Value, closure->upvalues.id(), closure->upvalueCount);
+      FREE(ObjClosure, object.id());
       break;
     }
 
     case OBJ_FUNCTION: {
-      ObjFunction* function = (ObjFunction*)object;
+      ObjFunction* function = (ObjFunction*)object.lp();
       freeChunk(&function->chunk);
-      FREE(ObjFunction, object);
+      FREE(ObjFunction, object.id());
       break;
     }
 
     case OBJ_INSTANCE: {
-      ObjInstance* instance = (ObjInstance*)object;
+      ObjInstance* instance = (ObjInstance*)object.lp();
       freeTable(&instance->fields);
-      FREE(ObjInstance, object);
+      FREE(ObjInstance, object.id());
       break;
     }
 
     case OBJ_NATIVE:
-      FREE(ObjNative, object);
+      FREE(ObjNative, object.id());
       break;
 
     case OBJ_STRING: {
-      ObjString* string = (ObjString*)object;
-      FREE_ARRAY(char, string->chars, string->length + 1);
-      string->chars = NULL;
-      FREE(ObjString, object);
+      ObjString* string = (ObjString*)object.lp();
+      FREE_ARRAY(char, string->chars.id(), string->length + 1);
+      string->chars = CB_NULL_OID;
+      FREE(ObjString, object.id());
       break;
     }
 
     case OBJ_UPVALUE:
-      FREE(ObjUpvalue, object);
+      FREE(ObjUpvalue, object.id());
       break;
   }
 }
-#endif
 
 void collectGarbage() {
 #ifdef DEBUG_TRACE_GC
@@ -265,19 +260,21 @@ void collectGarbage() {
   tableRemoveWhite(&vm.strings);
 
   // Collect the white objects.
-  Obj** object = &vm.objects;
-  while (*object != NULL) {
-    if (!((*object)->isDark)) {
+  OID<Obj>* object = &vm.objects;
+  while (! (*object).is_nil()) {
+    if (!((*object).lp()->isDark)) {
       // This object wasn't reached, so remove it from the list and
       // free it.
-      Obj* unreached = *object;
-      *object = unreached->next;
+      OID<Obj> unreached = (*object);
+      //Obj* unreached = (*object).lp();
+      //*object = unreached->next;
+      *object = (*object).lp()->next;
       freeObject(unreached);
     } else {
       // This object was reached, so unmark it (for the next GC) and
       // move on to the next.
-      (*object)->isDark = false;
-      object = &(*object)->next;
+      (*object).lp()->isDark = false;
+      object = &((*object).lp()->next);
     }
   }
 
@@ -292,9 +289,9 @@ void collectGarbage() {
 }
 
 void freeObjects() {
-  Obj* object = vm.objects;
-  while (object != NULL) {
-    Obj* next = object->next;
+  OID<Obj> object = vm.objects;
+  while (! object.is_nil()) {
+    OID<Obj> next = object.lp()->next;
     freeObject(object);
     object = next;
   }

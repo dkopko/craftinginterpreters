@@ -298,7 +298,7 @@ void initVM() {
   resetStack();
 //< call-reset-stack
 //> Strings init-objects-root
-  vm.objects = NULL;
+  vm.objects = CB_NULL_OID;
 //< Strings init-objects-root
 //> Garbage Collection not-yet
   vm.bytesAllocated = 0;
