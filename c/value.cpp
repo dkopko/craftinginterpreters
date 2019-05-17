@@ -30,7 +30,7 @@ void writeValueArray(ValueArray* array, Value value) {
 //< write-value-array
 //> free-value-array
 void freeValueArray(ValueArray* array) {
-  FREE_ARRAY(Value, array->values, array->capacity);
+  FREE_ARRAY(Value, array->values.id(), array->capacity);
   initValueArray(array);
 }
 //< free-value-array

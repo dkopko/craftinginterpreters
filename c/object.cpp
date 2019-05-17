@@ -227,7 +227,7 @@ OID<ObjString> takeString(OID<char> /*char[]*/ adoptedChars, int length) {
   OID<ObjString> internedOID = tableFindString(&vm.strings, adoptedChars.lp(), length,
                                                 hash);
   if (!internedOID.is_nil()) {
-    FREE_ARRAY(char, adoptedChars, length + 1);
+    FREE_ARRAY(char, adoptedChars.id(), length + 1);
     printf("DANDEBUG takeString() interned rawchars\"%.*s\"(%ju) to string#%ju\"%s\"#%ju\n",
            length,
            adoptedChars.lp(),

@@ -3,38 +3,26 @@
 #define clox_memory_h
 
 #include "cb_integration.h"
-//> Strings memory-include-object
 #include "object.h"
 
-//< Strings memory-include-object
-//> Strings allocate
-    //reallocate(CB_NULL_OID, 0, sizeof(type) * (count), cb_alignof(type))
 #define ALLOCATE(type, count) \
     logged_allocate(#type, sizeof(type), (count), cb_alignof(type))
-//> free
 
-#define FREE(type, pointer) \
-    do {} while (0)
-    // reallocate(pointer, sizeof(type), 0)
-//< free
+#define FREE(type, objid) \
+    logged_free(#type, objid, sizeof(type), cb_alignof(type))
 
-//< Strings allocate
 #define GROW_CAPACITY(capacity) \
     ((capacity) < 8 ? 8 : (capacity) * 2)
-//> grow-array
 
 #define GROW_ARRAY(previous, type, oldCount, count) \
-    logged_grow_array(#type, previous, sizeof(type), (oldCount), \
-        (count), cb_alignof(type))
-//> free-array
+    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type))
 
-#define FREE_ARRAY(type, pointer, oldCount) \
-    do {} while (0)
-    //reallocate(pointer, sizeof(type) * (oldCount), 0)
-//< free-array
+#define FREE_ARRAY(type, previous, oldCount) \
+    logged_free_array(#type, previous, sizeof(type), (oldCount), cb_alignof(type))
+
 
 ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignment);
-//< grow-array
+
 
 extern inline ObjID
 logged_allocate(const char *typeName, size_t typeSize, size_t count, size_t alignment)
@@ -49,6 +37,22 @@ logged_allocate(const char *typeName, size_t typeSize, size_t count, size_t alig
          typeSize * count);
 #endif
 
+  return retval;
+}
+
+extern inline ObjID
+logged_free(const char *typeName, ObjID previous, size_t typeSize, size_t alignment)
+{
+  ObjID retval = reallocate(previous, typeSize, 0, alignment);
+
+#ifdef DEBUG_TRACE_GC
+  printf("#%ju %s object freed (-%zd bytes)\n",
+         (uintmax_t)previous.id,
+         typeName,
+         typeSize);
+#endif
+
+  assert(retval.id == CB_NULL_OID.id);
   return retval;
 }
 
@@ -72,7 +76,23 @@ logged_grow_array(const char *typeName, ObjID previous, size_t typeSize, size_t 
   return retval;
 }
 
-//> Garbage Collection not-yet
+extern inline ObjID
+logged_free_array(const char *typeName, ObjID previous, size_t typeSize, size_t oldCount, size_t alignment)
+{
+  ObjID retval = reallocate(previous, typeSize * oldCount, 0, alignment);
+
+#ifdef DEBUG_TRACE_GC
+  printf("#%ju %s[%zd] array freed (-%zd bytes)\n",
+         (uintmax_t)previous.id,
+         typeName,
+         oldCount,
+         typeSize * oldCount);
+#endif
+
+  assert(retval.id == CB_NULL_OID.id);
+  return retval;
+}
+
 
 void grayObject(Obj* object);
 void grayValue(Value value);
