@@ -91,7 +91,7 @@ void grayObject(Obj* object) {
   vm.grayStack[vm.grayCount++] = object;
 }
 
-void grayValue(Value value) {
+static void grayValue(Value value) {
   if (!IS_OBJ(value)) return;
   grayObject(AS_OBJ(value));
 }
