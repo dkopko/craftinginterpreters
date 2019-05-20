@@ -21,13 +21,13 @@
     logged_free_array(#type, previous, sizeof(type), (oldCount), cb_alignof(type))
 
 
-ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignment);
+ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc);
 
 
 extern inline ObjID
 logged_allocate(const char *typeName, size_t typeSize, size_t count, size_t alignment)
 {
-  ObjID retval = reallocate(CB_NULL_OID, 0, typeSize * count, alignment);
+  ObjID retval = reallocate(CB_NULL_OID, 0, typeSize * count, alignment, false);
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju %s[%zd] array allocated (%zd bytes)\n",
@@ -43,7 +43,7 @@ logged_allocate(const char *typeName, size_t typeSize, size_t count, size_t alig
 extern inline ObjID
 logged_free(const char *typeName, ObjID previous, size_t typeSize, size_t alignment)
 {
-  ObjID retval = reallocate(previous, typeSize, 0, alignment);
+  ObjID retval = reallocate(previous, typeSize, 0, alignment, false);
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju %s object freed (-%zd bytes)\n",
@@ -59,7 +59,7 @@ logged_free(const char *typeName, ObjID previous, size_t typeSize, size_t alignm
 extern inline ObjID
 logged_grow_array(const char *typeName, ObjID previous, size_t typeSize, size_t oldCount, size_t count, size_t alignment)
 {
-  ObjID retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment);
+  ObjID retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment, false);
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju %s[%zd] array (%zd bytes) resized to #%ju %s[%zd] array (%zd bytes)\n",
@@ -79,7 +79,7 @@ logged_grow_array(const char *typeName, ObjID previous, size_t typeSize, size_t 
 extern inline ObjID
 logged_free_array(const char *typeName, ObjID previous, size_t typeSize, size_t oldCount, size_t alignment)
 {
-  ObjID retval = reallocate(previous, typeSize * oldCount, 0, alignment);
+  ObjID retval = reallocate(previous, typeSize * oldCount, 0, alignment, false);
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju %s[%zd] array freed (-%zd bytes)\n",
@@ -94,7 +94,7 @@ logged_free_array(const char *typeName, ObjID previous, size_t typeSize, size_t 
 }
 
 
-void grayObject(Obj* object);
+void grayObject(OID<Obj> objectOID);
 void collectGarbage();
 void freeObjects();
 

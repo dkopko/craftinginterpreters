@@ -34,7 +34,7 @@ objTypeString(ObjType objType)
 }
 
 static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
-  OID<Obj> objectOID = reallocate(CB_NULL_OID, 0, size, alignment);
+  OID<Obj> objectOID = reallocate(CB_NULL_OID, 0, size, alignment, false);
   Obj* object = objectOID.lp();
   object->type = type;
 //> Garbage Collection not-yet

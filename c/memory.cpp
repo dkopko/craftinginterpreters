@@ -12,20 +12,23 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
-ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignment) {
+ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc) {
   vm.bytesAllocated += newSize - oldSize;
 
-  if (newSize > oldSize) {
+  if (!suppress_gc) {
+    if (newSize > oldSize) {
 #ifdef DEBUG_STRESS_GC
-    collectGarbage();
+      collectGarbage();
 #endif
 
-    if (vm.bytesAllocated > vm.nextGC) {
-      collectGarbage();
+      if (vm.bytesAllocated > vm.nextGC) {
+        collectGarbage();
+      }
     }
   }
 
   if (newSize == 0) {
+    objtable_invalidate(&thread_objtable, previous);
     return CB_NULL_OID;
   } else if (newSize < oldSize) {
 #ifdef DEBUG_TRACE_GC
@@ -63,37 +66,49 @@ ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignmen
   }
 }
 
-void grayObject(Obj* object) {
-  return; //CBINT
-
-  if (object == NULL) return;
+void grayObject(OID<Obj> objectOID) {
+  if (objectOID.is_nil()) return;
 
   // Don't get caught in cycle.
-  if (object->isDark) return;
+  if (objectOID.lp()->isDark) return;
 
 #ifdef DEBUG_TRACE_GC
-  printf("%p gray ", object);
-  //printValue(OBJ_VAL(object));
+  printf("#%ju gray ", (uintmax_t)objectOID.id().id);
+  printValue(OBJ_VAL(objectOID.id()));
   printf("\n");
 #endif
 
-  object->isDark = true;
+  objectOID.lp()->isDark = true;
 
   if (vm.grayCapacity < vm.grayCount + 1) {
+    int oldGrayCapacity = vm.grayCapacity;
+    ObjID oldGrayStackID = vm.grayStack.id();
     vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
 
-    // Not using reallocate() here because we don't want to trigger the
-    // GC inside a GC!
-    vm.grayStack = (Obj **)realloc(vm.grayStack,
-                           sizeof(Obj*) * vm.grayCapacity);
+    vm.grayStack = reallocate(oldGrayStackID,
+                              sizeof(OID<Obj>) * oldGrayCapacity,
+                              sizeof(OID<Obj>) * vm.grayCapacity,
+                              cb_alignof(OID<Obj>),
+                              true);
+
+#ifdef DEBUG_TRACE_GC
+    printf("#%ju OID<Obj>[%zd] array (%zd bytes) resized to #%ju OID<Obj>[%zd] array (%zd bytes)\n",
+           (uintmax_t)oldGrayStackID.id,
+           (size_t)oldGrayCapacity,
+           sizeof(OID<Obj*>) * oldGrayCapacity,
+           (uintmax_t)vm.grayStack.id().id,
+           (size_t)vm.grayCapacity,
+           sizeof(OID<Obj*>) * vm.grayCapacity);
+#endif
+
   }
 
-  vm.grayStack[vm.grayCount++] = object;
+  vm.grayStack.lp()[vm.grayCount++] = objectOID;
 }
 
 static void grayValue(Value value) {
   if (!IS_OBJ(value)) return;
-  grayObject(AS_OBJ(value));
+  grayObject(AS_OBJ_ID(value));
 }
 
 static void grayArray(ValueArray* array) {
@@ -102,12 +117,12 @@ static void grayArray(ValueArray* array) {
   }
 }
 
-static void blackenObject(Obj* object) {
-  return;  //CBINT
+static void blackenObject(OID<Obj> objectOID) {
+  Obj *object = objectOID.lp();
 
 #ifdef DEBUG_TRACE_GC
-  printf("%p blacken ", object);
-  //printValue(OBJ_VAL(object));
+  printf("#%ju blacken ", (uintmax_t)objectOID.id().id);
+  printValue(OBJ_VAL(objectOID.id()));
   printf("\n");
 #endif
 
@@ -115,37 +130,37 @@ static void blackenObject(Obj* object) {
     case OBJ_BOUND_METHOD: {
       ObjBoundMethod* bound = (ObjBoundMethod*)object;
       grayValue(bound->receiver);
-      grayObject((Obj*)bound->method.lp());
+      grayObject(bound->method.id());
       break;
     }
 
     case OBJ_CLASS: {
       ObjClass* klass = (ObjClass*)object;
-      grayObject((Obj*)klass->name.lp());
-      grayObject((Obj*)klass->superclass.lp());
+      grayObject(klass->name.id());
+      grayObject(klass->superclass.id());
       grayTable(&klass->methods);
       break;
     }
 
     case OBJ_CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object;
-      grayObject((Obj*)closure->function.lp());
+      grayObject(closure->function.id());
       for (int i = 0; i < closure->upvalueCount; i++) {
-        grayObject((Obj*)closure->upvalues.lp()[i].lp());
+        grayObject(closure->upvalues.lp()[i].id());
       }
       break;
     }
 
     case OBJ_FUNCTION: {
       ObjFunction* function = (ObjFunction*)object;
-      grayObject((Obj*)function->name.lp());
+      grayObject(function->name.id());
       grayArray(&function->chunk.constants);
       break;
     }
 
     case OBJ_INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object;
-      grayObject((Obj*)instance->klass.lp());
+      grayObject(instance->klass.id());
       grayTable(&instance->fields);
       break;
     }
@@ -227,32 +242,30 @@ void collectGarbage() {
 #endif
 
   // Mark the stack roots.
-  //CBINT FIXME
-  //for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
-  //  grayValue(*slot);
-  //}
+  for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
+    grayValue(*tristack_at(&(vm.tristack), i));
+  }
 
-  //CBINT FIXME
-  //for (int i = 0; i < vm.frameCount; i++) {
-  //  grayObject((Obj*)vm.frames[i].closure.lp());
-  //}
+  for (unsigned int i = 0; i < vm.triframes.frameCount; i++) {
+    grayObject(triframes_at(&(vm.triframes), i)->closure.id());
+  }
 
   // Mark the open upvalues.
   for (OID<ObjUpvalue> upvalue = vm.openUpvalues;
        !upvalue.is_nil();
        upvalue = upvalue.lp()->next) {
-    grayObject((Obj*)upvalue.lp());
+    grayObject(upvalue.id());
   }
 
   // Mark the global roots.
   grayTable(&vm.globals);
   grayCompilerRoots();
-  grayObject((Obj*)vm.initString.lp());
+  grayObject(vm.initString.id());
 
   // Traverse the references.
   while (vm.grayCount > 0) {
     // Pop an item from the gray stack.
-    Obj* object = vm.grayStack[--vm.grayCount];
+    OID<Obj> object = vm.grayStack.lp()[--vm.grayCount];
     blackenObject(object);
   }
 
@@ -296,5 +309,18 @@ void freeObjects() {
     object = next;
   }
 
-  free(vm.grayStack);
+  ObjID oldGrayStackID = vm.grayStack.id();
+  int oldGrayCapacity = vm.grayCapacity;
+  vm.grayStack = reallocate(oldGrayStackID,
+                            sizeof(OID<Obj>) * oldGrayCapacity,
+                            0,
+                            cb_alignof(OID<Obj>),
+                            true);
+
+#ifdef DEBUG_TRACE_GC
+    printf("#%ju OID<Obj>[%zd] (grayStack) array freed (%zd bytes)\n",
+           (uintmax_t)oldGrayStackID.id,
+           (size_t)oldGrayCapacity,
+           sizeof(OID<Obj*>) * oldGrayCapacity);
+#endif
 }

@@ -67,7 +67,7 @@ tristack_at_bc(TriStack *ts, unsigned int index) {
   return static_cast<Value*>(cb_at(thread_cb, offset));
 }
 
-static Value*
+Value*
 tristack_at(TriStack *ts, unsigned int index) {
   assert(index < ts->stackDepth);
 
@@ -193,7 +193,7 @@ triframes_leaveFrame(TriFrames *tf) {
   tf->currentFrame = newFrame;
 }
 
-static CallFrame*
+CallFrame*
 triframes_at(TriFrames *tf, unsigned int index) {
   cb_offset_t offset;
 
@@ -306,7 +306,7 @@ void initVM() {
 
   vm.grayCount = 0;
   vm.grayCapacity = 0;
-  vm.grayStack = NULL;
+  vm.grayStack = CB_NULL_OID;
 //< Garbage Collection not-yet
 //> Global Variables init-globals
 

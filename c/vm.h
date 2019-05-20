@@ -51,6 +51,9 @@ typedef struct {
   unsigned int stackDepth;  // [0, stack_depth-1] are valid entries.
 } TriStack;
 
+Value* tristack_at(TriStack *ts, unsigned int index);
+
+
 typedef struct {
   //CBINT FIXME cache Value *aframes, *bframes, *cframes in self-correcting pointer
   // objects to speed access but allow for CB resizes?
@@ -64,6 +67,9 @@ typedef struct {
   unsigned int frameCount;  // [0, frameCount-1] are valid entries.
   CallFrame *currentFrame;
 } TriFrames;
+
+CallFrame* triframes_at(TriFrames *tf, unsigned int index);
+
 
 typedef struct {
 /* A Virtual Machine vm-h < Calls and Functions not-yet
@@ -102,7 +108,7 @@ typedef struct {
 //> Garbage Collection not-yet
   int grayCount;
   int grayCapacity;
-  Obj** grayStack;
+  OID<OID<Obj> >  grayStack;
 //< Garbage Collection not-yet
 } VM;
 

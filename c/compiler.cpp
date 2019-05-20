@@ -1579,7 +1579,7 @@ OID<ObjFunction> compile(const char* source) {
 void grayCompilerRoots() {
   Compiler* compiler = current;
   while (compiler != NULL) {
-    grayObject((Obj*)compiler->function.lp());
+    grayObject(compiler->function.id());
     compiler = compiler->enclosing;
   }
 }
