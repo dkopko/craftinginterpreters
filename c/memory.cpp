@@ -73,7 +73,7 @@ void grayObject(OID<Obj> objectOID) {
   if (objectOID.lp()->isDark) return;
 
 #ifdef DEBUG_TRACE_GC
-  printf("#%ju gray ", (uintmax_t)objectOID.id().id);
+  printf("#%ju grayObject() ", (uintmax_t)objectOID.id().id);
   printValue(OBJ_VAL(objectOID.id()));
   printf("\n");
 #endif
@@ -121,7 +121,7 @@ static void blackenObject(OID<Obj> objectOID) {
   Obj *object = objectOID.lp();
 
 #ifdef DEBUG_TRACE_GC
-  printf("#%ju blacken ", (uintmax_t)objectOID.id().id);
+  printf("#%ju blackenObject() ", (uintmax_t)objectOID.id().id);
   printValue(OBJ_VAL(objectOID.id()));
   printf("\n");
 #endif
@@ -179,7 +179,7 @@ static void blackenObject(OID<Obj> objectOID) {
 static void freeObject(OID<Obj> object) {
 //> Garbage Collection not-yet
 #ifdef DEBUG_TRACE_GC
-  printf("%ju free ", (uintmax_t)object.id().id);
+  printf("#%ju freeObject() ", (uintmax_t)object.id().id);
   printValue(OBJ_VAL(object.id()));
   printf("\n");
 #endif
