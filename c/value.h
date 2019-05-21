@@ -41,7 +41,7 @@ typedef enum {
 
 typedef struct { uint64_t val; } Value;
 
-#define IS_BOOL(v)    (((v.val) & (QNAN | TAG_FALSE)) == (QNAN | TAG_FALSE))
+#define IS_BOOL(v)    (((v.val) & (SIGN_BIT | QNAN | TAG_FALSE)) == (~SIGN_BIT | QNAN | TAG_FALSE))
 #define IS_NIL(v)     ((v.val) == NIL_VAL.val)
 // If the NaN bits are set, it's not a number.
 #define IS_NUMBER(v)  (((v.val) & QNAN) != QNAN)
