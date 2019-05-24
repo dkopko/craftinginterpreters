@@ -106,7 +106,7 @@ void grayObject(OID<Obj> objectOID) {
   vm.grayStack.lp()[vm.grayCount++] = objectOID;
 }
 
-static void grayValue(Value value) {
+void grayValue(Value value) {
   if (!IS_OBJ(value)) return;
   grayObject(AS_OBJ_ID(value));
 }

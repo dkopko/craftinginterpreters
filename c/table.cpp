@@ -227,13 +227,116 @@ done:
   return AS_OBJ_ID(internedStringValue);
 }
 
+//CBINT FIXME Redundant
 void
-tableRemoveWhite(Table *table)
+tableRemoveWhite(Table *table)  //really removeWhiteKeys()
 {
-  //CBINT Redundant
+  //NOTE!! This was only ever used on the vm.strings table in the original
+  // code, meaning that interned strings which were not reached by the garbage
+  // collector during its recursive grayObject()ing would then be automatically
+  // freed.
+
+  //TODO:
+  //  Iterate A?
+#if 0
+  for (int i = 0; i <= table->capacityMask; i++) {
+    Entry* entry = &table->entries[i];
+    if (entry->key != NULL && !entry->key->obj.isDark) {
+      tableDelete(table, entry->key);
+    }
+  }
+#endif
 }
 
-void grayTable(Table* table)
+static int
+gray_a(const struct cb_term *key_term,
+       const struct cb_term *value_term,
+       void                 *closure)
 {
-  //CBINT Redundant
+  grayValue(numToValue(cb_term_get_dbl(key_term)));
+  grayValue(numToValue(cb_term_get_dbl(value_term)));
+
+  return CB_SUCCESS;
+}
+
+static int
+gray_b_not_in_a(const struct cb_term *key_term,
+                const struct cb_term *value_term,
+                void                 *closure)
+{
+  Table *table = (Table *)closure;
+  struct cb_term temp_value_term;
+  int ret;
+
+  ret = cb_bst_lookup(thread_cb, table->root_a, key_term, &temp_value_term);
+  if (ret == 0) goto done;
+
+  grayValue(numToValue(cb_term_get_dbl(key_term)));
+  grayValue(numToValue(cb_term_get_dbl(value_term)));
+
+done:
+  return CB_SUCCESS;
+}
+
+static int
+gray_c_not_in_a_or_b(const struct cb_term *key_term,
+                     const struct cb_term *value_term,
+                     void                 *closure)
+{
+  Table *table = (Table *)closure;
+  struct cb_term temp_value_term;
+  int ret;
+
+  ret = cb_bst_lookup(thread_cb, table->root_a, key_term, &temp_value_term);
+  if (ret == 0) goto done;
+  ret = cb_bst_lookup(thread_cb, table->root_b, key_term, &temp_value_term);
+  if (ret == 0) goto done;
+
+  grayValue(numToValue(cb_term_get_dbl(key_term)));
+  grayValue(numToValue(cb_term_get_dbl(value_term)));
+
+done:
+  return CB_SUCCESS;
+}
+
+void
+grayTable(Table* table)
+{
+  // Graying the table means that all keys and values of all entries of this
+  // table are marked as "still in use". Everything recursively reachable from
+  // the keys and values will also be marked.
+  //
+  // The original implementation here iterated all slots of the table and
+  // grayed all the keys and all the values.  Empty/tombstone slots were handled
+  // through early-exits of grayObject() and grayValue().  The old
+  // implementation only had ObjString keys.  The new implementation allows
+  // any Value to be used for a key, but is still only used in contexts where
+  // ObjString keys are the only type of keys.
+
+  //Gray every entry in A
+  //Gray every entry in B, unless key is A
+  //Gray every entry in C, unless key is in A or B
+  //CBINT FIXME this probably can be optimized with epochs.
+
+  int ret;
+
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_a,
+                        &gray_a,
+                        table);
+  assert(ret == 0);
+
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_b,
+                        &gray_b_not_in_a,
+                        table);
+  assert(ret == 0);
+
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_c,
+                        &gray_c_not_in_a_or_b,
+                        table);
+  assert(ret == 0);
+
+  (void)ret;
 }

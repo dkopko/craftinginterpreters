@@ -95,6 +95,7 @@ logged_free_array(const char *typeName, ObjID previous, size_t typeSize, size_t 
 
 
 void grayObject(OID<Obj> objectOID);
+void grayValue(Value value);
 void collectGarbage();
 void freeObjects();
 
