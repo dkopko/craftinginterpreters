@@ -312,7 +312,7 @@ tableRemoveWhite(Table *table)  //really removeStringsTableWhiteKeys()
 }
 
 static int
-gray_a(const struct cb_term *key_term,
+gray_entry(const struct cb_term *key_term,
        const struct cb_term *value_term,
        void                 *closure)
 {
@@ -322,84 +322,32 @@ gray_a(const struct cb_term *key_term,
   return CB_SUCCESS;
 }
 
-static int
-gray_b_not_in_a(const struct cb_term *key_term,
-                const struct cb_term *value_term,
-                void                 *closure)
-{
-  Table *table = (Table *)closure;
-  struct cb_term temp_value_term;
-  int ret;
-
-  grayValue(numToValue(cb_term_get_dbl(key_term)));
-
-  ret = cb_bst_lookup(thread_cb, table->root_a, key_term, &temp_value_term);
-  if (ret == 0) goto done;
-
-  grayValue(numToValue(cb_term_get_dbl(value_term)));
-
-done:
-  return CB_SUCCESS;
-}
-
-static int
-gray_c_not_in_a_or_b(const struct cb_term *key_term,
-                     const struct cb_term *value_term,
-                     void                 *closure)
-{
-  Table *table = (Table *)closure;
-  struct cb_term temp_value_term;
-  int ret;
-
-  grayValue(numToValue(cb_term_get_dbl(key_term)));
-
-  ret = cb_bst_lookup(thread_cb, table->root_a, key_term, &temp_value_term);
-  if (ret == 0) goto done;
-  ret = cb_bst_lookup(thread_cb, table->root_b, key_term, &temp_value_term);
-  if (ret == 0) goto done;
-
-  grayValue(numToValue(cb_term_get_dbl(value_term)));
-
-done:
-  return CB_SUCCESS;
-}
-
 void
 grayTable(Table* table)
 {
   // Graying the table means that all keys and values of all entries of this
   // table are marked as "still in use". Everything recursively reachable from
   // the keys and values will also be marked.
-  //
-  // The original implementation here iterated all slots of the table and
-  // grayed all the keys and all the values.  Empty/tombstone slots were handled
-  // through early-exits of grayObject() and grayValue().  The old
-  // implementation only had ObjString keys.  The new implementation allows
-  // any Value to be used for a key, but is still only used in contexts where
-  // ObjString keys are the only type of keys.
 
-  //For every entry in A, gray its key and value.
-  //For every entry in B, gray its key.  Gray its value unless an equal (but perhaps not same!) key is in A.
-  //For every entry in C, gray its key.  Gray its value unless an equal (but perhaps not same!) key is in A or B.
-  //CBINT FIXME this probably can be optimized with epochs.
+  //CBINT FIXME Under the new GC paradigm, this could probably be optimized with epochs.
 
   int ret;
 
   ret = cb_bst_traverse(thread_cb,
                         table->root_a,
-                        &gray_a,
+                        &gray_entry,
                         table);
   assert(ret == 0);
 
   ret = cb_bst_traverse(thread_cb,
                         table->root_b,
-                        &gray_b_not_in_a,
+                        &gray_entry,
                         table);
   assert(ret == 0);
 
   ret = cb_bst_traverse(thread_cb,
                         table->root_c,
-                        &gray_c_not_in_a_or_b,
+                        &gray_entry,
                         table);
   assert(ret == 0);
 
