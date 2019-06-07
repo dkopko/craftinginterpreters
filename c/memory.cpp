@@ -128,11 +128,11 @@ static void grayArray(ValueArray* array) {
   }
 }
 
-static void blackenObject(OID<Obj> objectOID) {
+static void grayObjectLeaves(OID<Obj> objectOID) {
   Obj *object = objectOID.lp();
 
 #ifdef DEBUG_TRACE_GC
-  printf("#%ju blackenObject() ", (uintmax_t)objectOID.id().id);
+  printf("#%ju grayObjectLeaves() ", (uintmax_t)objectOID.id().id);
   printValue(OBJ_VAL(objectOID.id()));
   printf("\n");
 #endif
@@ -278,7 +278,7 @@ void collectGarbage() {
   while (vm.grayCount > 0) {
     // Pop an item from the gray stack.
     OID<Obj> object = vm.grayStack.lp()[--vm.grayCount];
-    blackenObject(object);
+    grayObjectLeaves(object);
   }
 
   // Delete unused interned strings.
