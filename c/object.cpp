@@ -49,7 +49,7 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
 
 #ifdef DEBUG_TRACE_GC
   //printf("%p allocate %ld for %d\n", object, size, type);
-  printf("#%ju %s object was allocated (%ld bytes)\n",
+  printf("#%ju %s object allocated (%ld bytes)\n",
          (uintmax_t)objectOID.id().id,
          objTypeString(type),
          size);

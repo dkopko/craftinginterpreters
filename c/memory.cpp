@@ -32,7 +32,7 @@ ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignmen
     return CB_NULL_OID;
   } else if (newSize < oldSize) {
 #ifdef DEBUG_TRACE_GC
-    // Clobber old values.
+    // Clobber old contents.
     cb_offset_t old_offset = objtable_lookup(&thread_objtable, previous);
     memset(((char *)cb_at(thread_cb, old_offset)) + newSize, '#', oldSize - newSize);
 #endif
@@ -92,13 +92,13 @@ void grayObject(OID<Obj> objectOID) {
                               true);
 
 #ifdef DEBUG_TRACE_GC
-    printf("#%ju OID<Obj>[%zd] array (%zd bytes) resized to #%ju OID<Obj>[%zd] array (%zd bytes)\n",
-           (uintmax_t)oldGrayStackID.id,
-           (size_t)oldGrayCapacity,
-           sizeof(OID<Obj*>) * oldGrayCapacity,
+    printf("#%ju OID<Obj>[%zd] array allocated (%zd bytes) (resized from #%ju OID<Obj>[%zd] array (%zd bytes))\n",
            (uintmax_t)vm.grayStack.id().id,
            (size_t)vm.grayCapacity,
-           sizeof(OID<Obj*>) * vm.grayCapacity);
+           sizeof(OID<Obj*>) * vm.grayCapacity,
+           (uintmax_t)oldGrayStackID.id,
+           (size_t)oldGrayCapacity,
+           sizeof(OID<Obj*>) * oldGrayCapacity);
 #endif
 
   }

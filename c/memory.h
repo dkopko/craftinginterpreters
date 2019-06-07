@@ -62,15 +62,22 @@ logged_grow_array(const char *typeName, ObjID previous, size_t typeSize, size_t 
   ObjID retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment, false);
 
 #ifdef DEBUG_TRACE_GC
-  printf("#%ju %s[%zd] array (%zd bytes) resized to #%ju %s[%zd] array (%zd bytes)\n",
-         (uintmax_t)previous.id,
-         typeName,
-         oldCount,
-         typeSize * oldCount,
+  if (count > oldCount) {
+    printf("#%ju %s[%zd] array freed (-%zd bytes)\n",
+           (uintmax_t)previous.id,
+           typeName,
+           oldCount,
+           typeSize * oldCount);
+  }
+  printf("#%ju %s[%zd] array allocated (%zd bytes) (resized from #%ju %s[%zd] array (%zd bytes))\n",
          (uintmax_t)retval.id,
          typeName,
          count,
-         typeSize * count);
+         typeSize * count,
+         (uintmax_t)previous.id,
+         typeName,
+         oldCount,
+         typeSize * oldCount);
 #endif
 
   return retval;
