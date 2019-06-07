@@ -227,98 +227,88 @@ done:
   return AS_OBJ_ID(internedStringValue);
 }
 
-//CBINT FIXME Redundant
-void
-tableRemoveWhite(Table *table)  //really removeStringsTableWhiteKeys()
+struct delete_white_keys_closure
 {
-  // There are several issues going on here:
-  // 1) This function was only ever used on vm.strings, but was written
-  //    generally.  Should we maintain the general case in the rewrite?
-  // 2) Table deletions were true deletions, whereas tri-table deletions are
-  //    the writing of TOMBSTONEs under the given key (to mask older values in
-  //    the earlier parts of the tri-table).  Therefore, deleted keys cannot
-  //    truly be collected (though their values can be).
-  // 3) Strings are no longer being exclusively interned.  It used to be the
-  //    case that the table was queried directly when interning a given string
-  //    described by a char *.  Now, a temporary ObjString key is generated to
-  //    query the tri-table for the given key when interning, which means that
-  //    for a little while there will be two ObjStrings with the same contents.
-  //    Such temporary ObjStrings may ultimately occur at other times as well.
-  // 4) In the old case, removal of white keys of vm.strings means that these
-  //    strings occur no where in the rest of the state of the VM (or else they
-  //    would have been visited and marked).  If we presume that any new
-  //    occurence of this string would force a new entry into the A table of
-  //    vm.strings, can we get away with just deleting from the A table and
-  //    disregarding any presence in B or C?  Unfortunately, no, as the B and
-  //    C tables need to still be queried at times, and if an entry in these
-  //    tables' structures exists, but the key's memory has been reused, then
-  //    this cannot work.  It would be fine to truly delete from A, but B and
-  //    C cannot be considered modifiable.  This means, in fact, that presence
-  //    of a key in in the B or C table of vm.strings must entail that it gets
-  //    marked as still needed. (Which brings up a side point, which is that
-  //    marking the key Obj itself is a mutation at present, but needs to become
-  //    some external notion of marking.)
+  struct cb        **cb;
+  struct cb_region  *region;
+  cb_offset_t        new_root;
+  cb_offset_t        cutoff_offset;
+};
 
-  // Solution:
-  // 1) Mark all key Objs in vm.strings sub-tables B and C.
-  // 2) Truly delete (don't write TOMBSTONEs) any keys still existing as white
-  //    in sub-table A of vm.strings.
+static int
+delete_white_keys(const struct cb_term *key_term,
+                  const struct cb_term *value_term,
+                  void                 *closure)
+{
+  struct delete_white_keys_closure *c = (struct delete_white_keys_closure *)closure;
+  Value keyValue = numToValue(cb_term_get_dbl(key_term));
+  int ret;
 
-  //The idea is that any entry whose key is white must necessarily have no users
-  //(or else the key would have been visited and marked).  This can only be
-  //true for ObjStrings if they are interned (as they were in the original code,
-  //but are no longer).
+  if (isWhite(keyValue)) {
+    printf("DANDEBUG deleting white key of ");
+    printObject(keyValue);
+    printf("\n");
 
-  //NOTE!! This was only ever used on the vm.strings table in the original
-  // code, meaning that interned strings which were not reached by the garbage
-  // collector during its recursive grayObject()ing would then be automatically
-  // freed.
-  //
-  // The issue with the new tri-table is that when a key gets "removed' from
-  // the tri-table, it is only in a logical sense in that a TOMBSTONE value
-  // gets written to the A subtable indicating "this key does not exist in
-  // this table" and masking off any values which may have otherwise been
-  // found in the deeper B and C layers.  This means that removing a key must
-  // still keep the key physically around, at least until such time as it
-  // is dropped in generation of a C table.
-  //
-  // So really, what we have to do is...
-  //
-  // 1) Mark things that are still doing their job
-  // 1a) Mark every TOMBSTONE'd key in A which exists as a non-TOMBSTONE in B or C.
-  // 1b) Mark every TOMBSTONE'd key in B which exists as a non-TOMBSTONE in C.
-  //
-  // 2) Be careful that strings are longer being interned (and so can exist with
-  // the same contents in separate locations)
-  //    FIXME how to do this?
-  //
-  //   Mark every key in B which is not in A (including TOMBSTONE'd keys).
-  //   Mark every key in C which is not in A or B, unless it's a TOMBSTONE key.
-  //   For every white key in B which exists in A, we can truly delete it (not just TOMBSTONE it) from B.
-  //   For every key in C which exists in A or B, we can truly delete it (not just TOMBSTONE it) from B.
-
-#if 0
-  for (int i = 0; i <= table->capacityMask; i++) {
-    Entry* entry = &table->entries[i];
-    if (entry->key != NULL && !entry->key->obj.isDark) {
-      tableDelete(table, entry->key);
-    }
+    ret = cb_bst_delete(c->cb,
+                        c->region,
+                        &(c->new_root),
+                        c->cutoff_offset,
+                        key_term);
+    assert(ret == 0);
   }
-#endif
 
+  return CB_SUCCESS;
+}
 
+void
+tableRemoveWhite(Table *table)
+{
+  struct delete_white_keys_closure closure = { &thread_cb,
+                                               &thread_region,
+                                               table->root_a,
+                                               cb_cursor(thread_cb) };
+  int ret;
 
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_a,
+                        &delete_white_keys,
+                        &closure);
+  assert(ret == 0);
 
+  table->root_a = closure.new_root;
 }
 
 static int
 gray_entry(const struct cb_term *key_term,
-       const struct cb_term *value_term,
-       void                 *closure)
+           const struct cb_term *value_term,
+           void                 *closure)
 {
   grayValue(numToValue(cb_term_get_dbl(key_term)));
   grayValue(numToValue(cb_term_get_dbl(value_term)));
 
+  return CB_SUCCESS;
+}
+
+static int
+gray_entry_if_in_b_or_c(const struct cb_term *key_term,
+                        const struct cb_term *value_term,
+                        void                 *closure)
+{
+  Table *table = (Table *)closure;
+  struct cb_term temp_value_term;
+  int ret;
+
+  ret = cb_bst_lookup(thread_cb, table->root_b, key_term, &temp_value_term);
+  if (ret == 0) goto do_gray;
+  ret = cb_bst_lookup(thread_cb, table->root_c, key_term, &temp_value_term);
+  if (ret == 0) goto do_gray;
+  goto done;
+
+do_gray:
+  grayValue(numToValue(cb_term_get_dbl(key_term)));
+  grayValue(numToValue(cb_term_get_dbl(value_term)));
+
+done:
   return CB_SUCCESS;
 }
 
@@ -336,19 +326,66 @@ grayTable(Table* table)
   ret = cb_bst_traverse(thread_cb,
                         table->root_a,
                         &gray_entry,
+                        NULL);
+  assert(ret == 0);
+
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_b,
+                        &gray_entry,
+                        NULL);
+  assert(ret == 0);
+
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_c,
+                        &gray_entry,
+                        NULL);
+  assert(ret == 0);
+
+  (void)ret;
+}
+
+void
+grayInterningTable(Table* table)
+{
+  //NOTE: This is a special case needed for a table used for interning, written
+  //  with a nod to generality (i.e. handling TOMBSTONEs, which will never
+  //  truly exist in vm.strings). Using this on vm.strings will probably be the
+  //  only case we ever need.
+  //
+  //  The idea is to mark all "load-bearing" keys.  For table A, this is any key
+  //  which masks an entry in B or C, whether or not this key contains a value
+  //  or a TOMBSTONE. For those keys in A which do not mask entries in B or C,
+  //  then we require reachability from elsewhere in the program state to gray
+  //  this entry, which signifies it is still in use aside from our own use of
+  //  it.  For tables B and C, these tables must remain static in their
+  //  contents, and we must not allow any key or value still existing in the
+  //  table to become invalid, so all keys and values of these tables get
+  //  marked.
+  //
+  // For every entry in A, gray key and value if key is present in B or C.
+  //  (This is needed even if A's entry's value is just a TOMBSTONE which masks
+  //   an entry in B and/or C.)
+  // For every entry in B, gray key and value.
+  // For every entry in C, gray key and value.
+
+  int ret;
+
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_a,
+                        &gray_entry_if_in_b_or_c,
                         table);
   assert(ret == 0);
 
   ret = cb_bst_traverse(thread_cb,
                         table->root_b,
                         &gray_entry,
-                        table);
+                        NULL);
   assert(ret == 0);
 
   ret = cb_bst_traverse(thread_cb,
                         table->root_c,
                         &gray_entry,
-                        table);
+                        NULL);
   assert(ret == 0);
 
   (void)ret;

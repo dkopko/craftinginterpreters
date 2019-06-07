@@ -34,4 +34,6 @@ void tableRemoveWhite(Table* table);
 
 void grayTable(Table* table);
 
+void grayInterningTable(Table* table);
+
 #endif

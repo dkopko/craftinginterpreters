@@ -111,6 +111,17 @@ void grayValue(Value value) {
   grayObject(AS_OBJ_ID(value));
 }
 
+static bool isWhiteObject(OID<Obj> objectOID) {
+  if (objectOID.is_nil()) return true;
+  if (objectOID.lp()->isDark) return false;
+  return true;
+}
+
+bool isWhite(Value value) {
+  if (!IS_OBJ(value)) return true;
+  return isWhiteObject(AS_OBJ_ID(value));
+}
+
 static void grayArray(ValueArray* array) {
   for (int i = 0; i < array->count; i++) {
     grayValue(array->values.lp()[i]);
@@ -258,6 +269,7 @@ void collectGarbage() {
   }
 
   // Mark the global roots.
+  grayInterningTable(&vm.strings);
   grayTable(&vm.globals);
   grayCompilerRoots();
   grayObject(vm.initString.id());
