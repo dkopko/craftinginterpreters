@@ -121,4 +121,29 @@ clox_value_external_size(const struct cb      *cb,
 void
 clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb);
 
+
+
+struct gc_request
+{
+  struct cb_region objtable_new_region;
+  cb_offset_t      objtable_root_b;
+  cb_offset_t      objtable_root_c;
+  //FIXME vm.tristack B & C
+  //FIXME vm.triframes B & C
+  //FIXME openUpvalues??
+  //FIXME vm.strings B & C
+  //FIXME vm.globals B & C
+  //FIXME thread_objtable B & C
+  //FIXME grayCompilerRoots() -- entailed by thread_objtable, right??
+};
+
+struct gc_response
+{
+  cb_offset_t objtable_new_root_c;
+};
+
+int gc_init(void);
+int gc_perform(const struct gc_request *req, struct gc_response *resp);
+
+
 #endif

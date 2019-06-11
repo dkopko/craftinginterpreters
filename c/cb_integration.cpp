@@ -429,3 +429,38 @@ clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb)
   fprintf(stderr, "~~~~~~~~~~~~UNIMPLEMENTED (SORRY) ~~~~~~~~~~~\n");
   abort();
 }
+
+
+struct gc_state
+{
+  struct cb   *scratch_cb;
+  cb_offset_t  visited_set_root;
+  cb_offset_t  to_be_visited_root;
+};
+static struct gc_state gc_state;
+
+int
+gc_init(void)
+{
+  struct cb_params cb_params = CB_PARAMS_DEFAULT;
+
+  cb_params.ring_size = 8388608;
+  cb_params.mmap_flags &= ~MAP_ANONYMOUS;
+  cb_params.on_resize = &clox_on_cb_resize;
+  strncpy(cb_params.filename_prefix, "gc", sizeof(cb_params.filename_prefix));
+  gc_state.scratch_cb = cb_create(&cb_params, sizeof(cb_params));
+  if (!gc_state.scratch_cb) {
+    fprintf(stderr, "Could not create GC's scratch continuous buffer. \n");
+    return -1;
+  }
+
+  gc_state.visited_set_root = CB_BST_SENTINEL;
+  gc_state.to_be_visited_root = CB_BST_SENTINEL;
+  return 0;
+}
+
+int
+gc_perform(const struct gc_request *req, struct gc_response *resp)
+{
+  return 0;
+}

@@ -1,4 +1,6 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -246,7 +248,36 @@ static void freeObject(OID<Obj> object) {
   }
 }
 
+void collectGarbageCB() {
+#ifdef DEBUG_TRACE_GC
+  printf("-- BEGIN CB GC\n");
+#endif
+
+  struct gc_request req;
+  struct gc_response resp;
+  int ret;
+
+  memset(&req, 0, sizeof(req));
+  memset(&resp, 0, sizeof(resp));
+
+  //FIXME prepare request contents
+
+
+  ret = gc_perform(&req, &resp);
+  if (ret != 0) {
+    fprintf(stderr, "Failed to GC via CB.\n");
+  }
+  assert(ret == 0);
+
+  //FIXME integrate response contents
+
+#ifdef DEBUG_TRACE_GC
+  printf("-- END CB GC\n");
+#endif
+}
+
 void collectGarbage() {
+  collectGarbageCB();
 #ifdef DEBUG_TRACE_GC
   printf("-- gc begin\n");
   size_t before = vm.bytesAllocated;

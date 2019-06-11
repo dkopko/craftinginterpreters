@@ -121,6 +121,13 @@ int main(int argc, const char* argv[]) {
       return EXIT_FAILURE;
   }
 
+  /* Initialize CB-based GC. */
+  ret = gc_init();
+  if (ret != 0) {
+      fprintf(stderr, "Could not create GC structures.\n");
+      return EXIT_FAILURE;
+  }
+
 //> A Virtual Machine main-init-vm
   initVM();
 
