@@ -255,6 +255,7 @@ delete_white_keys(const struct cb_term *key_term,
                         c->cutoff_offset,
                         key_term);
     assert(ret == 0);
+    (void)ret;
   }
 
   return CB_SUCCESS;
@@ -274,6 +275,7 @@ tableRemoveWhite(Table *table)
                         &delete_white_keys,
                         &closure);
   assert(ret == 0);
+  (void)ret;
 
   table->root_a = closure.new_root;
 }
