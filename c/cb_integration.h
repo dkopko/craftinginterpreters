@@ -144,7 +144,7 @@ struct gc_response
 };
 
 int gc_init(void);
-int gc_perform(const struct gc_request *req, struct gc_response *resp);
+int gc_perform(struct gc_request *req, struct gc_response *resp);
 
 
 #endif
