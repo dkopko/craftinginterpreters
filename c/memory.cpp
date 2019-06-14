@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <cb_bst.h>
+#include <cb_region.h>
+
 #include "common.h"
 #include "compiler.h"
 #include "memory.h"
@@ -261,7 +264,20 @@ void collectGarbageCB() {
   memset(&resp, 0, sizeof(resp));
 
   //FIXME prepare request contents
-
+  req.orig_cb = thread_cb;
+  size_t objtable_b_size = cb_bst_size(thread_cb, thread_objtable.root_b);
+  size_t objtable_c_size = cb_bst_size(thread_cb, thread_objtable.root_c);
+  printf("DANDEBUG objtable_b_size: %zd, objtable_c_size: %zd\n",
+         objtable_b_size, objtable_c_size);
+  ret = cb_region_create(&thread_cb,
+                         &req.objtable_new_region,
+                         64 /* FIXME cacheline size */,
+                         objtable_b_size + objtable_c_size,
+                         CB_REGION_FINAL); //FIXME CB_REGION_REVERSED  brken here
+  printf("DANDEBUG cb_region_create(): %d\n", ret);
+  assert(ret == 0);
+  req.objtable_root_b = thread_objtable.root_b;
+  req.objtable_root_c = thread_objtable.root_c;
 
   ret = gc_perform(&req, &resp);
   if (ret != 0) {
@@ -270,6 +286,12 @@ void collectGarbageCB() {
   assert(ret == 0);
 
   //FIXME integrate response contents
+  printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)resp.objtable_new_root_c);
+  thread_objtable.root_c = resp.objtable_new_root_c;
+  printf("DANDEBUG objtable B %ju -> %ju\n", (uintmax_t)thread_objtable.root_b, (uintmax_t)thread_objtable.root_a);
+  thread_objtable.root_b = thread_objtable.root_a;
+  printf("DANDEBUG objtable A %ju -> %ju\n", (uintmax_t)thread_objtable.root_a, (uintmax_t)CB_BST_SENTINEL);
+  thread_objtable.root_a = CB_BST_SENTINEL;
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC\n");

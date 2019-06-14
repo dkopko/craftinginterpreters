@@ -125,9 +125,10 @@ clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb);
 
 struct gc_request
 {
-  struct cb_region objtable_new_region;
-  cb_offset_t      objtable_root_b;
-  cb_offset_t      objtable_root_c;
+  struct cb        *orig_cb;
+  struct cb_region  objtable_new_region;
+  cb_offset_t       objtable_root_b;
+  cb_offset_t       objtable_root_c;
   //FIXME vm.tristack B & C
   //FIXME vm.triframes B & C
   //FIXME openUpvalues??

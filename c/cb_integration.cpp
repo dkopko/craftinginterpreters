@@ -459,8 +459,107 @@ gc_init(void)
   return 0;
 }
 
+struct copy_objtable_closure
+{
+  struct cb        *dest_cb;
+  struct cb_region  dest_region;
+  cb_offset_t       old_root_b;
+  cb_offset_t       old_root_c;
+  cb_offset_t      *new_root_c;
+};
+
+static int
+copy_objtable_b(const struct cb_term *key_term,
+                const struct cb_term *value_term,
+                void                 *closure)
+{
+  struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
+  //Value key = numToValue(cb_term_get_dbl(key_term));
+  Value value = numToValue(cb_term_get_dbl(value_term));
+  int ret;
+
+  //Skip TOMBSTONES.
+  if (value.val == TOMBSTONE_VAL.val)
+    return 0;
+
+  printf("ACTUALINSERT1 (cutoff_offset: %ju)\n",
+         (uintmax_t)cb_region_start(&(cl->dest_region)));
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      &(cl->dest_region),
+                      cl->new_root_c,
+                      //cb_region_end(&(cl->dest_region)),  //NOTE: full contents are mutable
+                      cb_region_start(&(cl->dest_region)),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+
+  (void)ret;
+  return 0;
+}
+
+static int
+copy_objtable_c_not_in_b(const struct cb_term *key_term,
+                         const struct cb_term *value_term,
+                         void                 *closure)
+{
+  struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
+  //Value key = numToValue(cb_term_get_dbl(key_term));
+  //Value value = numToValue(cb_term_get_dbl(value_term));
+  struct cb_term temp_term;
+  int ret;
+
+  //Skip keys of B.
+  if (cb_bst_lookup(cl->dest_cb, cl->old_root_b, key_term, &temp_term) == 0)
+    return 0;
+
+  printf("ACTUALINSERT2 (cutoff_offset: %ju)\n",
+         (uintmax_t)cb_region_start(&(cl->dest_region)));
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      &(cl->dest_region),
+                      cl->new_root_c,
+                      //cb_region_end(&(cl->dest_region)),  //NOTE: full contents are mutable
+                      cb_region_start(&(cl->dest_region)),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+
+  (void)ret;
+  return 0;
+}
+
 int
 gc_perform(const struct gc_request *req, struct gc_response *resp)
 {
+  int ret;
+
+  (void)ret;
+
+  {
+    struct copy_objtable_closure closure;
+
+    closure.dest_cb     = req->orig_cb;
+    closure.dest_region = req->objtable_new_region;
+    closure.old_root_b  = req->objtable_root_b;
+    closure.old_root_c  = req->objtable_root_c;
+    closure.new_root_c  = &(resp->objtable_new_root_c);
+
+    resp->objtable_new_root_c = CB_BST_SENTINEL;
+
+    ret = cb_bst_traverse(req->orig_cb,
+                          req->objtable_root_b,
+                          copy_objtable_b,
+                          &closure);
+    printf("DANDEBUG done with copy_objtable_c()\n");
+    assert(ret == 0);
+
+    ret = cb_bst_traverse(req->orig_cb,
+                          req->objtable_root_c,
+                          copy_objtable_c_not_in_b,
+                          &closure);
+    printf("DANDEBUG done with copy_objtable_c_not_in_b()\n");
+    assert(ret == 0);
+  }
+
+
   return 0;
 }
