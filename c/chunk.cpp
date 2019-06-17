@@ -15,9 +15,9 @@
 void initChunk(Chunk* chunk) {
   chunk->count = 0;
   chunk->capacity = 0;
-  chunk->code = CB_NULL_OID;
+  chunk->code = CB_NULL;
 //> chunk-null-lines
-  chunk->lines = CB_NULL_OID;
+  chunk->lines = CB_NULL;
 //< chunk-null-lines
 //> chunk-init-constant-array
   initValueArray(&chunk->constants);
@@ -25,9 +25,9 @@ void initChunk(Chunk* chunk) {
 }
 //> free-chunk
 void freeChunk(Chunk* chunk) {
-  FREE_ARRAY(uint8_t, chunk->code.id(), chunk->capacity);
+  FREE_ARRAY(uint8_t, chunk->code.o(), chunk->capacity);
 //> chunk-free-lines
-  FREE_ARRAY(int, chunk->lines.id(), chunk->capacity);
+  FREE_ARRAY(int, chunk->lines.o(), chunk->capacity);
 //< chunk-free-lines
 //> chunk-free-constants
   freeValueArray(&chunk->constants);
@@ -45,10 +45,10 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
   if (chunk->capacity < chunk->count + 1) {
     int oldCapacity = chunk->capacity;
     chunk->capacity = GROW_CAPACITY(oldCapacity);
-    chunk->code = GROW_ARRAY(chunk->code.id(), uint8_t,
+    chunk->code = GROW_ARRAY(chunk->code.o(), uint8_t,
         oldCapacity, chunk->capacity);
 //> write-chunk-line
-    chunk->lines = GROW_ARRAY(chunk->lines.id(), int,
+    chunk->lines = GROW_ARRAY(chunk->lines.o(), int,
         oldCapacity, chunk->capacity);
 //< write-chunk-line
   }

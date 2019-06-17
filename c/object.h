@@ -122,7 +122,7 @@ typedef struct {
 struct sObjString {
   Obj obj;
   int length;
-  OID<char> chars; // char[]
+  CBO<char> chars; // char[]
 //> Hash Tables obj-string-hash
   uint32_t hash;
 //< Hash Tables obj-string-hash
@@ -150,7 +150,7 @@ typedef struct sUpvalue {
 typedef struct {
   Obj obj;
   OID<ObjFunction> function;
-  OID<OID<ObjUpvalue> > upvalues;  //pointer to ObjUpvalue[] (used to be type ObjUpvalue**).
+  CBO<OID<ObjUpvalue> > upvalues;  //pointer to ObjUpvalue[] (used to be type ObjUpvalue**).
   int upvalueCount;
 } ObjClosure;
 //< Closures not-yet
@@ -203,7 +203,7 @@ OID<ObjNative> newNative(NativeFn function);
 //< Calls and Functions not-yet
 OID<ObjString> rawAllocateString(const char* chars, int length);
 //> take-string-h
-OID<ObjString> takeString(OID<char> /*char[]*/ chars, int length);
+OID<ObjString> takeString(CBO<char> /*char[]*/ chars, int length);
 //< take-string-h
 //> copy-string-h
 OID<ObjString> copyString(const char* chars, int length);

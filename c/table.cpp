@@ -206,23 +206,23 @@ tableFindString(Table      *table,
 
 done:
   if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)).val == TOMBSTONE_VAL.val) {
-    printf("DANDEBUG %p tableFindString string#%ju\"%s\"#%ju -> NOT FOUND\n",
+    printf("DANDEBUG %p tableFindString string#%ju\"%s\"@%ju -> NOT FOUND\n",
            table,
            (uintmax_t)lookupStringOID.id().id,
            lookupStringOID.lp()->chars.lp(),
-           lookupStringOID.lp()->chars.id().id);
+           (uintmax_t)lookupStringOID.lp()->chars.o());
     return CB_NULL_OID;
   }
 
   internedStringValue = numToValue(cb_term_get_dbl(&value_term));
-  printf("DANDEBUG %p tableFindString string#%ju\"%s\"#%ju -> string#%ju\"%s\"#%ju\n",
+  printf("DANDEBUG %p tableFindString string#%ju\"%s\"@%ju -> string#%ju\"%s\"@%ju\n",
       table,
       (uintmax_t)lookupStringOID.id().id,
       lookupStringOID.lp()->chars.lp(),
-      (uintmax_t)lookupStringOID.lp()->chars.id().id,
+      (uintmax_t)lookupStringOID.lp()->chars.o(),
       (uintmax_t)AS_OBJ_ID(internedStringValue).id,
       ((ObjString*)AS_OBJ(internedStringValue))->chars.lp(),
-      (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.id().id);
+      (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.o());
 
   return AS_OBJ_ID(internedStringValue);
 }

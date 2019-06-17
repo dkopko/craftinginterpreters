@@ -17,7 +17,7 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
-ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc) {
+cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc) {
   vm.bytesAllocated += newSize - oldSize;
 
   if (!suppress_gc) {
@@ -33,17 +33,14 @@ ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignmen
   }
 
   if (newSize == 0) {
-    objtable_invalidate(&thread_objtable, previous);
-    return CB_NULL_OID;
+    return CB_NULL;
   } else if (newSize < oldSize) {
 #ifdef DEBUG_TRACE_GC
     // Clobber old contents.
-    cb_offset_t old_offset = objtable_lookup(&thread_objtable, previous);
-    memset(((char *)cb_at(thread_cb, old_offset)) + newSize, '#', oldSize - newSize);
+    memset(((char *)cb_at(thread_cb, previous)) + newSize, '#', oldSize - newSize);
 #endif
     return previous;
   } else {
-    cb_offset_t old_offset = objtable_lookup(&thread_objtable, previous);
     cb_offset_t new_offset;
     int ret;
 
@@ -53,7 +50,7 @@ ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignmen
                              alignment,
                              newSize);
     if (ret != CB_SUCCESS) {
-      return CB_NULL_OID;
+      return CB_NULL;
     }
 
     //Q: Should we keep the ObjID the same over reallocation?
@@ -61,13 +58,12 @@ ObjID reallocate(ObjID previous, size_t oldSize, size_t newSize, size_t alignmen
     // offset (or earlier API than that, pointer).  Although it may work to
     // leave the ObjID the same, this may gloss over errors elsewhere, so we
     // force it to change for the sake of provoking any such errors.
-    memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, old_offset), oldSize);
+    memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, previous), oldSize);
 #ifdef DEBUG_TRACE_GC
     // Clobber old values.
-    memset(cb_at(thread_cb, old_offset), '!', oldSize);
+    memset(cb_at(thread_cb, previous), '!', oldSize);
 #endif
-    objtable_invalidate(&thread_objtable, previous);
-    return objtable_add(&thread_objtable, new_offset);
+    return new_offset;
   }
 }
 
@@ -87,21 +83,21 @@ void grayObject(OID<Obj> objectOID) {
 
   if (vm.grayCapacity < vm.grayCount + 1) {
     int oldGrayCapacity = vm.grayCapacity;
-    ObjID oldGrayStackID = vm.grayStack.id();
+    cb_offset_t oldGrayStackOffset = vm.grayStack.o();
     vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
 
-    vm.grayStack = reallocate(oldGrayStackID,
+    vm.grayStack = reallocate(oldGrayStackOffset,
                               sizeof(OID<Obj>) * oldGrayCapacity,
                               sizeof(OID<Obj>) * vm.grayCapacity,
                               cb_alignof(OID<Obj>),
                               true);
 
 #ifdef DEBUG_TRACE_GC
-    printf("#%ju OID<Obj>[%zd] array allocated (%zd bytes) (resized from #%ju OID<Obj>[%zd] array (%zd bytes))\n",
-           (uintmax_t)vm.grayStack.id().id,
+    printf("@%ju OID<Obj>[%zd] array allocated (%zd bytes) (resized from @%ju OID<Obj>[%zd] array (%zd bytes))\n",
+           (uintmax_t)vm.grayStack.o(),
            (size_t)vm.grayCapacity,
            sizeof(OID<Obj*>) * vm.grayCapacity,
-           (uintmax_t)oldGrayStackID.id,
+           (uintmax_t)oldGrayStackOffset,
            (size_t)oldGrayCapacity,
            sizeof(OID<Obj*>) * oldGrayCapacity);
 #endif
@@ -202,53 +198,55 @@ static void freeObject(OID<Obj> object) {
 
   switch (object.lp()->type) {
     case OBJ_BOUND_METHOD:
-      FREE(ObjBoundMethod, object.id());
+      FREE(ObjBoundMethod, object.o());
       break;
 
     case OBJ_CLASS: {
       ObjClass* klass = (ObjClass*)object.lp();
       freeTable(&klass->methods);
-      FREE(ObjClass, object.id());
+      FREE(ObjClass, object.o());
       break;
     }
 
     case OBJ_CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object.lp();
-      FREE_ARRAY(Value, closure->upvalues.id(), closure->upvalueCount);
-      FREE(ObjClosure, object.id());
+      FREE_ARRAY(Value, closure->upvalues.o(), closure->upvalueCount);
+      FREE(ObjClosure, object.o());
       break;
     }
 
     case OBJ_FUNCTION: {
       ObjFunction* function = (ObjFunction*)object.lp();
       freeChunk(&function->chunk);
-      FREE(ObjFunction, object.id());
+      FREE(ObjFunction, object.o());
       break;
     }
 
     case OBJ_INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object.lp();
       freeTable(&instance->fields);
-      FREE(ObjInstance, object.id());
+      FREE(ObjInstance, object.o());
       break;
     }
 
     case OBJ_NATIVE:
-      FREE(ObjNative, object.id());
+      FREE(ObjNative, object.o());
       break;
 
     case OBJ_STRING: {
       ObjString* string = (ObjString*)object.lp();
-      FREE_ARRAY(char, string->chars.id(), string->length + 1);
-      string->chars = CB_NULL_OID;
-      FREE(ObjString, object.id());
+      FREE_ARRAY(char, string->chars.o(), string->length + 1);
+      string->chars = CB_NULL;
+      FREE(ObjString, object.o());
       break;
     }
 
     case OBJ_UPVALUE:
-      FREE(ObjUpvalue, object.id());
+      FREE(ObjUpvalue, object.o());
       break;
   }
+
+  objtable_invalidate(&thread_objtable, object.id());
 }
 
 void collectGarbageCB() {
@@ -374,17 +372,17 @@ void freeObjects() {
     object = next;
   }
 
-  ObjID oldGrayStackID = vm.grayStack.id();
+  cb_offset_t oldGrayStackOffset = vm.grayStack.o();
   int oldGrayCapacity = vm.grayCapacity;
-  vm.grayStack = reallocate(oldGrayStackID,
+  vm.grayStack = reallocate(oldGrayStackOffset,
                             sizeof(OID<Obj>) * oldGrayCapacity,
                             0,
                             cb_alignof(OID<Obj>),
                             true);
 
 #ifdef DEBUG_TRACE_GC
-    printf("#%ju OID<Obj>[%zd] (grayStack) array freed (%zd bytes)\n",
-           (uintmax_t)oldGrayStackID.id,
+    printf("@%ju OID<Obj>[%zd] (grayStack) array freed (%zd bytes)\n",
+           (uintmax_t)oldGrayStackOffset,
            (size_t)oldGrayCapacity,
            sizeof(OID<Obj*>) * oldGrayCapacity);
 #endif

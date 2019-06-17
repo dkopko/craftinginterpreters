@@ -34,8 +34,10 @@ objTypeString(ObjType objType)
 }
 
 static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
-  OID<Obj> objectOID = reallocate(CB_NULL_OID, 0, size, alignment, false);
-  Obj* object = objectOID.lp();
+  CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size, alignment, false);
+  OID<Obj> objectOID = objtable_add(&thread_objtable, objectCBO.o());
+
+  Obj* object = objectCBO.lp();
   object->type = type;
 //> Garbage Collection not-yet
   object->isDark = false;
@@ -96,8 +98,8 @@ OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
 OID<ObjClosure> newClosure(OID<ObjFunction> function) {
   // Allocate the upvalue array first so it doesn't cause the closure
   // to get collected.
-  OID<OID<ObjUpvalue> > upvaluesOID = ALLOCATE(OID<ObjUpvalue>, function.lp()->upvalueCount);
-  OID<ObjUpvalue>* upvalues = upvaluesOID.lp();
+  CBO<OID<ObjUpvalue> > upvaluesCBO = ALLOCATE(OID<ObjUpvalue>, function.lp()->upvalueCount);
+  OID<ObjUpvalue>* upvalues = upvaluesCBO.lp();
   for (int i = 0; i < function.lp()->upvalueCount; i++) {
     upvalues[i] = CB_NULL_OID;
   }
@@ -105,7 +107,7 @@ OID<ObjClosure> newClosure(OID<ObjFunction> function) {
   OID<ObjClosure> closureOID = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
   ObjClosure* closure = closureOID.lp();
   closure->function = function;
-  closure->upvalues = upvaluesOID;
+  closure->upvalues = upvaluesCBO;
   closure->upvalueCount = function.lp()->upvalueCount;
   return closureOID;
 }
@@ -150,7 +152,7 @@ static ObjString* allocateXString(char* chars, int length) {
 */
 //> allocate-string
 //> Hash Tables allocate-string
-static OID<ObjString> allocateString(OID<char> adoptedChars, int length,
+static OID<ObjString> allocateString(CBO<char> adoptedChars, int length,
                                      uint32_t hash) {
 //< Hash Tables allocate-string
   OID<ObjString> stringOID = ALLOCATE_OBJ(ObjString, OBJ_STRING);
@@ -166,11 +168,11 @@ static OID<ObjString> allocateString(OID<char> adoptedChars, int length,
   push(stringValue);
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  printf("DANDEBUG interned string#%ju\"%.*s\"#%ju\n",
+  printf("DANDEBUG interned string#%ju\"%.*s\"@%ju\n",
          (uintmax_t)stringOID.id().id,
          length,
          adoptedChars.lp(),
-         adoptedChars.id().id);
+         (uintmax_t)adoptedChars.o());
   tableSet(&vm.strings, stringValue, stringValue);
 //> Garbage Collection not-yet
   pop();
@@ -197,27 +199,27 @@ static uint32_t hashString(const char* key, int length) {
 OID<ObjString> rawAllocateString(const char* chars, int length) {
   uint32_t hash = hashString(chars, length);
 
-  OID<char> heapCharsOID = ALLOCATE(char, length + 1);
-  char* heapChars = heapCharsOID.lp();
+  CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);
+  char* heapChars = heapCharsCBO.lp();
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
 
   OID<ObjString> stringOID = ALLOCATE_OBJ(ObjString, OBJ_STRING);
   ObjString* string = stringOID.lp();
   string->length = length;
-  string->chars = heapCharsOID;
+  string->chars = heapCharsCBO;
   string->hash = hash;
 
-  printf("DANDEBUG rawAllocateString() created new string#%ju\"%s\"#%ju\n",
+  printf("DANDEBUG rawAllocateString() created new string#%ju\"%s\"@%ju\n",
          (uintmax_t)stringOID.id().id,
          heapChars,
-         (uintmax_t)heapCharsOID.id().id);
+         (uintmax_t)heapCharsCBO.o());
 
   return stringOID;
 }
 
 //> take-string
-OID<ObjString> takeString(OID<char> /*char[]*/ adoptedChars, int length) {
+OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
 /* Strings take-string < Hash Tables take-string-hash
   return allocateXString(chars, length);
 */
@@ -227,21 +229,21 @@ OID<ObjString> takeString(OID<char> /*char[]*/ adoptedChars, int length) {
   OID<ObjString> internedOID = tableFindString(&vm.strings, adoptedChars.lp(), length,
                                                 hash);
   if (!internedOID.is_nil()) {
-    FREE_ARRAY(char, adoptedChars.id(), length + 1);
-    printf("DANDEBUG takeString() interned rawchars\"%.*s\"(%ju) to string#%ju\"%s\"#%ju\n",
+    FREE_ARRAY(char, adoptedChars.o(), length + 1);
+    printf("DANDEBUG takeString() interned rawchars\"%.*s\"(@%ju) to string#%ju\"%s\"@%ju\n",
            length,
            adoptedChars.lp(),
-           (uintmax_t)adoptedChars.id().id,
+           (uintmax_t)adoptedChars.o(),
            (uintmax_t)internedOID.id().id,
            internedOID.lp()->chars.lp(),
-           internedOID.lp()->chars.id().id);
+           (uintmax_t)internedOID.lp()->chars.o());
     return internedOID;
   }
 
-    printf("DANDEBUG takeString() could not find interned string for rawchars\"%.*s\"(%ju)\n",
+    printf("DANDEBUG takeString() could not find interned string for rawchars\"%.*s\"(@%ju)\n",
            length,
            adoptedChars.lp(),
-           (uintmax_t)adoptedChars.id().id);
+           (uintmax_t)adoptedChars.o());
 //< take-string-intern
   return allocateString(adoptedChars, length, hash);
 //< Hash Tables take-string-hash
@@ -255,12 +257,12 @@ OID<ObjString> copyString(const char* chars, int length) {
   OID<ObjString> internedOID = tableFindString(&vm.strings, chars, length,
                                                hash);
   if (!internedOID.is_nil()) {
-    printf("DANDEBUG copyString() interned C-string \"%.*s\" to string#%ju\"%s\"#%ju\n",
+    printf("DANDEBUG copyString() interned C-string \"%.*s\" to string#%ju\"%s\"@%ju\n",
            length,
            chars,
            (uintmax_t)internedOID.id().id,
            internedOID.lp()->chars.lp(),
-           internedOID.lp()->chars.id().id);
+           (uintmax_t)internedOID.lp()->chars.o());
     return internedOID;
   }
 //< copy-string-intern
@@ -269,8 +271,8 @@ OID<ObjString> copyString(const char* chars, int length) {
          length, chars);
 
 //< Hash Tables copy-string-hash
-  OID<char> heapCharsOID = ALLOCATE(char, length + 1);
-  char* heapChars = heapCharsOID.lp();
+  CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);
+  char* heapChars = heapCharsCBO.lp();
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
 
@@ -278,7 +280,7 @@ OID<ObjString> copyString(const char* chars, int length) {
   return allocateXString(heapChars, length);
 */
 //> Hash Tables copy-string-allocate
-  return allocateString(heapCharsOID, length, hash);
+  return allocateString(heapCharsCBO, length, hash);
 //< Hash Tables copy-string-allocate
 }
 //> Closures not-yet

@@ -145,7 +145,7 @@ typedef struct {
 typedef struct {
   int capacity;
   int count;
-  OID<Value> values;
+  CBO<Value> values;
 } ValueArray;
 //< value-array
 //> array-fns-h

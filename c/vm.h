@@ -108,7 +108,7 @@ typedef struct {
 //> Garbage Collection not-yet
   int grayCount;
   int grayCapacity;
-  OID<OID<Obj> >  grayStack;
+  CBO<OID<Obj> >  grayStack;
 //< Garbage Collection not-yet
 } VM;
 

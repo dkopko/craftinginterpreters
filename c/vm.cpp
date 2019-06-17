@@ -306,7 +306,7 @@ void initVM() {
 
   vm.grayCount = 0;
   vm.grayCapacity = 0;
-  vm.grayStack = CB_NULL_OID;
+  vm.grayStack = CB_NULL;
 //< Garbage Collection not-yet
 //> Global Variables init-globals
 
@@ -633,7 +633,7 @@ static void concatenate() {
 //< Garbage Collection not-yet
 
   int length = a.lp()->length + b.lp()->length;
-  OID<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
+  CBO<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
   memcpy(chars.lp(), a.lp()->chars.lp(), a.lp()->length);
   memcpy(chars.lp() + a.lp()->length, b.lp()->chars.lp(), b.lp()->length);
   chars.lp()[length] = '\0';
