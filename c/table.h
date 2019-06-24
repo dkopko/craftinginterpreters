@@ -17,13 +17,13 @@ void initTable(Table                *table,
 
 void freeTable(Table *table);
 
-bool tableGet(Table *table, Value key, Value *value);
+bool tableGet(const Table *table, Value key, Value *value);
 
 bool tableSet(Table *table, Value key, Value value);
 
 bool tableDelete(Table *table, Value key);
 
-void tableAddAll(Table *from, Table *to);
+void tableAddAll(const Table *from, Table *to);
 
 OID<ObjString> tableFindString(Table      *table,
                                const char *chars,

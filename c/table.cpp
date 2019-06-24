@@ -52,9 +52,9 @@ freeTable(Table* table)
 }
 
 bool
-tableGet(Table *table,
-         Value  key,
-         Value *value)
+tableGet(const Table *table,
+         Value        key,
+         Value       *value)
 {
   struct cb_term key_term;
   struct cb_term value_term;
@@ -127,8 +127,8 @@ tableDelete(Table *table,
 
 struct TraversalAddClosure
 {
-  Table *src;
-  Table *dest;
+  const Table *src;
+  Table       *dest;
 };
 
 static int
@@ -155,8 +155,8 @@ traversalAdd(const struct cb_term *key_term,
 }
 
 void
-tableAddAll(Table *from,
-            Table* to)
+tableAddAll(const Table *from,
+            Table       *to)
 {
   TraversalAddClosure taclosure = { from, to };
   int ret;
@@ -209,8 +209,8 @@ done:
     printf("DANDEBUG %p tableFindString string#%ju\"%s\"@%ju -> NOT FOUND\n",
            table,
            (uintmax_t)lookupStringOID.id().id,
-           lookupStringOID.lp()->chars.lp(),
-           (uintmax_t)lookupStringOID.lp()->chars.o());
+           lookupStringOID.clip()->chars.clp(),
+           (uintmax_t)lookupStringOID.clip()->chars.o());
     return CB_NULL_OID;
   }
 
@@ -218,10 +218,10 @@ done:
   printf("DANDEBUG %p tableFindString string#%ju\"%s\"@%ju -> string#%ju\"%s\"@%ju\n",
       table,
       (uintmax_t)lookupStringOID.id().id,
-      lookupStringOID.lp()->chars.lp(),
-      (uintmax_t)lookupStringOID.lp()->chars.o(),
+      lookupStringOID.clip()->chars.clp(),
+      (uintmax_t)lookupStringOID.clip()->chars.o(),
       (uintmax_t)AS_OBJ_ID(internedStringValue).id,
-      ((ObjString*)AS_OBJ(internedStringValue))->chars.lp(),
+      ((ObjString*)AS_OBJ(internedStringValue))->chars.clp(),
       (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.o());
 
   return AS_OBJ_ID(internedStringValue);

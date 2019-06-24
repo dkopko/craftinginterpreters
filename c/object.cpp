@@ -37,7 +37,7 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
   CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size, alignment, false);
   OID<Obj> objectOID = objtable_add(&thread_objtable, objectCBO.o());
 
-  Obj* object = objectCBO.lp();
+  Obj* object = objectCBO.mlp();
   object->type = type;
 //> Garbage Collection not-yet
   object->isDark = false;
@@ -66,7 +66,7 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
 OID<ObjBoundMethod> newBoundMethod(Value receiver, OID<ObjClosure> method) {
   OID<ObjBoundMethod> boundOID = ALLOCATE_OBJ(ObjBoundMethod,
                                        OBJ_BOUND_METHOD);
-  ObjBoundMethod* bound = boundOID.lp();
+  ObjBoundMethod* bound = boundOID.mlip();
 
   bound->receiver = receiver;
   bound->method = method;
@@ -82,7 +82,7 @@ ObjClass* newClass(ObjString* name) {
 OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
 //< Superclasses not-yet
   OID<ObjClass> klassOID = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
-  ObjClass* klass = klassOID.lp();
+  ObjClass* klass = klassOID.mlip();
   klass->name = name;
 //> Superclasses not-yet
   klass->superclass = superclass;
@@ -98,17 +98,17 @@ OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
 OID<ObjClosure> newClosure(OID<ObjFunction> function) {
   // Allocate the upvalue array first so it doesn't cause the closure
   // to get collected.
-  CBO<OID<ObjUpvalue> > upvaluesCBO = ALLOCATE(OID<ObjUpvalue>, function.lp()->upvalueCount);
-  OID<ObjUpvalue>* upvalues = upvaluesCBO.lp();
-  for (int i = 0; i < function.lp()->upvalueCount; i++) {
+  CBO<OID<ObjUpvalue> > upvaluesCBO = ALLOCATE(OID<ObjUpvalue>, function.clip()->upvalueCount);
+  OID<ObjUpvalue>* upvalues = upvaluesCBO.mlp();
+  for (int i = 0; i < function.clip()->upvalueCount; i++) {
     upvalues[i] = CB_NULL_OID;
   }
 
   OID<ObjClosure> closureOID = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
-  ObjClosure* closure = closureOID.lp();
+  ObjClosure* closure = closureOID.mlip();
   closure->function = function;
   closure->upvalues = upvaluesCBO;
-  closure->upvalueCount = function.lp()->upvalueCount;
+  closure->upvalueCount = function.clip()->upvalueCount;
   return closureOID;
 }
 //< Closures not-yet
@@ -116,7 +116,7 @@ OID<ObjClosure> newClosure(OID<ObjFunction> function) {
 
 OID<ObjFunction> newFunction() {
   OID<ObjFunction> functionOID = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
-  ObjFunction* function = functionOID.lp();
+  ObjFunction* function = functionOID.mlip();
 
   function->arity = 0;
 //> Closures not-yet
@@ -131,7 +131,7 @@ OID<ObjFunction> newFunction() {
 
 OID<ObjInstance> newInstance(OID<ObjClass> klass) {
   OID<ObjInstance> instanceOID = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
-  ObjInstance* instance = instanceOID.lp();
+  ObjInstance* instance = instanceOID.mlip();
   instance->klass = klass;
   initTable(&instance->fields, &clox_value_shallow_comparator, &clox_value_render);
   return instanceOID;
@@ -141,7 +141,7 @@ OID<ObjInstance> newInstance(OID<ObjClass> klass) {
 
 OID<ObjNative> newNative(NativeFn function) {
   OID<ObjNative> nativeOID = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
-  ObjNative* native = nativeOID.lp();
+  ObjNative* native = nativeOID.mlip();
   native->function = function;
   return nativeOID;
 }
@@ -156,7 +156,7 @@ static OID<ObjString> allocateString(CBO<char> adoptedChars, int length,
                                      uint32_t hash) {
 //< Hash Tables allocate-string
   OID<ObjString> stringOID = ALLOCATE_OBJ(ObjString, OBJ_STRING);
-  ObjString* string = stringOID.lp();
+  ObjString* string = stringOID.mlip();
   string->length = length;
   string->chars = adoptedChars;
 //> Hash Tables allocate-store-hash
@@ -171,7 +171,7 @@ static OID<ObjString> allocateString(CBO<char> adoptedChars, int length,
   printf("DANDEBUG interned string#%ju\"%.*s\"@%ju\n",
          (uintmax_t)stringOID.id().id,
          length,
-         adoptedChars.lp(),
+         adoptedChars.clp(),
          (uintmax_t)adoptedChars.o());
   tableSet(&vm.strings, stringValue, stringValue);
 //> Garbage Collection not-yet
@@ -200,12 +200,12 @@ OID<ObjString> rawAllocateString(const char* chars, int length) {
   uint32_t hash = hashString(chars, length);
 
   CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);
-  char* heapChars = heapCharsCBO.lp();
+  char* heapChars = heapCharsCBO.mlp();
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
 
   OID<ObjString> stringOID = ALLOCATE_OBJ(ObjString, OBJ_STRING);
-  ObjString* string = stringOID.lp();
+  ObjString* string = stringOID.mlip();
   string->length = length;
   string->chars = heapCharsCBO;
   string->hash = hash;
@@ -224,25 +224,25 @@ OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
   return allocateXString(chars, length);
 */
 //> Hash Tables take-string-hash
-  uint32_t hash = hashString(adoptedChars.lp(), length);
+  uint32_t hash = hashString(adoptedChars.clp(), length);
 //> take-string-intern
-  OID<ObjString> internedOID = tableFindString(&vm.strings, adoptedChars.lp(), length,
+  OID<ObjString> internedOID = tableFindString(&vm.strings, adoptedChars.clp(), length,
                                                 hash);
   if (!internedOID.is_nil()) {
     FREE_ARRAY(char, adoptedChars.o(), length + 1);
     printf("DANDEBUG takeString() interned rawchars\"%.*s\"(@%ju) to string#%ju\"%s\"@%ju\n",
            length,
-           adoptedChars.lp(),
+           adoptedChars.clp(),
            (uintmax_t)adoptedChars.o(),
            (uintmax_t)internedOID.id().id,
-           internedOID.lp()->chars.lp(),
-           (uintmax_t)internedOID.lp()->chars.o());
+           internedOID.clip()->chars.clp(),
+           (uintmax_t)internedOID.clip()->chars.o());
     return internedOID;
   }
 
     printf("DANDEBUG takeString() could not find interned string for rawchars\"%.*s\"(@%ju)\n",
            length,
-           adoptedChars.lp(),
+           adoptedChars.clp(),
            (uintmax_t)adoptedChars.o());
 //< take-string-intern
   return allocateString(adoptedChars, length, hash);
@@ -261,8 +261,8 @@ OID<ObjString> copyString(const char* chars, int length) {
            length,
            chars,
            (uintmax_t)internedOID.id().id,
-           internedOID.lp()->chars.lp(),
-           (uintmax_t)internedOID.lp()->chars.o());
+           internedOID.clip()->chars.clp(),
+           (uintmax_t)internedOID.clip()->chars.o());
     return internedOID;
   }
 //< copy-string-intern
@@ -272,7 +272,7 @@ OID<ObjString> copyString(const char* chars, int length) {
 
 //< Hash Tables copy-string-hash
   CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);
-  char* heapChars = heapCharsCBO.lp();
+  char* heapChars = heapCharsCBO.mlp();
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
 
@@ -287,7 +287,7 @@ OID<ObjString> copyString(const char* chars, int length) {
 
 OID<ObjUpvalue> newUpvalue(unsigned int valueStackIndex) {
   OID<ObjUpvalue> upvalueOID = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
-  ObjUpvalue* upvalue = upvalueOID.lp();
+  ObjUpvalue* upvalue = upvalueOID.mlip();
   upvalue->closed = NIL_VAL;
   upvalue->valueStackIndex = valueStackIndex;
   upvalue->next = CB_NULL_OID;
@@ -305,29 +305,29 @@ void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
 //> Classes and Instances not-yet
     case OBJ_CLASS:
-      printf("%s", AS_CLASS_OID(value).lp()->name.lp()->chars.lp());
+      printf("%s", AS_CLASS_OID(value).clip()->name.clip()->chars.clp());
       break;
 //< Classes and Instances not-yet
 //> Methods and Initializers not-yet
     case OBJ_BOUND_METHOD:
       printf("<fn %s>",
-             AS_BOUND_METHOD_OID(value).lp()->method.lp()->function.lp()->name.lp()->chars.lp());
+             AS_BOUND_METHOD_OID(value).clip()->method.clip()->function.clip()->name.clip()->chars.clp());
       break;
 //< Methods and Initializers not-yet
 //> Closures not-yet
     case OBJ_CLOSURE:
-      if (!AS_CLOSURE_OID(value).lp()->function.is_nil() &&
-          !AS_CLOSURE_OID(value).lp()->function.lp()->name.is_nil()) {
-        printf("<fn %s>", AS_CLOSURE_OID(value).lp()->function.lp()->name.lp()->chars.lp());
+      if (!AS_CLOSURE_OID(value).clip()->function.is_nil() &&
+          !AS_CLOSURE_OID(value).clip()->function.clip()->name.is_nil()) {
+        printf("<fn %s>", AS_CLOSURE_OID(value).clip()->function.clip()->name.clip()->chars.clp());
       } else {
-        printf("<fn uninit%ju>", (uintmax_t)AS_CLOSURE_OID(value).lp()->function.id().id);
+        printf("<fn uninit%ju>", (uintmax_t)AS_CLOSURE_OID(value).clip()->function.id().id);
       }
       break;
 //< Closures not-yet
 //> Calls and Functions not-yet
     case OBJ_FUNCTION: {
-      if (!AS_FUNCTION_OID(value).lp()->name.is_nil()) {
-        printf("<fn %p>", AS_FUNCTION_OID(value).lp()->name.lp()->chars.lp());
+      if (!AS_FUNCTION_OID(value).clip()->name.is_nil()) {
+        printf("<fn %p>", AS_FUNCTION_OID(value).clip()->name.clip()->chars.clp());
       } else {
         printf("<fn anon%ju>", (uintmax_t)AS_FUNCTION_OID(value).id().id);
       }
@@ -336,7 +336,7 @@ void printObject(Value value) {
 //< Calls and Functions not-yet
 //> Classes and Instances not-yet
     case OBJ_INSTANCE:
-      printf("%s instance", AS_INSTANCE_OID(value).lp()->klass.lp()->name.lp()->chars.lp());
+      printf("%s instance", AS_INSTANCE_OID(value).clip()->klass.clip()->name.clip()->chars.clp());
       break;
 //< Classes and Instances not-yet
 //> Calls and Functions not-yet

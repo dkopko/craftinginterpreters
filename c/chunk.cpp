@@ -53,9 +53,9 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
 //< write-chunk-line
   }
 
-  chunk->code.lp()[chunk->count] = byte;
+  chunk->code.mlp()[chunk->count] = byte;
 //> chunk-write-line
-  chunk->lines.lp()[chunk->count] = line;
+  chunk->lines.mlp()[chunk->count] = line;
 //< chunk-write-line
   chunk->count++;
 }

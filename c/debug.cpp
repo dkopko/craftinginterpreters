@@ -20,11 +20,11 @@ void disassembleChunk(Chunk* chunk, const char* name) {
   }
 }
 //> constant-instruction
-static int constantInstruction(const char* name, Chunk* chunk,
+static int constantInstruction(const char* name, const Chunk* chunk,
                                int offset) {
-  uint8_t constant = chunk->code.lp()[offset + 1];
+  uint8_t constant = chunk->code.clp()[offset + 1];
   printf("%-16s %4d '", name, constant);
-  printValue(chunk->constants.values.lp()[constant]);
+  printValue(chunk->constants.values.clp()[constant]);
   printf("'\n");
 //> return-after-operand
   return offset + 2;
@@ -32,11 +32,11 @@ static int constantInstruction(const char* name, Chunk* chunk,
 }
 //< constant-instruction
 //> Methods and Initializers not-yet
-static int constantInstructionN(const char* name, int n, Chunk* chunk,
+static int constantInstructionN(const char* name, int n, const Chunk* chunk,
                                 int offset) {
-  uint8_t constant = chunk->code.lp()[offset + 1];
+  uint8_t constant = chunk->code.clp()[offset + 1];
   printf("%s_%-*d %4d '", name, 15 - (int)strlen(name), n, constant);
-  printValue(chunk->constants.values.lp()[constant]);
+  printValue(chunk->constants.values.clp()[constant]);
   printf("'\n");
   return offset + 2;
 }
@@ -54,33 +54,33 @@ static int simpleInstructionN(const char* name, int n, int offset) {
 }
 //< Calls and Functions not-yet
 //> Local Variables not-yet
-static int byteInstruction(const char* name, Chunk* chunk, int offset) {
-  uint8_t slot = chunk->code.lp()[offset + 1];
+static int byteInstruction(const char* name, const Chunk* chunk, int offset) {
+  uint8_t slot = chunk->code.clp()[offset + 1];
   printf("%-16s %4d\n", name, slot);
   return offset + 2;
 }
 //< Local Variables not-yet
 //> Jumping Forward and Back not-yet
-static int jumpInstruction(const char* name, int sign, Chunk* chunk,
+static int jumpInstruction(const char* name, int sign, const Chunk* chunk,
                            int offset) {
-  uint16_t jump = (uint16_t)(chunk->code.lp()[offset + 1] << 8);
-  jump |= chunk->code.lp()[offset + 2];
+  uint16_t jump = (uint16_t)(chunk->code.clp()[offset + 1] << 8);
+  jump |= chunk->code.clp()[offset + 2];
   printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
   return offset + 3;
 }
 //< Jumping Forward and Back not-yet
 //> disassemble-instruction
-int disassembleInstruction(Chunk* chunk, int offset) {
+int disassembleInstruction(const Chunk* chunk, int offset) {
   printf("%04d ", offset);
 //> show-location
-  if (offset > 0 && chunk->lines.lp()[offset] == chunk->lines.lp()[offset - 1]) {
+  if (offset > 0 && chunk->lines.clp()[offset] == chunk->lines.clp()[offset - 1]) {
     printf("   | ");
   } else {
-    printf("%4d ", chunk->lines.lp()[offset]);
+    printf("%4d ", chunk->lines.clp()[offset]);
   }
 //< show-location
   
-  uint8_t instruction = chunk->code.lp()[offset];
+  uint8_t instruction = chunk->code.clp()[offset];
   switch (instruction) {
 //> disassemble-constant
     case OP_CONSTANT:
@@ -213,16 +213,16 @@ int disassembleInstruction(Chunk* chunk, int offset) {
 
     case OP_CLOSURE: {
       offset++;
-      uint8_t constant = chunk->code.lp()[offset++];
+      uint8_t constant = chunk->code.clp()[offset++];
       printf("%-16s %4d ", "OP_CLOSURE", constant);
-      printValue(chunk->constants.values.lp()[constant]);
+      printValue(chunk->constants.values.clp()[constant]);
       printf("\n");
 
       OID<ObjFunction> function = AS_FUNCTION_OID(
-          chunk->constants.values.lp()[constant]);
-      for (int j = 0; j < function.lp()->upvalueCount; j++) {
-        int isLocal = chunk->code.lp()[offset++];
-        int index = chunk->code.lp()[offset++];
+          chunk->constants.values.clp()[constant]);
+      for (int j = 0; j < function.clip()->upvalueCount; j++) {
+        int isLocal = chunk->code.clp()[offset++];
+        int index = chunk->code.clp()[offset++];
         printf("%04d   |                     %s %d\n",
                offset - 2, isLocal ? "local" : "upvalue", index);
       }

@@ -258,17 +258,17 @@ static void runtimeError(const char* format, ...) {
     ObjFunction* function = frame->function;
 */
 //> Closures not-yet
-    OID<ObjFunction> function = frame->closure.lp()->function;
+    OID<ObjFunction> function = frame->closure.clip()->function;
 //< Closures not-yet
     // -1 because the IP is sitting on the next instruction to be
     // executed.
-    size_t instruction = frame->ip - function.lp()->chunk.code.lp() - 1;
+    size_t instruction = frame->ip - function.clip()->chunk.code.clp() - 1;
     fprintf(stderr, "[line %d] in ",
-            function.lp()->chunk.lines.lp()[instruction]);
-    if (function.lp()->name.is_nil()) {
+            function.clip()->chunk.lines.clp()[instruction]);
+    if (function.clip()->name.is_nil()) {
       fprintf(stderr, "script\n");
     } else {
-      fprintf(stderr, "%s()\n", function.lp()->name.lp()->chars.lp());
+      fprintf(stderr, "%s()\n", function.clip()->name.clip()->chars.clp());
     }
   }
 //< Calls and Functions not-yet
@@ -368,9 +368,9 @@ static bool call(ObjFunction* function, int argCount) {
 //> Closures not-yet
 
 static bool call(OID<ObjClosure> closure, int argCount) {
-  if (argCount != closure.lp()->function.lp()->arity) {
+  if (argCount != closure.clip()->function.clip()->arity) {
     runtimeError("Expected %d arguments but got %d.",
-        closure.lp()->function.lp()->arity, argCount);
+        closure.clip()->function.clip()->arity, argCount);
 //< Closures not-yet
     return false;
   }
@@ -388,7 +388,7 @@ static bool call(OID<ObjClosure> closure, int argCount) {
 */
 //> Closures not-yet
   frame->closure = closure;
-  frame->ip = closure.lp()->function.lp()->chunk.code.lp();
+  frame->ip = closure.clip()->function.clip()->chunk.code.clp();
 //< Closures not-yet
 
   // +1 to include either the called function or the receiver.
@@ -410,8 +410,8 @@ static bool callValue(Value callee, int argCount) {
         // right slot when the method is called.
         Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - (argCount + 1));
         assert(loc >= cb_at(thread_cb, vm.tristack.abo));  // Must be in the mutable section A.
-        *loc = bound.lp()->receiver;
-        return call(bound.lp()->method, argCount);
+        *loc = bound.clip()->receiver;
+        return call(bound.clip()->method, argCount);
       }
 
 //< Methods and Initializers not-yet
@@ -426,7 +426,7 @@ static bool callValue(Value callee, int argCount) {
 //> Methods and Initializers not-yet
         // Call the initializer, if there is one.
         Value initializer;
-        if (tableGet(&klass.lp()->methods, OBJ_VAL(vm.initString.id()), &initializer)) {
+        if (tableGet(&klass.clip()->methods, OBJ_VAL(vm.initString.id()), &initializer)) {
           return call(AS_CLOSURE_OID(initializer), argCount);
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
@@ -474,8 +474,8 @@ static bool invokeFromClass(OID<ObjClass> klass, OID<ObjString> name,
                             int argCount) {
   // Look for the method.
   Value method;
-  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.id()), &method)) {
-    runtimeError("Undefined property '%s'.", name.lp()->chars);
+  if (!tableGet(&klass.clip()->methods, OBJ_VAL(name.id()), &method)) {
+    runtimeError("Undefined property '%s'.", name.clip()->chars);
     return false;
   }
 
@@ -494,20 +494,20 @@ static bool invoke(OID<ObjString> name, int argCount) {
 
   // First look for a field which may shadow a method.
   Value value;
-  if (tableGet(&instance.lp()->fields, OBJ_VAL(name.id()), &value)) {
+  if (tableGet(&instance.clip()->fields, OBJ_VAL(name.id()), &value)) {
     Value *loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - argCount);
     assert(loc >= cb_at(thread_cb, vm.tristack.abo));
     *loc = value;
     return callValue(value, argCount);
   }
 
-  return invokeFromClass(instance.lp()->klass, name, argCount);
+  return invokeFromClass(instance.clip()->klass, name, argCount);
 }
 
 static bool bindMethod(OID<ObjClass> klass, OID<ObjString> name) {
   Value method;
-  if (!tableGet(&klass.lp()->methods, OBJ_VAL(name.id()), &method)) {
-    runtimeError("Undefined property '%s'.", name.lp()->chars);
+  if (!tableGet(&klass.clip()->methods, OBJ_VAL(name.id()), &method)) {
+    runtimeError("Undefined property '%s'.", name.clip()->chars);
     return false;
   }
 
@@ -536,25 +536,25 @@ static OID<ObjUpvalue> captureUpvalue(unsigned int localStackIndex) {  //CBINT F
 
   // Walk towards the bottom of the stack until we find a previously
   // existing upvalue or reach where it should be.
-  while (!upvalue.is_nil() && upvalue.lp()->valueStackIndex > (int)localStackIndex) {
+  while (!upvalue.is_nil() && upvalue.clip()->valueStackIndex > (int)localStackIndex) {
     prevUpvalue = upvalue;
-    upvalue = upvalue.lp()->next;
+    upvalue = upvalue.clip()->next;
   }
 
   // If we found it, reuse it.
-  if (!upvalue.is_nil() && upvalue.lp()->valueStackIndex == (int)localStackIndex) return upvalue;
+  if (!upvalue.is_nil() && upvalue.clip()->valueStackIndex == (int)localStackIndex) return upvalue;
 
   // We walked past the local on the stack, so there must not be an
   // upvalue for it already. Make a new one and link it in in the right
   // place to keep the list sorted.
   OID<ObjUpvalue> createdUpvalue = newUpvalue(localStackIndex);
-  createdUpvalue.lp()->next = upvalue;
+  createdUpvalue.mlip()->next = upvalue;
 
   if (prevUpvalue.is_nil()) {
     // The new one is the first one in the list.
     vm.openUpvalues = createdUpvalue;
   } else {
-    prevUpvalue.lp()->next = createdUpvalue;
+    prevUpvalue.mlip()->next = createdUpvalue;
   }
 
   return createdUpvalue;
@@ -573,16 +573,16 @@ static void closeUpvalues(unsigned int lastStackIndex) {
   // scopes).
 
   while (!vm.openUpvalues.is_nil() &&
-         vm.openUpvalues.lp()->valueStackIndex >= (int)lastStackIndex) {
+         vm.openUpvalues.clip()->valueStackIndex >= (int)lastStackIndex) {
     OID<ObjUpvalue> upvalue = vm.openUpvalues;
 
     // Move the value into the upvalue itself and point the upvalue to
     // it.
-    upvalue.lp()->closed = *tristack_at(&(vm.tristack), upvalue.lp()->valueStackIndex);
-    upvalue.lp()->valueStackIndex = -1;
+    upvalue.mlip()->closed = *tristack_at(&(vm.tristack), upvalue.clip()->valueStackIndex);
+    upvalue.mlip()->valueStackIndex = -1;
 
     // Pop it off the open upvalue list.
-    vm.openUpvalues = upvalue.lp()->next;
+    vm.openUpvalues = upvalue.clip()->next;
   }
 }
 //< Closures not-yet
@@ -591,7 +591,7 @@ static void closeUpvalues(unsigned int lastStackIndex) {
 static void defineMethod(OID<ObjString> name) {
   Value method = peek(0);
   OID<ObjClass> klass = AS_CLASS_OID(peek(1));
-  tableSet(&klass.lp()->methods, OBJ_VAL(name.id()), method);
+  tableSet(&klass.mlip()->methods, OBJ_VAL(name.id()), method);
   pop();
 }
 //< Methods and Initializers not-yet
@@ -611,7 +611,7 @@ static void createClass(OID<ObjString> name, OID<ObjClass> superclass) {
 
   // Inherit methods.
   if (!superclass.is_nil()) {
-    tableAddAll(&superclass.lp()->methods, &klass.lp()->methods);
+    tableAddAll(&superclass.clip()->methods, &klass.mlip()->methods);
   }
 //< Superclasses not-yet
 }
@@ -632,11 +632,11 @@ static void concatenate() {
   OID<ObjString> a = AS_STRING_OID(peek(1));
 //< Garbage Collection not-yet
 
-  int length = a.lp()->length + b.lp()->length;
+  int length = a.clip()->length + b.clip()->length;
   CBO<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
-  memcpy(chars.lp(), a.lp()->chars.lp(), a.lp()->length);
-  memcpy(chars.lp() + a.lp()->length, b.lp()->chars.lp(), b.lp()->length);
-  chars.lp()[length] = '\0';
+  memcpy(chars.mlp(), a.clip()->chars.clp(), a.clip()->length);
+  memcpy(chars.mlp() + a.clip()->length, b.clip()->chars.clp(), b.clip()->length);
+  chars.mlp()[length] = '\0';
 
   OID<ObjString> result = takeString(chars, length);
 //> Garbage Collection not-yet
@@ -671,7 +671,7 @@ static InterpretResult run() {
 */
 //> Closures not-yet
 #define READ_CONSTANT() \
-    (frame->closure.lp()->function.lp()->chunk.constants.values.lp()[READ_BYTE()])
+    (frame->closure.clip()->function.clip()->chunk.constants.values.clp()[READ_BYTE()])
 //< Closures not-yet
 //> Global Variables read-string
 #define READ_STRING() AS_STRING_OID(READ_CONSTANT())
@@ -721,8 +721,8 @@ static InterpretResult run() {
         (int)(frame->ip - frame->function->chunk.code));
 */
 //> Closures not-yet
-    disassembleInstruction(&frame->closure.lp()->function.lp()->chunk,
-        (int)(frame->ip - frame->closure.lp()->function.lp()->chunk.code.lp()));
+    disassembleInstruction(&frame->closure.clip()->function.clip()->chunk,
+        (int)(frame->ip - frame->closure.clip()->function.clip()->chunk.code.clp()));
 //< Closures not-yet
 #endif
     
@@ -780,7 +780,7 @@ static InterpretResult run() {
         OID<ObjString> name = READ_STRING();
         Value value;
         if (!tableGet(&vm.globals, OBJ_VAL(name.id()), &value)) {
-          runtimeError("Undefined variable '%s'.", name.lp()->chars);
+          runtimeError("Undefined variable '%s'.", name.clip()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
         push(value);
@@ -801,7 +801,7 @@ static InterpretResult run() {
       case OP_SET_GLOBAL: {
         OID<ObjString> name = READ_STRING();
         if (tableSet(&vm.globals, OBJ_VAL(name.id()), peek(0))) {
-          runtimeError("Undefined variable '%s'.", name.lp()->chars);
+          runtimeError("Undefined variable '%s'.", name.clip()->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
@@ -811,7 +811,7 @@ static InterpretResult run() {
 
       case OP_GET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        ObjUpvalue* upvalue = frame->closure.lp()->upvalues.lp()[slot].lp();
+        const ObjUpvalue* upvalue = frame->closure.clip()->upvalues.clp()[slot].clip();
         if (upvalue->valueStackIndex == -1) {
           push(upvalue->closed);
         } else {
@@ -822,7 +822,7 @@ static InterpretResult run() {
 
       case OP_SET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        ObjUpvalue* upvalue = frame->closure.lp()->upvalues.lp()[slot].lp();
+        ObjUpvalue* upvalue = frame->closure.mlip()->upvalues.mlp()[slot].mlip();
         if (upvalue->valueStackIndex == -1) {
           upvalue->closed = peek(0);
         } else {
@@ -842,7 +842,7 @@ static InterpretResult run() {
         OID<ObjInstance> instance = AS_INSTANCE_OID(peek(0));
         OID<ObjString> name = READ_STRING();
         Value value;
-        if (tableGet(&instance.lp()->fields, OBJ_VAL(name.id()), &value)) {
+        if (tableGet(&instance.clip()->fields, OBJ_VAL(name.id()), &value)) {
           pop(); // Instance.
           push(value);
           break;
@@ -853,7 +853,7 @@ static InterpretResult run() {
         return INTERPRET_RUNTIME_ERROR;
 */
 //> Methods and Initializers not-yet
-        if (!bindMethod(instance.lp()->klass, name)) {
+        if (!bindMethod(instance.clip()->klass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
@@ -867,7 +867,7 @@ static InterpretResult run() {
         }
 
         OID<ObjInstance> instance = AS_INSTANCE_OID(peek(1));
-        tableSet(&instance.lp()->fields, OBJ_VAL(READ_STRING().id()), peek(0));
+        tableSet(&instance.mlip()->fields, OBJ_VAL(READ_STRING().id()), peek(0));
         Value value = pop();
         pop();
         push(value);
@@ -1060,16 +1060,16 @@ static InterpretResult run() {
         push(OBJ_VAL(closure.id()));
 
         // Capture upvalues.
-        for (int i = 0; i < closure.lp()->upvalueCount; i++) {
+        for (int i = 0; i < closure.clip()->upvalueCount; i++) {
           uint8_t isLocal = READ_BYTE();
           uint8_t index = READ_BYTE();  // an index within the present frame's slots
           if (isLocal) {
             // Make an new upvalue to close over the parent's local
             // variable.
-            closure.lp()->upvalues.lp()[i] = captureUpvalue(frame->slotsIndex + index);
+            closure.mlip()->upvalues.mlp()[i] = captureUpvalue(frame->slotsIndex + index);
           } else {
             // Use the same upvalue as the current call frame.
-            closure.lp()->upvalues.lp()[i] = frame->closure.lp()->upvalues.lp()[index];
+            closure.mlip()->upvalues.mlp()[i] = frame->closure.mlip()->upvalues.mlp()[index];
           }
         }
 

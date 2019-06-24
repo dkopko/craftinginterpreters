@@ -56,10 +56,10 @@
 //< Classes and Instances not-yet
 #define AS_UPVALUE_OID(value)      (OID<ObjUpvalue>(AS_OBJ_ID(value)))
 //> Calls and Functions not-yet
-#define AS_NATIVE(value)        ((OID<ObjNative>(AS_OBJ_ID(value)).lp())->function)
+#define AS_NATIVE(value)        ((OID<ObjNative>(AS_OBJ_ID(value)).clip())->function)
 //< Calls and Functions not-yet
 #define AS_STRING_OID(value)        (OID<ObjString>(AS_OBJ_ID(value)))
-#define AS_CSTRING(value)       ((OID<ObjString>(AS_OBJ_ID(value)).lp())->chars.lp())
+#define AS_CSTRING(value)       ((OID<ObjString>(AS_OBJ_ID(value)).clip())->chars.clp())
 //< as-string
 //> obj-type
 

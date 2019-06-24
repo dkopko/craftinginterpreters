@@ -24,22 +24,26 @@ struct CBO
 
   CBO(CBO<T> const &rhs) : offset_(rhs.offset_) { }
 
-  bool is_nil() {
+  bool is_nil() const {
     return (offset_ == CB_NULL);
   }
 
   //Underlying offset
-  cb_offset_t o() {
+  cb_offset_t o() const {
     return offset_;
   }
 
   //Local dereference
-  T* lp() {
-    return static_cast<T*>(cb_at(thread_cb, offset_));
+  const T* clp() const {
+    return static_cast<const T*>(cb_at(thread_cb, offset_));
   }
 
+  //Local dereference
+  T* mlp() {
+    return static_cast<T*>(cb_at(thread_cb, offset_));
+  }
   //Remote dereference
-  T* rp(struct cb *remote_cb) {
+  const T* crp(struct cb *remote_cb) const {
     return static_cast<T*>(cb_at(remote_cb, offset_));
   }
 };
@@ -72,22 +76,27 @@ struct OID
 
   OID(OID<T> const &rhs) : objid_(rhs.objid_) { }
 
-  bool is_nil() {
+  bool is_nil() const {
     return (objid_.id == 0); //FIXME factor out constant
   }
 
   //Underlying id
-  ObjID id() {
+  ObjID id() const {
     return objid_;
   }
 
   //Underlying offset
-  cb_offset_t o() {
+  cb_offset_t o() const {
     return objtable_lookup(&thread_objtable, objid_);
   }
 
   //Local dereference
-  T* lp() {
+  const T* clip() const {
+    return static_cast<const T*>(cb_at(thread_cb, o()));
+  }
+
+  //Local dereference
+  T* mlip() {
     return static_cast<T*>(cb_at(thread_cb, o()));
   }
 

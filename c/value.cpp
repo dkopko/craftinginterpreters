@@ -24,7 +24,7 @@ void writeValueArray(ValueArray* array, Value value) {
                                oldCapacity, array->capacity);
   }
   
-  array->values.lp()[array->count] = value;
+  array->values.mlp()[array->count] = value;
   array->count++;
 }
 //< write-value-array

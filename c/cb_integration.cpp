@@ -117,7 +117,7 @@ clox_object_cmp(Value lhs, Value rhs)
       int shorterLength = lhsString->length < rhsString->length ? lhsString->length : rhsString->length;
       int ret;
 
-      ret = memcmp(lhsString->chars.lp(), rhsString->chars.lp(), shorterLength);
+      ret = memcmp(lhsString->chars.clp(), rhsString->chars.clp(), shorterLength);
       if (ret < 0) return -1;
       if (ret > 0) return 1;
       if (lhsString->length < rhsString->length) return -1;
@@ -211,13 +211,13 @@ clox_value_shallow_comparator(const struct cb *cb,
       ObjString *rhsString = (ObjString *)AS_OBJ(rhsValue);
 
       if (lhsString->length == rhsString->length
-          && memcmp(lhsString->chars.lp(), rhsString->chars.lp(), lhsString->length) == 0
+          && memcmp(lhsString->chars.clp(), rhsString->chars.clp(), lhsString->length) == 0
           && lhsValue.val != rhsValue.val) {
         fprintf(stderr, "String interning error detected! ObjString(%ju, %ju), \"%.*s\"(%ju, %ju)\n",
                (uintmax_t)lhsValue.val,
                (uintmax_t)rhsValue.val,
                lhsString->length,
-               lhsString->chars.lp(),
+               lhsString->chars.clp(),
                (uintmax_t)lhsString->chars.o(),
                (uintmax_t)rhsString->chars.o());
         assert(lhsValue.val == rhsValue.val);
@@ -258,21 +258,21 @@ clox_object_render(cb_offset_t           *dest_offset,
     case OBJ_NATIVE:
       return cb_asprintf(dest_offset, cb, "<nativefun%p>", (void*)AS_NATIVE(value));
     case OBJ_STRING:{
-      ObjString *str = AS_STRING_OID(value).lp();
+      const ObjString *str = AS_STRING_OID(value).clip();
 
       if (str->length < 13) {
         return cb_asprintf(dest_offset, cb, "<string#%ju\"%.*s\"#%ju>",
             (uintmax_t)AS_STRING_OID(value).id().id,
             str->length,
-            str->chars.lp(),
+            str->chars.clp(),
             (uintmax_t)str->chars.o());
       } else {
         return cb_asprintf(dest_offset, cb, "<string#%ju\"%.*s...%.*s\"%ju>",
             (uintmax_t)AS_STRING_OID(value).id().id,
             5,
-            str->chars.lp(),
+            str->chars.clp(),
             5,
-            str->chars.lp() + str->length - 5,
+            str->chars.clp() + str->length - 5,
             (uintmax_t)str->chars.o());
       }
     }
@@ -345,27 +345,27 @@ clox_object_external_size(const struct cb      *cb,
     case OBJ_BOUND_METHOD:
       return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1;
     case OBJ_CLASS: {
-      ObjClass *klass = AS_CLASS_OID(value).lp();
+      const ObjClass *klass = AS_CLASS_OID(value).clip();
       return sizeof(ObjClass) + cb_alignof(ObjClass) - 1
              + cb_bst_size(thread_cb, klass->methods.root_a)
              + cb_bst_size(thread_cb, klass->methods.root_b)
              + cb_bst_size(thread_cb, klass->methods.root_c);
     }
     case OBJ_CLOSURE: {
-      ObjClosure *closure = AS_CLOSURE_OID(value).lp();
+      const ObjClosure *closure = AS_CLOSURE_OID(value).clip();
       return sizeof(ObjClosure) + cb_alignof(ObjClosure) - 1
              + closure->upvalueCount * sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
     }
     case OBJ_FUNCTION: {
-      ObjFunction *function = AS_FUNCTION_OID(value).lp();
+      const ObjFunction *function = AS_FUNCTION_OID(value).clip();
       return sizeof(ObjFunction) + cb_alignof(ObjFunction) - 1
-             + sizeof(ObjString) + cb_alignof(ObjString) - 1 + function->name.lp()->length  //name FIXME CBINT not needed if interning strings.
+             + sizeof(ObjString) + cb_alignof(ObjString) - 1 + function->name.clip()->length  //name FIXME CBINT not needed if interning strings.
              + function->chunk.capacity * sizeof(uint8_t) + cb_alignof(uint8_t) - 1         //code
              + function->chunk.capacity * sizeof(int) + cb_alignof(int) - 1                 //lines
              + function->chunk.constants.capacity * sizeof(Value) + cb_alignof(Value) - 1;  //constants.values
     }
     case OBJ_INSTANCE: {
-      ObjInstance *instance = AS_INSTANCE_OID(value).lp();
+      const ObjInstance *instance = AS_INSTANCE_OID(value).clip();
       return sizeof(ObjInstance) + cb_alignof(ObjInstance) - 1
              + cb_bst_size(thread_cb, instance->fields.root_a)
              + cb_bst_size(thread_cb, instance->fields.root_b)
@@ -374,7 +374,7 @@ clox_object_external_size(const struct cb      *cb,
     case OBJ_NATIVE:
       return sizeof(ObjNative) + cb_alignof(ObjNative) - 1;
     case OBJ_STRING: {
-      ObjString *str = AS_STRING_OID(value).lp();
+      const ObjString *str = AS_STRING_OID(value).clip();
       return sizeof(ObjString) + cb_alignof(ObjString) - 1
              + str->length;
     }

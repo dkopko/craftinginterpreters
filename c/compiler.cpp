@@ -161,7 +161,7 @@ static Chunk* currentChunk() {
 //> Calls and Functions not-yet
 
 static Chunk* currentChunk() {
-  return &current->function.lp()->chunk;
+  return &current->function.mlip()->chunk;
 }
 //< Calls and Functions not-yet
 //> Compiling Expressions error-at
@@ -309,8 +309,8 @@ static void patchJump(int offset) {
     error("Too much code to jump over.");
   }
 
-  currentChunk()->code.lp()[offset] = (jump >> 8) & 0xff;
-  currentChunk()->code.lp()[offset + 1] = jump & 0xff;
+  currentChunk()->code.mlp()[offset] = (jump >> 8) & 0xff;
+  currentChunk()->code.mlp()[offset + 1] = jump & 0xff;
 }
 //< Jumping Forward and Back not-yet
 //> Local Variables not-yet
@@ -341,11 +341,11 @@ static void initCompiler(Compiler* compiler, int scopeDepth,
     case TYPE_METHOD:
 //< Methods and Initializers not-yet
     case TYPE_FUNCTION:
-      current->function.lp()->name = copyString(parser.previous.start,
+      current->function.mlip()->name = copyString(parser.previous.start,
                                            parser.previous.length);
       break;
     case TYPE_TOP_LEVEL:
-      current->function.lp()->name = CB_NULL_OID;
+      current->function.mlip()->name = CB_NULL_OID;
       break;
   }
 
@@ -394,7 +394,7 @@ static OID<ObjFunction> endCompiler() {
 */
 //> Calls and Functions not-yet
     disassembleChunk(currentChunk(),
-        function.lp()->name.is_nil() ? "<top>" : function.lp()->name.lp()->chars.lp());
+        function.clip()->name.is_nil() ? "<top>" : function.clip()->name.clip()->chars.clp());
 //< Calls and Functions not-yet
   }
 #endif
@@ -478,7 +478,7 @@ static int resolveLocal(Compiler* compiler, Token* name,
 // list. Returns the index of the upvalue.
 static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
   // Look for an existing one.
-  int upvalueCount = compiler->function.lp()->upvalueCount;
+  int upvalueCount = compiler->function.clip()->upvalueCount;
   for (int i = 0; i < upvalueCount; i++) {
     Upvalue* upvalue = &compiler->upvalues[i];
     if (upvalue->index == index && upvalue->isLocal == isLocal) {
@@ -494,7 +494,7 @@ static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
 
   compiler->upvalues[upvalueCount].isLocal = isLocal;
   compiler->upvalues[upvalueCount].index = index;
-  return compiler->function.lp()->upvalueCount++;
+  return compiler->function.mlip()->upvalueCount++;
 }
 
 // Attempts to look up [name] in the functions enclosing the one being
@@ -1122,8 +1122,8 @@ static void function(FunctionType type) {
       uint8_t paramConstant = parseVariable("Expect parameter name.");
       defineVariable(paramConstant);
 
-      current->function.lp()->arity++;
-      if (current->function.lp()->arity > 8) {
+      current->function.mlip()->arity++;
+      if (current->function.clip()->arity > 8) {
         error("Cannot have more than 8 parameters.");
       }
     } while (match(TOKEN_COMMA));
@@ -1148,7 +1148,7 @@ static void function(FunctionType type) {
 
   // Emit arguments for each upvalue to know whether to capture a local
   // or an upvalue.
-  for (int i = 0; i < function.lp()->upvalueCount; i++) {
+  for (int i = 0; i < function.clip()->upvalueCount; i++) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
     emitByte(compiler.upvalues[i].index);
   }

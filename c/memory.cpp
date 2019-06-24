@@ -71,7 +71,7 @@ void grayObject(OID<Obj> objectOID) {
   if (objectOID.is_nil()) return;
 
   // Don't get caught in cycle.
-  if (objectOID.lp()->isDark) return;
+  if (objectOID.clip()->isDark) return;
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju grayObject() ", (uintmax_t)objectOID.id().id);
@@ -79,7 +79,7 @@ void grayObject(OID<Obj> objectOID) {
   printf("\n");
 #endif
 
-  objectOID.lp()->isDark = true;
+  objectOID.mlip()->isDark = true;
 
   if (vm.grayCapacity < vm.grayCount + 1) {
     int oldGrayCapacity = vm.grayCapacity;
@@ -104,7 +104,7 @@ void grayObject(OID<Obj> objectOID) {
 
   }
 
-  vm.grayStack.lp()[vm.grayCount++] = objectOID;
+  vm.grayStack.mlp()[vm.grayCount++] = objectOID;
 }
 
 void grayValue(Value value) {
@@ -114,7 +114,7 @@ void grayValue(Value value) {
 
 static bool isWhiteObject(OID<Obj> objectOID) {
   if (objectOID.is_nil()) return true;
-  if (objectOID.lp()->isDark) return false;
+  if (objectOID.clip()->isDark) return false;
   return true;
 }
 
@@ -125,12 +125,12 @@ bool isWhite(Value value) {
 
 static void grayArray(ValueArray* array) {
   for (int i = 0; i < array->count; i++) {
-    grayValue(array->values.lp()[i]);
+    grayValue(array->values.clp()[i]);
   }
 }
 
 static void grayObjectLeaves(OID<Obj> objectOID) {
-  Obj *object = objectOID.lp();
+  Obj *object = objectOID.mlip();
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju grayObjectLeaves() ", (uintmax_t)objectOID.id().id);
@@ -158,7 +158,7 @@ static void grayObjectLeaves(OID<Obj> objectOID) {
       ObjClosure* closure = (ObjClosure*)object;
       grayObject(closure->function.id());
       for (int i = 0; i < closure->upvalueCount; i++) {
-        grayObject(closure->upvalues.lp()[i].id());
+        grayObject(closure->upvalues.clp()[i].id());
       }
       break;
     }
@@ -196,34 +196,34 @@ static void freeObject(OID<Obj> object) {
   printf("\n");
 #endif
 
-  switch (object.lp()->type) {
+  switch (object.clip()->type) {
     case OBJ_BOUND_METHOD:
       FREE(ObjBoundMethod, object.o());
       break;
 
     case OBJ_CLASS: {
-      ObjClass* klass = (ObjClass*)object.lp();
+      ObjClass* klass = (ObjClass*)object.clip();
       freeTable(&klass->methods);
       FREE(ObjClass, object.o());
       break;
     }
 
     case OBJ_CLOSURE: {
-      ObjClosure* closure = (ObjClosure*)object.lp();
+      ObjClosure* closure = (ObjClosure*)object.clip();
       FREE_ARRAY(Value, closure->upvalues.o(), closure->upvalueCount);
       FREE(ObjClosure, object.o());
       break;
     }
 
     case OBJ_FUNCTION: {
-      ObjFunction* function = (ObjFunction*)object.lp();
+      ObjFunction* function = (ObjFunction*)object.clip();
       freeChunk(&function->chunk);
       FREE(ObjFunction, object.o());
       break;
     }
 
     case OBJ_INSTANCE: {
-      ObjInstance* instance = (ObjInstance*)object.lp();
+      ObjInstance* instance = (ObjInstance*)object.clip();
       freeTable(&instance->fields);
       FREE(ObjInstance, object.o());
       break;
@@ -234,7 +234,7 @@ static void freeObject(OID<Obj> object) {
       break;
 
     case OBJ_STRING: {
-      ObjString* string = (ObjString*)object.lp();
+      ObjString* string = (ObjString*)object.clip();
       FREE_ARRAY(char, string->chars.o(), string->length + 1);
       string->chars = CB_NULL;
       FREE(ObjString, object.o());
@@ -315,7 +315,7 @@ void collectGarbage() {
   // Mark the open upvalues.
   for (OID<ObjUpvalue> upvalue = vm.openUpvalues;
        !upvalue.is_nil();
-       upvalue = upvalue.lp()->next) {
+       upvalue = upvalue.clip()->next) {
     grayObject(upvalue.id());
   }
 
@@ -328,7 +328,7 @@ void collectGarbage() {
   // Traverse the references.
   while (vm.grayCount > 0) {
     // Pop an item from the gray stack.
-    OID<Obj> object = vm.grayStack.lp()[--vm.grayCount];
+    OID<Obj> object = vm.grayStack.clp()[--vm.grayCount];
     grayObjectLeaves(object);
   }
 
@@ -338,19 +338,19 @@ void collectGarbage() {
   // Collect the white objects.
   OID<Obj>* object = &vm.objects;
   while (! (*object).is_nil()) {
-    if (!((*object).lp()->isDark)) {
+    if (!((*object).clip()->isDark)) {
       // This object wasn't reached, so remove it from the list and
       // free it.
       OID<Obj> unreached = (*object);
       //Obj* unreached = (*object).lp();
       //*object = unreached->next;
-      *object = (*object).lp()->next;
+      *object = (*object).clip()->next;
       freeObject(unreached);
     } else {
       // This object was reached, so unmark it (for the next GC) and
       // move on to the next.
-      (*object).lp()->isDark = false;
-      object = &((*object).lp()->next);
+      (*object).mlip()->isDark = false;
+      object = &((*object).mlip()->next);
     }
   }
 
@@ -367,7 +367,7 @@ void collectGarbage() {
 void freeObjects() {
   OID<Obj> object = vm.objects;
   while (! object.is_nil()) {
-    OID<Obj> next = object.lp()->next;
+    OID<Obj> next = object.clip()->next;
     freeObject(object);
     object = next;
   }
