@@ -35,7 +35,7 @@ objTypeString(ObjType objType)
 
 static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
   CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size, alignment, false);
-  OID<Obj> objectOID = objtable_add(&thread_objtable, objectCBO.o());
+  OID<Obj> objectOID = objtable_add(&thread_objtable, objectCBO.mo());
 
   Obj* object = objectCBO.mlp();
   object->type = type;
@@ -172,7 +172,7 @@ static OID<ObjString> allocateString(CBO<char> adoptedChars, int length,
          (uintmax_t)stringOID.id().id,
          length,
          adoptedChars.clp(),
-         (uintmax_t)adoptedChars.o());
+         (uintmax_t)adoptedChars.co());
   tableSet(&vm.strings, stringValue, stringValue);
 //> Garbage Collection not-yet
   pop();
@@ -213,7 +213,7 @@ OID<ObjString> rawAllocateString(const char* chars, int length) {
   printf("DANDEBUG rawAllocateString() created new string#%ju\"%s\"@%ju\n",
          (uintmax_t)stringOID.id().id,
          heapChars,
-         (uintmax_t)heapCharsCBO.o());
+         (uintmax_t)heapCharsCBO.co());
 
   return stringOID;
 }
@@ -229,21 +229,21 @@ OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
   OID<ObjString> internedOID = tableFindString(&vm.strings, adoptedChars.clp(), length,
                                                 hash);
   if (!internedOID.is_nil()) {
-    FREE_ARRAY(char, adoptedChars.o(), length + 1);
+    FREE_ARRAY(char, adoptedChars.co(), length + 1);
     printf("DANDEBUG takeString() interned rawchars\"%.*s\"(@%ju) to string#%ju\"%s\"@%ju\n",
            length,
            adoptedChars.clp(),
-           (uintmax_t)adoptedChars.o(),
+           (uintmax_t)adoptedChars.co(),
            (uintmax_t)internedOID.id().id,
            internedOID.clip()->chars.clp(),
-           (uintmax_t)internedOID.clip()->chars.o());
+           (uintmax_t)internedOID.clip()->chars.co());
     return internedOID;
   }
 
     printf("DANDEBUG takeString() could not find interned string for rawchars\"%.*s\"(@%ju)\n",
            length,
            adoptedChars.clp(),
-           (uintmax_t)adoptedChars.o());
+           (uintmax_t)adoptedChars.co());
 //< take-string-intern
   return allocateString(adoptedChars, length, hash);
 //< Hash Tables take-string-hash
@@ -262,7 +262,7 @@ OID<ObjString> copyString(const char* chars, int length) {
            chars,
            (uintmax_t)internedOID.id().id,
            internedOID.clip()->chars.clp(),
-           (uintmax_t)internedOID.clip()->chars.o());
+           (uintmax_t)internedOID.clip()->chars.co());
     return internedOID;
   }
 //< copy-string-intern

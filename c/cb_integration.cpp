@@ -218,8 +218,8 @@ clox_value_shallow_comparator(const struct cb *cb,
                (uintmax_t)rhsValue.val,
                lhsString->length,
                lhsString->chars.clp(),
-               (uintmax_t)lhsString->chars.o(),
-               (uintmax_t)rhsString->chars.o());
+               (uintmax_t)lhsString->chars.co(),
+               (uintmax_t)rhsString->chars.co());
         assert(lhsValue.val == rhsValue.val);
       }
   }
@@ -265,7 +265,7 @@ clox_object_render(cb_offset_t           *dest_offset,
             (uintmax_t)AS_STRING_OID(value).id().id,
             str->length,
             str->chars.clp(),
-            (uintmax_t)str->chars.o());
+            (uintmax_t)str->chars.co());
       } else {
         return cb_asprintf(dest_offset, cb, "<string#%ju\"%.*s...%.*s\"%ju>",
             (uintmax_t)AS_STRING_OID(value).id().id,
@@ -273,7 +273,7 @@ clox_object_render(cb_offset_t           *dest_offset,
             str->chars.clp(),
             5,
             str->chars.clp() + str->length - 5,
-            (uintmax_t)str->chars.o());
+            (uintmax_t)str->chars.co());
       }
     }
     case OBJ_UPVALUE:

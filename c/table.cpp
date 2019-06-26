@@ -210,7 +210,7 @@ done:
            table,
            (uintmax_t)lookupStringOID.id().id,
            lookupStringOID.clip()->chars.clp(),
-           (uintmax_t)lookupStringOID.clip()->chars.o());
+           (uintmax_t)lookupStringOID.clip()->chars.co());
     return CB_NULL_OID;
   }
 
@@ -219,10 +219,10 @@ done:
       table,
       (uintmax_t)lookupStringOID.id().id,
       lookupStringOID.clip()->chars.clp(),
-      (uintmax_t)lookupStringOID.clip()->chars.o(),
+      (uintmax_t)lookupStringOID.clip()->chars.co(),
       (uintmax_t)AS_OBJ_ID(internedStringValue).id,
       ((ObjString*)AS_OBJ(internedStringValue))->chars.clp(),
-      (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.o());
+      (uintmax_t)((ObjString*)AS_OBJ(internedStringValue))->chars.co());
 
   return AS_OBJ_ID(internedStringValue);
 }

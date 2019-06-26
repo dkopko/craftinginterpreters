@@ -29,7 +29,12 @@ struct CBO
   }
 
   //Underlying offset
-  cb_offset_t o() const {
+  cb_offset_t co() const {
+    return offset_;
+  }
+
+  //Underlying offset
+  cb_offset_t mo() const {
     return offset_;
   }
 
@@ -86,18 +91,23 @@ struct OID
   }
 
   //Underlying offset
-  cb_offset_t o() const {
+  cb_offset_t co() const {
+    return objtable_lookup(&thread_objtable, objid_);
+  }
+
+  //Underlying offset
+  cb_offset_t mo() const {
     return objtable_lookup(&thread_objtable, objid_);
   }
 
   //Local dereference
   const T* clip() const {
-    return static_cast<const T*>(cb_at(thread_cb, o()));
+    return static_cast<const T*>(cb_at(thread_cb, co()));
   }
 
   //Local dereference
   T* mlip() {
-    return static_cast<T*>(cb_at(thread_cb, o()));
+    return static_cast<T*>(cb_at(thread_cb, mo()));
   }
 
   //Remote dereference

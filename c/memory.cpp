@@ -83,7 +83,7 @@ void grayObject(OID<Obj> objectOID) {
 
   if (vm.grayCapacity < vm.grayCount + 1) {
     int oldGrayCapacity = vm.grayCapacity;
-    cb_offset_t oldGrayStackOffset = vm.grayStack.o();
+    cb_offset_t oldGrayStackOffset = vm.grayStack.co();
     vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
 
     vm.grayStack = reallocate(oldGrayStackOffset,
@@ -94,7 +94,7 @@ void grayObject(OID<Obj> objectOID) {
 
 #ifdef DEBUG_TRACE_GC
     printf("@%ju OID<Obj>[%zd] array allocated (%zd bytes) (resized from @%ju OID<Obj>[%zd] array (%zd bytes))\n",
-           (uintmax_t)vm.grayStack.o(),
+           (uintmax_t)vm.grayStack.co(),
            (size_t)vm.grayCapacity,
            sizeof(OID<Obj*>) * vm.grayCapacity,
            (uintmax_t)oldGrayStackOffset,
@@ -198,51 +198,51 @@ static void freeObject(OID<Obj> object) {
 
   switch (object.clip()->type) {
     case OBJ_BOUND_METHOD:
-      FREE(ObjBoundMethod, object.o());
+      FREE(ObjBoundMethod, object.co());
       break;
 
     case OBJ_CLASS: {
       ObjClass* klass = (ObjClass*)object.clip();
       freeTable(&klass->methods);
-      FREE(ObjClass, object.o());
+      FREE(ObjClass, object.co());
       break;
     }
 
     case OBJ_CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object.clip();
-      FREE_ARRAY(Value, closure->upvalues.o(), closure->upvalueCount);
-      FREE(ObjClosure, object.o());
+      FREE_ARRAY(Value, closure->upvalues.co(), closure->upvalueCount);
+      FREE(ObjClosure, object.co());
       break;
     }
 
     case OBJ_FUNCTION: {
       ObjFunction* function = (ObjFunction*)object.clip();
       freeChunk(&function->chunk);
-      FREE(ObjFunction, object.o());
+      FREE(ObjFunction, object.co());
       break;
     }
 
     case OBJ_INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object.clip();
       freeTable(&instance->fields);
-      FREE(ObjInstance, object.o());
+      FREE(ObjInstance, object.co());
       break;
     }
 
     case OBJ_NATIVE:
-      FREE(ObjNative, object.o());
+      FREE(ObjNative, object.co());
       break;
 
     case OBJ_STRING: {
       ObjString* string = (ObjString*)object.clip();
-      FREE_ARRAY(char, string->chars.o(), string->length + 1);
+      FREE_ARRAY(char, string->chars.co(), string->length + 1);
       string->chars = CB_NULL;
-      FREE(ObjString, object.o());
+      FREE(ObjString, object.co());
       break;
     }
 
     case OBJ_UPVALUE:
-      FREE(ObjUpvalue, object.o());
+      FREE(ObjUpvalue, object.co());
       break;
   }
 
@@ -372,7 +372,7 @@ void freeObjects() {
     object = next;
   }
 
-  cb_offset_t oldGrayStackOffset = vm.grayStack.o();
+  cb_offset_t oldGrayStackOffset = vm.grayStack.co();
   int oldGrayCapacity = vm.grayCapacity;
   vm.grayStack = reallocate(oldGrayStackOffset,
                             sizeof(OID<Obj>) * oldGrayCapacity,
