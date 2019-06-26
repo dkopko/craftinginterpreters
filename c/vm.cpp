@@ -399,6 +399,26 @@ static bool call(OID<ObjClosure> closure, int argCount) {
   return true;
 }
 
+static bool instanceFieldGet(OID<ObjInstance> instance, Value key, Value *value) {
+  return tableGet(&(instance.clip()->fields), key, value);
+}
+
+static bool instanceFieldSet(OID<ObjInstance> instance, Value key, Value value) {
+  return tableSet(&(instance.mlip()->fields), key, value);
+}
+
+static bool classMethodGet(OID<ObjClass> klass, Value key, Value *value) {
+  return tableGet(&(klass.clip()->methods), key, value);
+}
+
+static bool classMethodSet(OID<ObjClass> klass, Value key, Value value) {
+  return tableSet(&(klass.mlip()->methods), key, value);
+}
+
+static void classMethodsAddAll(OID<ObjClass> subclass, OID<ObjClass> superclass) {
+  tableAddAll(&(superclass.clip()->methods), &(subclass.mlip()->methods));
+}
+
 static bool callValue(Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
@@ -426,7 +446,7 @@ static bool callValue(Value callee, int argCount) {
 //> Methods and Initializers not-yet
         // Call the initializer, if there is one.
         Value initializer;
-        if (tableGet(&klass.clip()->methods, OBJ_VAL(vm.initString.id()), &initializer)) {
+        if (classMethodGet(klass, OBJ_VAL(vm.initString.id()), &initializer)) {
           return call(AS_CLOSURE_OID(initializer), argCount);
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
@@ -474,7 +494,7 @@ static bool invokeFromClass(OID<ObjClass> klass, OID<ObjString> name,
                             int argCount) {
   // Look for the method.
   Value method;
-  if (!tableGet(&klass.clip()->methods, OBJ_VAL(name.id()), &method)) {
+  if (!classMethodGet(klass, OBJ_VAL(name.id()), &method)) {
     runtimeError("Undefined property '%s'.", name.clip()->chars);
     return false;
   }
@@ -494,7 +514,7 @@ static bool invoke(OID<ObjString> name, int argCount) {
 
   // First look for a field which may shadow a method.
   Value value;
-  if (tableGet(&instance.clip()->fields, OBJ_VAL(name.id()), &value)) {
+  if (instanceFieldGet(instance, OBJ_VAL(name.id()), &value)) {
     Value *loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - argCount);
     assert(loc >= cb_at(thread_cb, vm.tristack.abo));
     *loc = value;
@@ -506,7 +526,7 @@ static bool invoke(OID<ObjString> name, int argCount) {
 
 static bool bindMethod(OID<ObjClass> klass, OID<ObjString> name) {
   Value method;
-  if (!tableGet(&klass.clip()->methods, OBJ_VAL(name.id()), &method)) {
+  if (!classMethodGet(klass, OBJ_VAL(name.id()), &method)) {
     runtimeError("Undefined property '%s'.", name.clip()->chars);
     return false;
   }
@@ -591,7 +611,7 @@ static void closeUpvalues(unsigned int lastStackIndex) {
 static void defineMethod(OID<ObjString> name) {
   Value method = peek(0);
   OID<ObjClass> klass = AS_CLASS_OID(peek(1));
-  tableSet(&klass.mlip()->methods, OBJ_VAL(name.id()), method);
+  classMethodSet(klass, OBJ_VAL(name.id()), method);
   pop();
 }
 //< Methods and Initializers not-yet
@@ -611,7 +631,7 @@ static void createClass(OID<ObjString> name, OID<ObjClass> superclass) {
 
   // Inherit methods.
   if (!superclass.is_nil()) {
-    tableAddAll(&superclass.clip()->methods, &klass.mlip()->methods);
+    classMethodsAddAll(klass, superclass);
   }
 //< Superclasses not-yet
 }
@@ -842,7 +862,7 @@ static InterpretResult run() {
         OID<ObjInstance> instance = AS_INSTANCE_OID(peek(0));
         OID<ObjString> name = READ_STRING();
         Value value;
-        if (tableGet(&instance.clip()->fields, OBJ_VAL(name.id()), &value)) {
+        if (instanceFieldGet(instance, OBJ_VAL(name.id()), &value)) {
           pop(); // Instance.
           push(value);
           break;
@@ -867,7 +887,7 @@ static InterpretResult run() {
         }
 
         OID<ObjInstance> instance = AS_INSTANCE_OID(peek(1));
-        tableSet(&instance.mlip()->fields, OBJ_VAL(READ_STRING().id()), peek(0));
+        instanceFieldSet(instance, OBJ_VAL(READ_STRING().id()), peek(0));
         Value value = pop();
         pop();
         push(value);
