@@ -26,6 +26,7 @@ bool tableDelete(Table *table, Value key);
 void tableAddAll(const Table *from, Table *to);
 
 OID<ObjString> tableFindString(Table      *table,
+                               cb_offset_t offset,
                                const char *chars,
                                int         length,
                                uint32_t    hash);

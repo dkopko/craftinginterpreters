@@ -183,11 +183,16 @@ tableAddAll(const Table *from,
 
 OID<ObjString>
 tableFindString(Table      *table,
+                cb_offset_t offset,
                 const char *chars,
                 int         length,
                 uint32_t    hash)
 {
-  printf("DANDEBUG %p tableFindString(%.*s)\n", table, length, chars);
+  if (offset == CB_NULL) {
+    printf("DANDEBUG %p tableFindString(%.*s@RAW)\n", table, length, chars);
+  } else {
+    printf("DANDEBUG %p tableFindString(%.*s@%ju)\n", table, length, chars, (uintmax_t)offset);
+  }
   //FIXME CBINT rewind if lookup fails?
   OID<ObjString> lookupStringOID = rawAllocateString(chars, length);
   Value lookupStringValue = OBJ_VAL(lookupStringOID.id());

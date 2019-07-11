@@ -226,7 +226,7 @@ OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
 //> Hash Tables take-string-hash
   uint32_t hash = hashString(adoptedChars.clp(), length);
 //> take-string-intern
-  OID<ObjString> internedOID = tableFindString(&vm.strings, adoptedChars.clp(), length,
+  OID<ObjString> internedOID = tableFindString(&vm.strings, adoptedChars.co(), adoptedChars.clp(), length,
                                                 hash);
   if (!internedOID.is_nil()) {
     FREE_ARRAY(char, adoptedChars.co(), length + 1);
@@ -254,7 +254,7 @@ OID<ObjString> copyString(const char* chars, int length) {
 //> Hash Tables copy-string-hash
   uint32_t hash = hashString(chars, length);
 //> copy-string-intern
-  OID<ObjString> internedOID = tableFindString(&vm.strings, chars, length,
+  OID<ObjString> internedOID = tableFindString(&vm.strings, CB_NULL, chars, length,
                                                hash);
   if (!internedOID.is_nil()) {
     printf("DANDEBUG copyString() interned C-string \"%.*s\" to string#%ju\"%s\"@%ju\n",
