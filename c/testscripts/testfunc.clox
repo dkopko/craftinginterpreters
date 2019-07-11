@@ -1,2 +1,2 @@
-fun f(x,y) { return x+y; }
-print f(3,4);
+fun sillyf(x,y) { return x+y; }
+print sillyf(3,4);
