@@ -13,11 +13,11 @@
 //< debug-include-value
 
 void disassembleChunk(Chunk* chunk, const char* name) {
-  printf("== %s ==\n", name);
-  
+  printf("BEGIN disassembleChunk() == %s ==\n", name);
   for (int offset = 0; offset < chunk->count;) {
     offset = disassembleInstruction(chunk, offset);
   }
+  printf("END disassembleChunk() == %s ==\n", name);
 }
 //> constant-instruction
 static int constantInstruction(const char* name, const Chunk* chunk,
