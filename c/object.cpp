@@ -304,11 +304,16 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
 
   switch (obj->type) {
     case OBJ_CLASS:
-      printf("%s", ((const ObjClass *)obj)->name.clip()->chars.clp());
+      printf("class#%ju@%ju\"%s\"",
+             (uintmax_t)id.id,
+             (uintmax_t)offset,
+             ((const ObjClass *)obj)->name.clip()->chars.clp());
       break;
 
     case OBJ_BOUND_METHOD:
-      printf("<fn1 %s>",
+      printf("boundmethod#%ju@%ju\"%s\"",
+             (uintmax_t)id.id,
+             (uintmax_t)offset,
              ((const ObjBoundMethod *)obj)->method.clip()->function.clip()->name.clip()->chars.clp());
       break;
 
@@ -316,9 +321,18 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
       const ObjClosure *clo = (const ObjClosure *)obj;
       if (!clo->function.is_nil() &&
           !clo->function.clip()->name.is_nil()) {
-        printf("<fn2 %s>", clo->function.clip()->name.clip()->chars.clp());
+        printf("closure#%ju@%ju(fun#%ju@%ju\"%s\")",
+               (uintmax_t)id.id,
+               (uintmax_t)offset,
+               (uintmax_t)clo->function.id().id,
+               (uintmax_t)clo->function.co(),
+               clo->function.clip()->name.clip()->chars.clp());
       } else {
-        printf("<fn3 uninit%ju>", (uintmax_t)clo->function.id().id);
+        printf("closure#%ju@%ju(fun#%ju@%ju<anon>)",
+               (uintmax_t)id.id,
+               (uintmax_t)offset,
+               (uintmax_t)clo->function.id().id,
+               (uintmax_t)clo->function.co());
       }
       break;
     }
@@ -326,27 +340,43 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
     case OBJ_FUNCTION: {
       const ObjFunction *fun = (const ObjFunction *)obj;
       if (!fun->name.is_nil()) {
-        printf("<fn4 %s>", fun->name.clip()->chars.clp());
+        printf("fun#%ju@%ju\"%s\"",
+               (uintmax_t)id.id,
+               (uintmax_t)offset,
+               fun->name.clip()->chars.clp());
       } else {
-        printf("<fn5 anon#%ju>", (uintmax_t)id.id);
+        printf("fun#%ju@%ju<anon>",
+               (uintmax_t)id.id,
+               (uintmax_t)offset);
       }
       break;
     }
 
     case OBJ_INSTANCE:
-      printf("%s instance", ((const ObjInstance *)obj)->klass.clip()->name.clip()->chars.clp());
+      printf("instance#%ju@%ju\"%s\"",
+             (uintmax_t)id.id,
+             (uintmax_t)offset,
+             ((const ObjInstance *)obj)->klass.clip()->name.clip()->chars.clp());
       break;
 
     case OBJ_NATIVE:
-      printf("<native fn>");
+      printf("native#%ju@%ju:%p",
+             (uintmax_t)id.id,
+             (uintmax_t)offset,
+             (void*)(uintptr_t)((const ObjNative*)obj)->function);
       break;
 
     case OBJ_STRING:
-      printf("%s", ((const ObjString *)obj)->chars.clp());
+      printf("string#%ju@%ju\"%s\"",
+             (uintmax_t)id.id,
+             (uintmax_t)offset,
+             ((const ObjString *)obj)->chars.clp());
       break;
 
     case OBJ_UPVALUE:
-      printf("upvalue");
+      printf("upvalue#%ju@%ju",
+             (uintmax_t)id.id,
+             (uintmax_t)offset);
       break;
 
     default:
