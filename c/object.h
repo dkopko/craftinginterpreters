@@ -91,12 +91,7 @@ typedef enum {
 
 struct sObj {
   ObjType type;
-//> Garbage Collection not-yet
-  bool isDark;
-//< Garbage Collection not-yet
-//> next-field
   OID<struct sObj> next;
-//< next-field
 };
 //> Calls and Functions not-yet
 

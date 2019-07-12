@@ -10,6 +10,7 @@ extern __thread struct cb        *thread_cb;
 extern __thread struct cb_region  thread_region;
 extern __thread cb_offset_t       thread_cutoff_offset;
 extern __thread struct ObjTable   thread_objtable;
+extern __thread cb_offset_t       thread_darkset_bst;
 
 #define CB_NULL ((cb_offset_t)0)  //FIXME
 

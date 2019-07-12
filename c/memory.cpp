@@ -67,11 +67,45 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
   }
 }
 
+static bool objectIsDark(const OID<Obj> objectOID) {
+  cb_term key_term;
+  cb_term value_term;
+
+  cb_term_set_u64(&key_term, objectOID.id().id);
+  cb_term_set_u64(&value_term, objectOID.id().id);
+
+  return cb_bst_contains_key(thread_cb,
+                             thread_darkset_bst,
+                             &key_term);
+}
+
+static void objectSetDark(OID<Obj> objectOID) {
+  cb_term key_term;
+  cb_term value_term;
+  int ret;
+
+  cb_term_set_u64(&key_term, objectOID.id().id);
+  cb_term_set_u64(&value_term, objectOID.id().id);
+
+  ret = cb_bst_insert(&thread_cb,  //FIXME CBINT gc_thread_cb
+                      &thread_region, //FIXME CBINT gc_thread_region
+                      &thread_darkset_bst,  //FIXME CBINT gc_thread_darkset_bst
+                      thread_cutoff_offset,
+                      &key_term,
+                      &value_term);
+  assert(ret == 0);
+  (void)ret;
+}
+
+static void clearDarkObjectSet(void) {
+  thread_darkset_bst = CB_BST_SENTINEL;
+}
+
 void grayObject(OID<Obj> objectOID) {
   if (objectOID.is_nil()) return;
 
   // Don't get caught in cycle.
-  if (objectOID.clip()->isDark) return;
+  if (objectIsDark(objectOID)) return;
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju grayObject() ", (uintmax_t)objectOID.id().id);
@@ -79,7 +113,7 @@ void grayObject(OID<Obj> objectOID) {
   printf("\n");
 #endif
 
-  objectOID.mlip()->isDark = true;
+  objectSetDark(objectOID);
 
   if (vm.grayCapacity < vm.grayCount + 1) {
     int oldGrayCapacity = vm.grayCapacity;
@@ -114,7 +148,7 @@ void grayValue(Value value) {
 
 static bool isWhiteObject(OID<Obj> objectOID) {
   if (objectOID.is_nil()) return true;
-  if (objectOID.clip()->isDark) return false;
+  if (objectIsDark(objectOID)) return false;
   return true;
 }
 
@@ -338,21 +372,19 @@ void collectGarbage() {
   // Collect the white objects.
   OID<Obj>* object = &vm.objects;
   while (! (*object).is_nil()) {
-    if (!((*object).clip()->isDark)) {
+    if (!objectIsDark(*object)) {
       // This object wasn't reached, so remove it from the list and
       // free it.
       OID<Obj> unreached = (*object);
-      //Obj* unreached = (*object).lp();
-      //*object = unreached->next;
       *object = (*object).clip()->next;
       freeObject(unreached);
     } else {
-      // This object was reached, so unmark it (for the next GC) and
-      // move on to the next.
-      (*object).mlip()->isDark = false;
-      object = &((*object).mlip()->next);
+      // This object was reached, so move on to the next.
+      object = (OID<Obj>*)&((*object).clip()->next);  //FIXME CBINT const-casting here
     }
   }
+
+  clearDarkObjectSet();
 
   // Adjust the heap size based on live memory.
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;

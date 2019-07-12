@@ -39,11 +39,7 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
 
   Obj* object = objectCBO.mlp();
   object->type = type;
-//> Garbage Collection not-yet
-  object->isDark = false;
-//< Garbage Collection not-yet
 //> add-to-list
-  
   object->next = vm.objects;
   vm.objects = objectOID;
 //< add-to-list
