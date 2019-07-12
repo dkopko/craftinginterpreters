@@ -168,11 +168,11 @@ static OID<ObjString> allocateString(CBO<char> adoptedChars, int length,
   push(stringValue);
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  printf("DANDEBUG interned string#%ju\"%.*s\"@%ju\n",
+  printf("DANDEBUG interned string#%ju@%ju\"%.*s\"\n",
          (uintmax_t)stringOID.id().id,
+         (uintmax_t)adoptedChars.co(),
          length,
-         adoptedChars.clp(),
-         (uintmax_t)adoptedChars.co());
+         adoptedChars.clp());
   tableSet(&vm.strings, stringValue, stringValue);
 //> Garbage Collection not-yet
   pop();
@@ -210,10 +210,10 @@ OID<ObjString> rawAllocateString(const char* chars, int length) {
   string->chars = heapCharsCBO;
   string->hash = hash;
 
-  printf("DANDEBUG rawAllocateString() created new string#%ju\"%s\"@%ju\n",
+  printf("DANDEBUG rawAllocateString() created new string#%ju@%ju\"%s\"\n",
          (uintmax_t)stringOID.id().id,
-         heapChars,
-         (uintmax_t)heapCharsCBO.co());
+         (uintmax_t)heapCharsCBO.co(),
+         heapChars);
 
   return stringOID;
 }
@@ -230,20 +230,20 @@ OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
                                                 hash);
   if (!internedOID.is_nil()) {
     FREE_ARRAY(char, adoptedChars.co(), length + 1);
-    printf("DANDEBUG takeString() interned rawchars\"%.*s\"(@%ju) to string#%ju\"%s\"@%ju\n",
+    printf("DANDEBUG takeString() interned rawchars@%ju\"%.*s\" to string#%ju@%ju\"%s\"\n",
+           (uintmax_t)adoptedChars.co(),
            length,
            adoptedChars.clp(),
-           (uintmax_t)adoptedChars.co(),
            (uintmax_t)internedOID.id().id,
-           internedOID.clip()->chars.clp(),
-           (uintmax_t)internedOID.clip()->chars.co());
+           (uintmax_t)internedOID.clip()->chars.co(),
+           internedOID.clip()->chars.clp());
     return internedOID;
   }
 
-    printf("DANDEBUG takeString() could not find interned string for rawchars\"%.*s\"(@%ju)\n",
+    printf("DANDEBUG takeString() could not find interned string for rawchars@%ju\"%.*s\"\n",
+           (uintmax_t)adoptedChars.co(),
            length,
-           adoptedChars.clp(),
-           (uintmax_t)adoptedChars.co());
+           adoptedChars.clp());
 //< take-string-intern
   return allocateString(adoptedChars, length, hash);
 //< Hash Tables take-string-hash
@@ -257,12 +257,12 @@ OID<ObjString> copyString(const char* chars, int length) {
   OID<ObjString> internedOID = tableFindString(&vm.strings, CB_NULL, chars, length,
                                                hash);
   if (!internedOID.is_nil()) {
-    printf("DANDEBUG copyString() interned C-string \"%.*s\" to string#%ju\"%s\"@%ju\n",
+    printf("DANDEBUG copyString() interned C-string \"%.*s\" to string#%ju@%ju\"%s\"\n",
            length,
            chars,
            (uintmax_t)internedOID.id().id,
-           internedOID.clip()->chars.clp(),
-           (uintmax_t)internedOID.clip()->chars.co());
+           (uintmax_t)internedOID.clip()->chars.co(),
+           internedOID.clip()->chars.clp());
     return internedOID;
   }
 //< copy-string-intern
