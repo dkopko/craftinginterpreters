@@ -213,7 +213,8 @@ OID<ObjString> copyString(const char* chars, int length);
 OID<ObjUpvalue> newUpvalue(unsigned int valueStackIndex);
 //< Closures not-yet
 //> print-object-h
-void printObject(Value value);
+void printObject(ObjID id, cb_offset_t offset, const Obj *obj);
+void printObjectValue(Value value);
 //< print-object-h
 //> is-obj-type
 static inline bool isObjType(Value value, ObjType type) {

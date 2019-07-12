@@ -45,7 +45,7 @@ void printValue(Value value) {
   } else if (IS_NUMBER(value)) {
     printf("%g", AS_NUMBER(value));
   } else if (IS_OBJ(value)) {
-    printObject(value);
+    printObjectValue(value);
   }
 #else
 //< Optimization not-yet

@@ -251,7 +251,7 @@ delete_white_keys(const struct cb_term *key_term,
 
   if (isWhite(keyValue)) {
     printf("DANDEBUG deleting white key of ");
-    printObject(keyValue);
+    printObjectValue(keyValue);
     printf("\n");
 
     ret = cb_bst_delete(c->cb,

@@ -296,65 +296,67 @@ OID<ObjUpvalue> newUpvalue(unsigned int valueStackIndex) {
 }
 //< Closures not-yet
 //> print-object
-void printObject(Value value) {
-  if (IS_NIL(value)) {
-    printf("nilval");
+void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
+  if (!obj) {
+    printf("nilobj");
     return;
   }
 
-  switch (OBJ_TYPE(value)) {
-//> Classes and Instances not-yet
+  switch (obj->type) {
     case OBJ_CLASS:
-      printf("%s", AS_CLASS_OID(value).clip()->name.clip()->chars.clp());
+      printf("%s", ((const ObjClass *)obj)->name.clip()->chars.clp());
       break;
-//< Classes and Instances not-yet
-//> Methods and Initializers not-yet
+
     case OBJ_BOUND_METHOD:
-      printf("<fn %s>",
-             AS_BOUND_METHOD_OID(value).clip()->method.clip()->function.clip()->name.clip()->chars.clp());
+      printf("<fn1 %s>",
+             ((const ObjBoundMethod *)obj)->method.clip()->function.clip()->name.clip()->chars.clp());
       break;
-//< Methods and Initializers not-yet
-//> Closures not-yet
-    case OBJ_CLOSURE:
-      if (!AS_CLOSURE_OID(value).clip()->function.is_nil() &&
-          !AS_CLOSURE_OID(value).clip()->function.clip()->name.is_nil()) {
-        printf("<fn %s>", AS_CLOSURE_OID(value).clip()->function.clip()->name.clip()->chars.clp());
+
+    case OBJ_CLOSURE: {
+      const ObjClosure *clo = (const ObjClosure *)obj;
+      if (!clo->function.is_nil() &&
+          !clo->function.clip()->name.is_nil()) {
+        printf("<fn2 %s>", clo->function.clip()->name.clip()->chars.clp());
       } else {
-        printf("<fn uninit%ju>", (uintmax_t)AS_CLOSURE_OID(value).clip()->function.id().id);
-      }
-      break;
-//< Closures not-yet
-//> Calls and Functions not-yet
-    case OBJ_FUNCTION: {
-      if (!AS_FUNCTION_OID(value).clip()->name.is_nil()) {
-        printf("<fn %p>", AS_FUNCTION_OID(value).clip()->name.clip()->chars.clp());
-      } else {
-        printf("<fn anon%ju>", (uintmax_t)AS_FUNCTION_OID(value).id().id);
+        printf("<fn3 uninit%ju>", (uintmax_t)clo->function.id().id);
       }
       break;
     }
-//< Calls and Functions not-yet
-//> Classes and Instances not-yet
-    case OBJ_INSTANCE:
-      printf("%s instance", AS_INSTANCE_OID(value).clip()->klass.clip()->name.clip()->chars.clp());
+
+    case OBJ_FUNCTION: {
+      const ObjFunction *fun = (const ObjFunction *)obj;
+      if (!fun->name.is_nil()) {
+        printf("<fn4 %s>", fun->name.clip()->chars.clp());
+      } else {
+        printf("<fn5 anon#%ju>", (uintmax_t)id.id);
+      }
       break;
-//< Classes and Instances not-yet
-//> Calls and Functions not-yet
+    }
+
+    case OBJ_INSTANCE:
+      printf("%s instance", ((const ObjInstance *)obj)->klass.clip()->name.clip()->chars.clp());
+      break;
+
     case OBJ_NATIVE:
       printf("<native fn>");
       break;
-//< Calls and Functions not-yet
+
     case OBJ_STRING:
-      printf("%s", AS_CSTRING(value));
+      printf("%s", ((const ObjString *)obj)->chars.clp());
       break;
-//> Closures not-yet
+
     case OBJ_UPVALUE:
       printf("upvalue");
       break;
-//< Closures not-yet
+
     default:
       printf("#?BADOBJ?#");
       break;
   }
+}
+
+void printObjectValue(Value value) {
+  OID<Obj> tmp = AS_OBJ_ID(value);
+  printObject(tmp.id(), tmp.co(), tmp.clip());
 }
 //< print-object
