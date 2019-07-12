@@ -22,15 +22,14 @@ objtable_init(ObjTable *obj_table)
   obj_table->next_obj_id.id  = 1;
 }
 
-ObjID
-objtable_add(ObjTable *obj_table, cb_offset_t offset)
+void
+objtable_add_at(ObjTable *obj_table, ObjID obj_id, cb_offset_t offset)
 {
   cb_term key_term;
   cb_term value_term;
-  ObjID obj_id = obj_table->next_obj_id;
   int ret;
 
-  cb_term_set_u64(&key_term, obj_table->next_obj_id.id);
+  cb_term_set_u64(&key_term, obj_id.id);
   cb_term_set_u64(&value_term, offset);
 
   ret = cb_bst_insert(&thread_cb,
@@ -41,7 +40,14 @@ objtable_add(ObjTable *obj_table, cb_offset_t offset)
                       &value_term);
   assert(ret == 0);
   (void)ret;
+}
 
+ObjID
+objtable_add(ObjTable *obj_table, cb_offset_t offset)
+{
+  ObjID obj_id = obj_table->next_obj_id;
+
+  objtable_add_at(obj_table, obj_id, offset);
   (obj_table->next_obj_id.id)++;
 
   return obj_id;
@@ -64,6 +70,57 @@ objtable_lookup(ObjTable *obj_table, ObjID obj_id)
   if (ret == 0) goto done;
 
 done:
+  if (ret != CB_SUCCESS || cb_term_get_u64(&value_term) == CB_NULL) {
+    return CB_NULL;
+  }
+
+  return (cb_offset_t)cb_term_get_u64(&value_term);
+}
+
+cb_offset_t
+objtable_lookup_A(ObjTable *obj_table, ObjID obj_id)
+{
+  cb_term key_term;
+  cb_term value_term;
+  int ret;
+
+  cb_term_set_u64(&key_term, obj_id.id);
+
+  ret = cb_bst_lookup(thread_cb, obj_table->root_a, &key_term, &value_term);
+  if (ret != CB_SUCCESS || cb_term_get_u64(&value_term) == CB_NULL) {
+    return CB_NULL;
+  }
+
+  return (cb_offset_t)cb_term_get_u64(&value_term);
+}
+
+cb_offset_t
+objtable_lookup_B(ObjTable *obj_table, ObjID obj_id)
+{
+  cb_term key_term;
+  cb_term value_term;
+  int ret;
+
+  cb_term_set_u64(&key_term, obj_id.id);
+
+  ret = cb_bst_lookup(thread_cb, obj_table->root_b, &key_term, &value_term);
+  if (ret != CB_SUCCESS || cb_term_get_u64(&value_term) == CB_NULL) {
+    return CB_NULL;
+  }
+
+  return (cb_offset_t)cb_term_get_u64(&value_term);
+}
+
+cb_offset_t
+objtable_lookup_C(ObjTable *obj_table, ObjID obj_id)
+{
+  cb_term key_term;
+  cb_term value_term;
+  int ret;
+
+  cb_term_set_u64(&key_term, obj_id.id);
+
+  ret = cb_bst_lookup(thread_cb, obj_table->root_c, &key_term, &value_term);
   if (ret != CB_SUCCESS || cb_term_get_u64(&value_term) == CB_NULL) {
     return CB_NULL;
   }

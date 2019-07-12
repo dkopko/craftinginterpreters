@@ -64,8 +64,12 @@ typedef struct ObjTable {
 } ObjTable;
 
 void objtable_init(ObjTable *obj_table);
+void objtable_add_at(ObjTable *obj_table, ObjID obj_id, cb_offset_t offset);
 ObjID objtable_add(ObjTable *obj_table, cb_offset_t offset);
 cb_offset_t objtable_lookup(ObjTable *obj_table, ObjID obj_id);
+cb_offset_t objtable_lookup_A(ObjTable *obj_table, ObjID obj_id);
+cb_offset_t objtable_lookup_B(ObjTable *obj_table, ObjID obj_id);
+cb_offset_t objtable_lookup_C(ObjTable *obj_table, ObjID obj_id);
 void objtable_invalidate(ObjTable *obj_table, ObjID obj_id);
 
 
@@ -96,6 +100,21 @@ struct OID
     return objtable_lookup(&thread_objtable, objid_);
   }
 
+  //Underlying offset, if this ObjID exists in A region mapping. CB_NULL otherwise.
+  cb_offset_t co_A() const {
+    return objtable_lookup_A(&thread_objtable, objid_);
+  }
+
+  //Underlying offset, if this ObjID exists in A region mapping. CB_NULL otherwise.
+  cb_offset_t co_B() const {
+    return objtable_lookup_B(&thread_objtable, objid_);
+  }
+
+  //Underlying offset, if this ObjID exists in A region mapping. CB_NULL otherwise.
+  cb_offset_t co_C() const {
+    return objtable_lookup_C(&thread_objtable, objid_);
+  }
+
   //Underlying offset
   cb_offset_t mo() const {
     return objtable_lookup(&thread_objtable, objid_);
@@ -104,6 +123,27 @@ struct OID
   //Local dereference
   const T* clip() const {
     return static_cast<const T*>(cb_at(thread_cb, co()));
+  }
+
+  //Local dereference, region A only
+  const T* clipA() const {
+    cb_offset_t o = co_A();
+    if (o == CB_NULL) return NULL;
+    return static_cast<const T*>(cb_at(thread_cb, o));
+  }
+
+  //Local dereference, region B only
+  const T* clipB() const {
+    cb_offset_t o = co_B();
+    if (o == CB_NULL) return NULL;
+    return static_cast<const T*>(cb_at(thread_cb, o));
+  }
+
+  //Local dereference, region C only
+  const T* clipC() const {
+    cb_offset_t o = co_C();
+    if (o == CB_NULL) return NULL;
+    return static_cast<const T*>(cb_at(thread_cb, o));
   }
 
   //Local dereference
