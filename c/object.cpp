@@ -208,7 +208,7 @@ OID<ObjString> rawAllocateString(const char* chars, int length) {
 
   printf("DANDEBUG rawAllocateString() created new string#%ju@%ju\"%s\"\n",
          (uintmax_t)stringOID.id().id,
-         (uintmax_t)heapCharsCBO.co(),
+         (uintmax_t)stringOID.co(),
          heapChars);
 
   return stringOID;
@@ -231,7 +231,7 @@ OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
            length,
            adoptedChars.clp(),
            (uintmax_t)internedOID.id().id,
-           (uintmax_t)internedOID.clip()->chars.co(),
+           (uintmax_t)internedOID.co(),
            internedOID.clip()->chars.clp());
     return internedOID;
   }
