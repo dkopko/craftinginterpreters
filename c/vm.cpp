@@ -247,21 +247,10 @@ static void runtimeError(const char* format, ...) {
   va_end(args);
   fputs("\n", stderr);
 
-/* Types of Values runtime-error < Calls and Functions not-yet
-  size_t instruction = vm.ip - vm.chunk->code;
-  fprintf(stderr, "[line %d] in script\n",
-          vm.chunk->lines[instruction]);
-*/
-//> Calls and Functions not-yet
   for (unsigned int i = triframes_frameCount(&(vm.triframes)); i > 0; --i) {
     CallFrame *frame = triframes_at(&(vm.triframes), i - 1);
 
-/* Calls and Functions not-yet < Closures not-yet
-    ObjFunction* function = frame->function;
-*/
-//> Closures not-yet
     OID<ObjFunction> function = frame->closure.clip()->function;
-//< Closures not-yet
     // -1 because the IP is sitting on the next instruction to be
     // executed.
     size_t instruction = frame->ip - function.clip()->chunk.code.clp() - 1;
@@ -273,7 +262,6 @@ static void runtimeError(const char* format, ...) {
       fprintf(stderr, "%s()\n", function.clip()->name.clip()->chars.clp());
     }
   }
-//< Calls and Functions not-yet
 
   resetStack();
 }
@@ -808,45 +796,15 @@ static void concatenate() {
 //< Strings concatenate
 //> run
 static InterpretResult run() {
-//> Calls and Functions not-yet
   CallFrame* frame = triframes_currentFrame(&(vm.triframes));
 
-/* A Virtual Machine run < Calls and Functions not-yet
-#define READ_BYTE() (*vm.ip++)
-*/
-/* A Virtual Machine read-constant < Calls and Functions not-yet
-#define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
-*/
-/* Jumping Forward and Back not-yet < Calls and Functions not-yet
-#define READ_SHORT() \
-    (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
-*/
 #define READ_BYTE() (*frame->ip++)
 #define READ_SHORT() \
     (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
-//< Calls and Functions not-yet
-/* Calls and Functions not-yet < Closures not-yet
-#define READ_CONSTANT() \
-    (frame->function->chunk.constants.values[READ_BYTE()])
-*/
-//> Closures not-yet
 #define READ_CONSTANT() \
     (frame->closure.clip()->function.clip()->chunk.constants.values.clp()[READ_BYTE()])
-//< Closures not-yet
-//> Global Variables read-string
 #define READ_STRING() AS_STRING_OID(READ_CONSTANT())
-//< Global Variables read-string
-//> binary-op
 
-//< binary-op
-/* A Virtual Machine binary-op < Types of Values binary-op
-#define BINARY_OP(op) \
-    do { \
-      double b = pop(); \
-      double a = pop(); \
-      push(a op b); \
-    } while (false)
-*/
 //> Types of Values binary-op
 #define BINARY_OP(valueType, op) \
     do { \
@@ -862,9 +820,7 @@ static InterpretResult run() {
 //< Types of Values binary-op
 
   for (;;) {
-//> trace-execution
 #ifdef DEBUG_TRACE_EXECUTION
-//> trace-stack
     printf("          ");
     for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
       printf("[ ");
@@ -872,21 +828,11 @@ static InterpretResult run() {
       printf(" ]");
     }
     printf("\n");
-//< trace-stack
-/* A Virtual Machine trace-execution < Calls and Functions not-yet
-    disassembleInstruction(vm.chunk, (int)(vm.ip - vm.chunk->code));
-*/
-/* Calls and Functions not-yet < Closures not-yet
-    disassembleInstruction(&frame->function->chunk,
-        (int)(frame->ip - frame->function->chunk.code));
-*/
-//> Closures not-yet
+
     disassembleInstruction(&frame->closure.clip()->function.clip()->chunk,
         (int)(frame->ip - frame->closure.clip()->function.clip()->chunk.code.clp()));
-//< Closures not-yet
 #endif
-    
-//< trace-execution
+
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
 //> op-constant
@@ -1113,39 +1059,24 @@ static InterpretResult run() {
         printf("\n");
         break;
       }
-        
+
 //< Global Variables interpret-print
 //> Jumping Forward and Back not-yet
       case OP_JUMP: {
         uint16_t offset = READ_SHORT();
-/* Jumping Forward and Back not-yet < Calls and Functions not-yet
-        vm.ip += offset;
-*/
-//> Calls and Functions not-yet
         frame->ip += offset;
-//< Calls and Functions not-yet
         break;
       }
 
       case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
-/* Jumping Forward and Back not-yet < Calls and Functions not-yet
-        if (isFalsey(peek(0))) vm.ip += offset;
-*/
-//> Calls and Functions not-yet
         if (isFalsey(peek(0))) frame->ip += offset;
-//< Calls and Functions not-yet
         break;
       }
 
       case OP_LOOP: {
         uint16_t offset = READ_SHORT();
-/* Jumping Forward and Back not-yet < Calls and Functions not-yet
-        vm.ip -= offset;
-*/
-//> Calls and Functions not-yet
         frame->ip -= offset;
-//< Calls and Functions not-yet
         break;
       }
 //< Jumping Forward and Back not-yet
@@ -1345,12 +1276,6 @@ static InterpretResult run() {
 }
 //< run
 //> interpret
-/* A Virtual Machine interpret < Scanning on Demand vm-interpret-c
-InterpretResult interpret(Chunk* chunk) {
-  vm.chunk = chunk;
-  vm.ip = vm.chunk->code;
-  return run();
-*/
 //> Scanning on Demand vm-interpret-c
 InterpretResult interpret(const char* source) {
 /* Scanning on Demand omit < Compiling Expressions interpret-chunk
@@ -1361,18 +1286,6 @@ InterpretResult interpret(const char* source) {
 /* Scanning on Demand vm-interpret-c < Compiling Expressions interpret-chunk
   compile(source);
   return INTERPRET_OK;
-*/
-/* Compiling Expressions interpret-chunk < Calls and Functions not-yet
-  Chunk chunk;
-  initChunk(&chunk);
- 
-  if (!compile(source, &chunk)) {
-    freeChunk(&chunk);
-    return INTERPRET_COMPILE_ERROR;
-  }
-
-  vm.chunk = &chunk;
-  vm.ip = vm.chunk->code;
 */
 //> Calls and Functions not-yet
   OID<ObjFunction> function = compile(source);

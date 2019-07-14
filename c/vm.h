@@ -72,12 +72,6 @@ CallFrame* triframes_at(TriFrames *tf, unsigned int index);
 
 
 typedef struct {
-/* A Virtual Machine vm-h < Calls and Functions not-yet
-  Chunk* chunk;
-*/
-/* A Virtual Machine ip < Calls and Functions not-yet
-  uint8_t* ip;
-*/
 //> vm-stack
   TriStack tristack;
 //< vm-stack
