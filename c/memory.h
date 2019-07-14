@@ -15,7 +15,10 @@
     ((capacity) < 8 ? 8 : (capacity) * 2)
 
 #define GROW_ARRAY(previous, type, oldCount, count) \
-    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type))
+    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false)
+
+#define GROW_ARRAY_NOGC(previous, type, oldCount, count) \
+    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), true)
 
 #define FREE_ARRAY(type, previous, oldCount) \
     logged_free_array(#type, previous, sizeof(type), (oldCount), cb_alignof(type))
@@ -57,9 +60,9 @@ logged_free(const char *typeName, cb_offset_t previous, size_t typeSize, size_t 
 }
 
 extern inline cb_offset_t
-logged_grow_array(const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t count, size_t alignment)
+logged_grow_array(const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t count, size_t alignment, bool suppress_gc)
 {
-  cb_offset_t retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment, false);
+  cb_offset_t retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment, suppress_gc);
 
 #ifdef DEBUG_TRACE_GC
   if (count > oldCount) {
@@ -102,7 +105,8 @@ logged_free_array(const char *typeName, cb_offset_t previous, size_t typeSize, s
 
 
 bool isWhite(Value value);
-void grayObject(OID<Obj> objectOID);
+cb_offset_t mutableCopyObject(ObjID id, cb_offset_t object_offset);
+void grayObject(const OID<Obj> objectOID);
 void grayValue(Value value);
 void collectGarbage();
 void freeObjects();

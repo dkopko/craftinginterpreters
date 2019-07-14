@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "cb_bst.h"
+
 #include "memory.h"
 #include "object.h"
 //> Hash Tables object-include-table
@@ -47,8 +49,9 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
 
 #ifdef DEBUG_TRACE_GC
   //printf("%p allocate %ld for %d\n", object, size, type);
-  printf("#%ju %s object allocated (%ld bytes)\n",
+  printf("#%ju@%ju %s object allocated (%ld bytes)\n",
          (uintmax_t)objectOID.id().id,
+         (uintmax_t)objectCBO.co(),
          objTypeString(type),
          size);
 #endif
@@ -76,6 +79,8 @@ ObjClass* newClass(ObjString* name) {
 */
 //> Superclasses not-yet
 OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
+  int ret;
+
 //< Superclasses not-yet
   OID<ObjClass> klassOID = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
   ObjClass* klass = klassOID.mlip();
@@ -84,7 +89,14 @@ OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
   klass->superclass = superclass;
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
-  initTable(&klass->methods, &clox_value_shallow_comparator, &clox_value_render);
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(klass->methods_bst),
+                    &clox_value_shallow_comparator,
+                    &clox_value_render,
+                    &clox_value_external_size);
+  assert(ret == 0);
+  (void)ret;
 //< Methods and Initializers not-yet
   return klassOID;
 }
@@ -126,10 +138,19 @@ OID<ObjFunction> newFunction() {
 //> Classes and Instances not-yet
 
 OID<ObjInstance> newInstance(OID<ObjClass> klass) {
+  int ret;
   OID<ObjInstance> instanceOID = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   ObjInstance* instance = instanceOID.mlip();
   instance->klass = klass;
-  initTable(&instance->fields, &clox_value_shallow_comparator, &clox_value_render);
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(instance->fields_bst),
+                    &clox_value_shallow_comparator,
+                    &clox_value_render,
+                    &clox_value_external_size);
+  assert(ret == 0);
+  (void)ret;
+
   return instanceOID;
 }
 //< Classes and Instances not-yet

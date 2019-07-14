@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "object.h"
+#include "memory.h"
 #include "value.h"
 
 
@@ -147,6 +148,43 @@ objtable_invalidate(ObjTable *obj_table, ObjID obj_id)
   assert(ret == CB_SUCCESS);
   (void)ret;
 }
+
+cb_offset_t
+resolveAsMutable(ObjID objid)
+{
+  cb_offset_t o;
+
+  o = objtable_lookup_A(&thread_objtable, objid);
+  if (o != CB_NULL) {
+    printf("#%ju@%ju found in objtable A\n", (uintmax_t)objid.id, (uintmax_t)o);
+    assert(cb_offset_cmp(o, thread_cutoff_offset) > 0);
+    return o;
+  }
+
+  o = objtable_lookup_B(&thread_objtable, objid);
+  if (o != CB_NULL) {
+    printf("#%ju@%ju found in objtable B\n", (uintmax_t)objid.id, (uintmax_t)o);
+    cb_offset_t copy_o = mutableCopyObject(objid, o);
+    assert(cb_offset_cmp(copy_o, thread_cutoff_offset) > 0);
+    objtable_add_at(&thread_objtable, objid, copy_o);
+    //printf("#%ju@%ju is new mutable copy in objtable A\n", (uintmax_t)objid_.id, copy_o);
+    printObjectValue(OBJ_VAL(objid));
+    printf(" is new mutable copy in objtable A\n");
+    return copy_o;
+  }
+
+  o = objtable_lookup_C(&thread_objtable, objid);
+  assert(o != CB_NULL);
+  printf("#%ju@%ju found in objtable C\n", (uintmax_t)objid.id, (uintmax_t)o);
+  cb_offset_t copy_o = mutableCopyObject(objid, o);
+  assert(cb_offset_cmp(copy_o, thread_cutoff_offset) > 0);
+  objtable_add_at(&thread_objtable, objid, copy_o);
+  //printf("#%ju@%ju is new mutable copy in objtable A\n", (uintmax_t)objid_.id, copy_o);
+  printObjectValue(OBJ_VAL(objid));
+  printf(" is new mutable copy in objtable A\n");
+  return copy_o;
+}
+
 
 static int
 clox_object_cmp(Value lhs, Value rhs)
@@ -405,9 +443,7 @@ clox_object_external_size(const struct cb      *cb,
     case OBJ_CLASS: {
       const ObjClass *klass = AS_CLASS_OID(value).clip();
       return sizeof(ObjClass) + cb_alignof(ObjClass) - 1
-             + cb_bst_size(thread_cb, klass->methods.root_a)
-             + cb_bst_size(thread_cb, klass->methods.root_b)
-             + cb_bst_size(thread_cb, klass->methods.root_c);
+             + cb_bst_size(thread_cb, klass->methods_bst);
     }
     case OBJ_CLOSURE: {
       const ObjClosure *closure = AS_CLOSURE_OID(value).clip();
@@ -425,9 +461,7 @@ clox_object_external_size(const struct cb      *cb,
     case OBJ_INSTANCE: {
       const ObjInstance *instance = AS_INSTANCE_OID(value).clip();
       return sizeof(ObjInstance) + cb_alignof(ObjInstance) - 1
-             + cb_bst_size(thread_cb, instance->fields.root_a)
-             + cb_bst_size(thread_cb, instance->fields.root_b)
-             + cb_bst_size(thread_cb, instance->fields.root_c);
+             + cb_bst_size(thread_cb, instance->fields_bst);
     }
     case OBJ_NATIVE:
       return sizeof(ObjNative) + cb_alignof(ObjNative) - 1;

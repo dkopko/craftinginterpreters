@@ -12,6 +12,8 @@
 #include <time.h>
 //< Calls and Functions not-yet
 
+#include "cb_bst.h"
+
 #include "cb_integration.h"
 //< vm-include-stdio
 #include "common.h"
@@ -388,7 +390,7 @@ static bool call(OID<ObjClosure> closure, int argCount) {
 */
 //> Closures not-yet
   frame->closure = closure;
-  frame->ip = closure.clip()->function.clip()->chunk.code.clp();
+  frame->ip = closure.clip()->function.clip()->chunk.code.clp();  //FIXME CBINT be careful around frame->ip + mutable copying of chunks + function returns.
 //< Closures not-yet
 
   // +1 to include either the called function or the receiver.
@@ -400,23 +402,161 @@ static bool call(OID<ObjClosure> closure, int argCount) {
 }
 
 static bool instanceFieldGet(OID<ObjInstance> instance, Value key, Value *value) {
-  return tableGet(&(instance.clip()->fields), key, value);
+  const ObjInstance *instanceA;
+  const ObjInstance *instanceB;
+  const ObjInstance *instanceC;
+  struct cb_term key_term;
+  struct cb_term value_term;
+  int ret;
+
+  cb_term_set_dbl(&key_term, valueToNum(key));
+
+  instanceA = instance.clipA();
+  if (instanceA) {
+    ret = cb_bst_lookup(thread_cb, instanceA->fields_bst, &key_term, &value_term);
+    if (ret == 0) goto done;
+  }
+  instanceB = instance.clipB();
+  if (instanceB) {
+    ret = cb_bst_lookup(thread_cb, instanceB->fields_bst, &key_term, &value_term);
+    if (ret == 0) goto done;
+  }
+  instanceC = instance.clipC();
+  if (instanceC) {
+    ret = cb_bst_lookup(thread_cb, instanceC->fields_bst, &key_term, &value_term);
+  }
+
+done:
+  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)).val == TOMBSTONE_VAL.val) {
+    return false;
+  }
+
+  *value = numToValue(cb_term_get_dbl(&value_term));
+  return true;
 }
 
 static bool instanceFieldSet(OID<ObjInstance> instance, Value key, Value value) {
-  return tableSet(&(instance.mlip()->fields), key, value);
+  ObjInstance *instanceA;
+  struct cb_term key_term;
+  struct cb_term value_term;
+  Value temp_value;
+  bool already_exists;
+  int ret;
+
+  cb_term_set_dbl(&key_term, valueToNum(key));
+  cb_term_set_dbl(&value_term, valueToNum(value));
+
+  //CBINT FIXME would be nice to avoid this lookup by leveraging
+  // cb_bst_insert()'s lookup.
+  already_exists = instanceFieldGet(instance, key, &temp_value);
+
+  instanceA = instance.mlip();
+
+  ret = cb_bst_insert(&thread_cb,
+                      &thread_region,
+                      &(instanceA->fields_bst),
+                      thread_cutoff_offset,
+                      &key_term,
+                      &value_term);
+  assert(ret == 0);
+
+  //true if new key and we succeeded at inserting it.
+  return (!already_exists && ret == 0);
 }
 
 static bool classMethodGet(OID<ObjClass> klass, Value key, Value *value) {
-  return tableGet(&(klass.clip()->methods), key, value);
+  const ObjClass *classA;
+  const ObjClass *classB;
+  const ObjClass *classC;
+  struct cb_term key_term;
+  struct cb_term value_term;
+  int ret;
+
+  cb_term_set_dbl(&key_term, valueToNum(key));
+
+  classA = klass.clipA();
+  if (classA) {
+    ret = cb_bst_lookup(thread_cb, classA->methods_bst, &key_term, &value_term);
+    if (ret == 0) goto done;
+  }
+  classB = klass.clipB();
+  if (classB) {
+    ret = cb_bst_lookup(thread_cb, classB->methods_bst, &key_term, &value_term);
+    if (ret == 0) goto done;
+  }
+  classC = klass.clipC();
+  if (classC) {
+    ret = cb_bst_lookup(thread_cb, classC->methods_bst, &key_term, &value_term);
+  }
+
+done:
+  if (ret != 0 || numToValue(cb_term_get_dbl(&value_term)).val == TOMBSTONE_VAL.val) {
+    return false;
+  }
+
+  *value = numToValue(cb_term_get_dbl(&value_term));
+  return true;
 }
 
 static bool classMethodSet(OID<ObjClass> klass, Value key, Value value) {
-  return tableSet(&(klass.mlip()->methods), key, value);
+  ObjClass *classA;
+  struct cb_term key_term;
+  struct cb_term value_term;
+  Value temp_value;
+  bool already_exists;
+  int ret;
+
+  cb_term_set_dbl(&key_term, valueToNum(key));
+  cb_term_set_dbl(&value_term, valueToNum(value));
+
+  //CBINT FIXME would be nice to avoid this lookup by leveraging
+  // cb_bst_insert()'s lookup.
+  already_exists = classMethodGet(klass, key, &temp_value);
+
+  classA = klass.mlip();
+
+  ret = cb_bst_insert(&thread_cb,
+                      &thread_region,
+                      &(classA->methods_bst),
+                      thread_cutoff_offset,
+                      &key_term,
+                      &value_term);
+  assert(ret == 0);
+
+  //true if new key and we succeeded at inserting it.
+  return (!already_exists && ret == 0);
+}
+
+static int
+bstTraversalAdd(const struct cb_term *key_term,
+                const struct cb_term *value_term,
+                void                 *closure)
+{
+  cb_offset_t *dest_bst = (cb_offset_t *)closure;
+  int ret;
+
+  (void)ret;
+
+  ret = cb_bst_insert(&thread_cb,
+                      &thread_region,
+                      dest_bst,
+                      thread_cutoff_offset,
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+  return 0;
 }
 
 static void classMethodsAddAll(OID<ObjClass> subclass, OID<ObjClass> superclass) {
-  tableAddAll(&(superclass.clip()->methods), &(subclass.mlip()->methods));
+  int ret;
+
+  (void)ret;
+
+  ret = cb_bst_traverse(thread_cb,
+                        superclass.clip()->methods_bst,
+                        &bstTraversalAdd,
+                        &(subclass.mlip()->methods_bst));
+  assert(ret == 0);
 }
 
 static bool callValue(Value callee, int argCount) {

@@ -101,7 +101,7 @@ static void clearDarkObjectSet(void) {
   thread_darkset_bst = CB_BST_SENTINEL;
 }
 
-void grayObject(OID<Obj> objectOID) {
+void grayObject(const OID<Obj> objectOID) {
   if (objectOID.is_nil()) return;
 
   // Don't get caught in cycle.
@@ -157,14 +157,41 @@ bool isWhite(Value value) {
   return isWhiteObject(AS_OBJ_ID(value));
 }
 
-static void grayArray(ValueArray* array) {
+static void grayArray(const ValueArray* array) {
   for (int i = 0; i < array->count; i++) {
     grayValue(array->values.clp()[i]);
   }
 }
 
-static void grayObjectLeaves(OID<Obj> objectOID) {
-  Obj *object = objectOID.mlip();
+static int
+bstTraversalGray(const struct cb_term *key_term,
+                 const struct cb_term *value_term,
+                 void                 *closure)
+{
+  Value keyValue;
+  Value valueValue;
+
+  keyValue = numToValue(cb_term_get_dbl(key_term));
+  valueValue = numToValue(cb_term_get_dbl(value_term));
+
+  grayValue(keyValue);
+  grayValue(valueValue);
+
+  return 0;
+}
+
+static void grayBst(cb_offset_t bst) {
+  int ret;
+
+  ret = cb_bst_traverse(thread_cb,
+                        bst,
+                        &bstTraversalGray,
+                        NULL);
+  assert(ret == 0);
+}
+
+static void grayObjectLeaves(const OID<Obj> objectOID) {
+  const Obj *object = objectOID.clip();
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju grayObjectLeaves() ", (uintmax_t)objectOID.id().id);
@@ -174,22 +201,22 @@ static void grayObjectLeaves(OID<Obj> objectOID) {
 
   switch (object->type) {
     case OBJ_BOUND_METHOD: {
-      ObjBoundMethod* bound = (ObjBoundMethod*)object;
+      const ObjBoundMethod* bound = (const ObjBoundMethod*)object;
       grayValue(bound->receiver);
       grayObject(bound->method.id());
       break;
     }
 
     case OBJ_CLASS: {
-      ObjClass* klass = (ObjClass*)object;
+      const ObjClass* klass = (const ObjClass*)object;
       grayObject(klass->name.id());
       grayObject(klass->superclass.id());
-      grayTable(&klass->methods);
+      grayBst(klass->methods_bst);
       break;
     }
 
     case OBJ_CLOSURE: {
-      ObjClosure* closure = (ObjClosure*)object;
+      const ObjClosure* closure = (const ObjClosure*)object;
       grayObject(closure->function.id());
       for (int i = 0; i < closure->upvalueCount; i++) {
         grayObject(closure->upvalues.clp()[i].id());
@@ -198,21 +225,21 @@ static void grayObjectLeaves(OID<Obj> objectOID) {
     }
 
     case OBJ_FUNCTION: {
-      ObjFunction* function = (ObjFunction*)object;
+      const ObjFunction* function = (const ObjFunction*)object;
       grayObject(function->name.id());
       grayArray(&function->chunk.constants);
       break;
     }
 
     case OBJ_INSTANCE: {
-      ObjInstance* instance = (ObjInstance*)object;
+      const ObjInstance* instance = (const ObjInstance*)object;
       grayObject(instance->klass.id());
-      grayTable(&instance->fields);
+      grayBst(instance->fields_bst);
       break;
     }
 
     case OBJ_UPVALUE:
-      grayValue(((ObjUpvalue*)object)->closed);
+      grayValue(((const ObjUpvalue*)object)->closed);
       break;
 
     case OBJ_NATIVE:
@@ -236,8 +263,8 @@ static void freeObject(OID<Obj> object) {
       break;
 
     case OBJ_CLASS: {
-      ObjClass* klass = (ObjClass*)object.clip();
-      freeTable(&klass->methods);
+      //ObjClass* klass = (ObjClass*)object.clip();
+      //freeTable(&klass->methods); FIXME CBINT
       FREE(ObjClass, object.co());
       break;
     }
@@ -257,8 +284,8 @@ static void freeObject(OID<Obj> object) {
     }
 
     case OBJ_INSTANCE: {
-      ObjInstance* instance = (ObjInstance*)object.clip();
-      freeTable(&instance->fields);
+      //ObjInstance* instance = (ObjInstance*)object.clip();
+      // freeTable(&instance->fields); FIXME CBINT
       FREE(ObjInstance, object.co());
       break;
     }
@@ -281,6 +308,140 @@ static void freeObject(OID<Obj> object) {
   }
 
   objtable_invalidate(&thread_objtable, object.id());
+}
+
+cb_offset_t mutableCopyObject(ObjID id, cb_offset_t object_offset) {
+  CBO<Obj> srcCBO = object_offset;
+  CBO<Obj> destCBO;
+
+  printf("#%ju@%ju mutableCopyObject() ", (uintmax_t)id.id, object_offset);
+  printObject(id, object_offset, srcCBO.clp());
+  printf("\n");
+
+  switch (srcCBO.clp()->type) {
+    case OBJ_BOUND_METHOD: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true);
+      ObjBoundMethod       *dest = (ObjBoundMethod *)destCBO.mlp();
+      const ObjBoundMethod *src  = (const ObjBoundMethod *)srcCBO.clp();
+
+      dest->obj      = src->obj;
+      dest->receiver = src->receiver;
+      dest->method   = src->method;
+
+      break;
+    }
+
+    case OBJ_CLASS: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true);
+      ObjClass       *dest = (ObjClass *)destCBO.mlp();
+      const ObjClass *src  = (const ObjClass *)srcCBO.clp();
+
+      dest->obj         = src->obj;
+      dest->name        = src->name;
+      dest->superclass  = src->superclass;
+      //NOTE: We expect lookup of methods to first check this new, mutable,
+      //  A-region ObjClass, before looking at older versions in B and C.
+      dest->methods_bst = CB_BST_SENTINEL;
+      break;
+    }
+
+    case OBJ_CLOSURE: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true);
+      ObjClosure *dest      = (ObjClosure *)destCBO.mlp();
+      const ObjClosure *src = (const ObjClosure *)srcCBO.clp();
+
+      dest->obj          = src->obj;
+      dest->function     = src->function;
+      dest->upvalues     = GROW_ARRAY_NOGC(CB_NULL, Value, 0, src->upvalueCount);
+      {
+        const OID<ObjUpvalue> *srcUpvalues = src->upvalues.clp();
+        OID<ObjUpvalue> *destUpvalues = dest->upvalues.mlp();
+
+        for (unsigned int i = 0, e = src->upvalueCount; i < e; ++i) {
+          destUpvalues[i] = srcUpvalues[i];
+        }
+      }
+      dest->upvalueCount = src->upvalueCount;
+
+      break;
+    }
+
+    case OBJ_FUNCTION: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true);
+      ObjFunction       *dest = (ObjFunction *)destCBO.mlp();
+      const ObjFunction *src  = (const ObjFunction *)srcCBO.clp();
+
+      dest->obj          = src->obj;
+      dest->arity        = src->arity;
+      dest->upvalueCount = src->upvalueCount;
+      dest->chunk.count    = src->chunk.count;
+      dest->chunk.capacity = src->chunk.capacity;
+      dest->chunk.code = GROW_ARRAY_NOGC(CB_NULL, uint8_t, 0, src->chunk.capacity);
+      memcpy(dest->chunk.code.mlp(), src->chunk.code.clp(), src->chunk.capacity * sizeof(uint8_t));
+      dest->chunk.lines = GROW_ARRAY_NOGC(CB_NULL, int, 0, src->chunk.capacity);
+      memcpy(dest->chunk.lines.mlp(), src->chunk.lines.clp(), src->chunk.capacity * sizeof(int));
+      dest->chunk.constants.capacity = src->chunk.constants.capacity;
+      dest->chunk.constants.count    = src->chunk.constants.count;
+      dest->chunk.constants.values   = GROW_ARRAY_NOGC(CB_NULL, Value, 0, src->chunk.constants.capacity);
+      memcpy(dest->chunk.constants.values.mlp(), src->chunk.constants.values.clp(), src->chunk.constants.capacity * sizeof(Value));
+      dest->name         = src->name;
+
+      break;
+    }
+
+    case OBJ_INSTANCE: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true);
+      ObjInstance       *dest = (ObjInstance *)destCBO.mlp();
+      const ObjInstance *src  = (const ObjInstance *)srcCBO.clp();
+
+      dest->obj        = src->obj;
+      dest->klass      = src->klass;
+      //NOTE: We expect lookup of fields to first check this new, mutable,
+      //  A-region ObjClass, before looking at older versions in B and C.
+      dest->fields_bst = CB_BST_SENTINEL;
+      break;
+    }
+
+    case OBJ_NATIVE: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true);
+      ObjNative       *dest = (ObjNative *)destCBO.mlp();
+      const ObjNative *src  = (const ObjNative *)srcCBO.clp();
+
+      dest->obj      = src->obj;
+      dest->function = src->function;
+
+      break;
+    }
+
+    case OBJ_STRING: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true);
+      ObjString       *dest = (ObjString *)destCBO.mlp();
+      const ObjString *src  = (const ObjString *)srcCBO.clp();
+
+      dest->obj    = src->obj;
+      dest->length = src->length;
+      dest->chars  = GROW_ARRAY_NOGC(CB_NULL, char, 0, src->length);
+      memcpy(dest->chars.mlp(), src->chars.clp(), src->length * sizeof(char));
+      dest->hash   = src->hash;
+
+      break;
+    }
+
+    case OBJ_UPVALUE: {
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true);
+      ObjUpvalue       *dest = (ObjUpvalue *)destCBO.mlp();
+      const ObjUpvalue *src  = (const ObjUpvalue *)srcCBO.clp();
+
+      dest->obj             = src->obj;
+      dest->valueStackIndex = src->valueStackIndex;
+      dest->closed          = src->closed;
+      dest->next            = src->next;
+
+      break;
+    }
+  }
+
+  return destCBO.mo();
 }
 
 void collectGarbageCB() {
@@ -331,9 +492,10 @@ void collectGarbageCB() {
 }
 
 void collectGarbage() {
+  static int gcnestlevel = 0;
   collectGarbageCB();
 #ifdef DEBUG_TRACE_GC
-  printf("-- gc begin\n");
+  printf("-- gc begin nestlevel:%d\n", gcnestlevel++);
   size_t before = vm.bytesAllocated;
 #endif
 
@@ -390,9 +552,9 @@ void collectGarbage() {
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_TRACE_GC
-  printf("-- gc collected %ld bytes (from %ld to %ld) next at %ld\n",
+  printf("-- gc collected %ld bytes (from %ld to %ld) next at %ld, nestlevel:%d\n",
          before - vm.bytesAllocated, before, vm.bytesAllocated,
-         vm.nextGC);
+         vm.nextGC, --gcnestlevel);
 #endif
 }
 

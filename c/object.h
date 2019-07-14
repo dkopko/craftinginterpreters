@@ -158,14 +158,14 @@ typedef struct sObjClass {
   OID<struct sObjClass> superclass;  //struct sObjClass* (only pointer, not array).
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
-  Table methods;
+  cb_offset_t methods_bst;
 //< Methods and Initializers not-yet
 } ObjClass;
 
 typedef struct {
   Obj obj;
   OID<ObjClass> klass;
-  Table fields;
+  cb_offset_t fields_bst;
 } ObjInstance;
 //< Classes and Instances not-yet
 
