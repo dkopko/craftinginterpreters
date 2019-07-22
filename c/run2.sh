@@ -1,2 +1,2 @@
 #!/bin/bash
-make -j2 debug && ./clox testscripts/testgc.clox
+make -j2 debug && setarch `arch` -R ./clox testscripts/testgc.clox
