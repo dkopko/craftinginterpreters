@@ -566,25 +566,28 @@ copy_objtable_b(const struct cb_term *key_term,
                 void                 *closure)
 {
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
-  //Value key = numToValue(cb_term_get_dbl(key_term));
-  Value value = numToValue(cb_term_get_dbl(value_term));
+  ObjID obj_id = { .id = cb_term_get_u64(key_term) };
+  cb_offset_t offset = (cb_offset_t)cb_term_get_u64(value_term);
   int ret;
 
-  //Skip TOMBSTONES.
-  if (value.val == TOMBSTONE_VAL.val)
+  //Skip those ObjIDs which have been invalidated.  (CB_NULL serves as a
+  // tombstone in such cases).
+  if (offset == CB_NULL)
     return 0;
 
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_c,
-                      //cb_region_end(cl->dest_region),  //NOTE: full contents are mutable
                       cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
                       key_term,
                       value_term);
   assert(ret == 0);
   cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  printf("ACTUALINSERT1 +%ju bytes\n", (uintmax_t)(c1 - c0));
+  printf("ACTUALINSERT1 +%ju bytes  #%ju -> @%ju\n",
+         (uintmax_t)(c1 - c0),
+         (uintmax_t)obj_id.id,
+         (uintmax_t)offset);
 
   (void)ret;
   return 0;
@@ -596,8 +599,8 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
                          void                 *closure)
 {
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
-  //Value key = numToValue(cb_term_get_dbl(key_term));
-  //Value value = numToValue(cb_term_get_dbl(value_term));
+  ObjID obj_id = { .id = cb_term_get_u64(key_term) };
+  cb_offset_t offset = (cb_offset_t)cb_term_get_u64(value_term);
   struct cb_term temp_term;
   int ret;
 
@@ -609,14 +612,16 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_c,
-                      //cb_region_end(cl->dest_region),  //NOTE: full contents are mutable
                       cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
                       key_term,
                       value_term);
   assert(ret == 0);
   cb_offset_t c1 = cb_region_cursor(cl->dest_region);
 
-  printf("ACTUALINSERT2 +%ju bytes\n", (uintmax_t)(c1 - c0));
+  printf("ACTUALINSERT2 +%ju bytes #%ju -> @%ju\n",
+         (uintmax_t)(c1 - c0),
+         (uintmax_t)obj_id.id,
+         (uintmax_t)offset);
 
   (void)ret;
   return 0;
