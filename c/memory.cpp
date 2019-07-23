@@ -445,8 +445,9 @@ cb_offset_t mutableCopyObject(ObjID id, cb_offset_t object_offset) {
 }
 
 void collectGarbageCB() {
+  static int gccount = 0;
 #ifdef DEBUG_TRACE_GC
-  printf("-- BEGIN CB GC\n");
+  printf("-- BEGIN CB GC %d\n", gccount);
 #endif
 
   struct gc_request req;
@@ -487,7 +488,7 @@ void collectGarbageCB() {
   thread_objtable.root_a = CB_BST_SENTINEL;
 
 #ifdef DEBUG_TRACE_GC
-  printf("-- END CB GC\n");
+  printf("-- END CB GC %d\n", gccount++);
 #endif
 }
 
