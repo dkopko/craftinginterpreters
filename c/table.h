@@ -37,4 +37,6 @@ void grayTable(Table* table);
 
 void grayInterningTable(Table* table);
 
+void printTable(Table* table, const char *desc);
+
 #endif

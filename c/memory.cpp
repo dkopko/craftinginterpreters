@@ -492,13 +492,74 @@ void collectGarbageCB() {
 #endif
 }
 
+static int
+printObjtableTraversal(const struct cb_term *key_term,
+                       const struct cb_term *value_term,
+                       void                 *closure)
+{
+  const char *desc = (const char *)closure;
+  ObjID objID = { .id = cb_term_get_u64(key_term) };
+  cb_offset_t offset = (cb_offset_t)cb_term_get_u64(value_term);
+
+  printf("%s #%ju -> @%ju\n",
+         desc,
+         (uintmax_t)objID.id,
+         (uintmax_t)offset);
+
+  return 0;
+}
+
+void printStateOfWorld(const char *desc) {
+  int ret;
+
+  printf("===== BEGIN STATE OF WORLD %s =====\n", desc);
+
+  printf("----- begin objtable -----\n");
+  ret = cb_bst_traverse(thread_cb,
+                        thread_objtable.root_a,
+                        &printObjtableTraversal,
+                        (void*)"A");
+  ret = cb_bst_traverse(thread_cb,
+                        thread_objtable.root_b,
+                        &printObjtableTraversal,
+                        (void*)"B");
+  ret = cb_bst_traverse(thread_cb,
+                        thread_objtable.root_c,
+                        &printObjtableTraversal,
+                        (void*)"C");
+  assert(ret == 0);
+  printf("----- end objtable -----\n");
+
+  printf("----- begin vm.strings -----\n");
+  printTable(&vm.strings, "vm.strings");
+  printf("----- end vm.strings -----\n");
+
+  printf("----- begin vm.globals -----\n");
+  printTable(&vm.globals, "vm.globals");
+  printf("----- end vm.globals -----\n");
+
+  printf("----- begin vm.tristack -----\n");
+  printf("----- end vm.tristack -----\n");
+
+  printf("----- begin vm.triframes -----\n");
+  printf("----- end vm.triframes -----\n");
+
+  printf("----- begin vm.openUpvalues -----\n");
+  printf("----- end vm.openUpvalues -----\n");
+
+  printf("===== END STATE OF WORLD %s =====\n", desc);
+}
+
 void collectGarbage() {
   static int gcnestlevel = 0;
-  collectGarbageCB();
+
 #ifdef DEBUG_TRACE_GC
   printf("-- gc begin nestlevel:%d\n", gcnestlevel++);
   size_t before = vm.bytesAllocated;
+  printStateOfWorld("pre-gc");
 #endif
+
+  collectGarbageCB();
 
   // Mark the stack roots.
   for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
@@ -553,6 +614,7 @@ void collectGarbage() {
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_TRACE_GC
+  printStateOfWorld("post-gc");
   printf("-- gc collected %ld bytes (from %ld to %ld) next at %ld, nestlevel:%d\n",
          before - vm.bytesAllocated, before, vm.bytesAllocated,
          vm.nextGC, --gcnestlevel);

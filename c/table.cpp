@@ -397,3 +397,61 @@ grayInterningTable(Table* table)
 
   (void)ret;
 }
+
+struct printTableClosure
+{
+  const char *desc0;
+  const char *desc1;
+};
+
+static int
+printTableTraversal(const struct cb_term *key_term,
+                    const struct cb_term *value_term,
+                    void                 *closure)
+{
+  struct printTableClosure *clo = (struct printTableClosure *)closure;
+  Value keyValue = numToValue(cb_term_get_dbl(key_term));
+  Value valueValue = numToValue(cb_term_get_dbl(value_term));
+
+  printf("%s %s ", clo->desc0, clo->desc1);
+  printValue(keyValue);
+  printf(" -> ");
+  printValue(valueValue);
+  printf("\n");
+
+  return 0;
+}
+
+
+void
+printTable(Table* table, const char *desc)
+{
+  struct printTableClosure closure;
+  int ret;
+
+  closure.desc0 = desc;
+
+  closure.desc1 = "A";
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_a,
+                        &printTableTraversal,
+                        &closure);
+  assert(ret == 0);
+
+  closure.desc1 = "B";
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_b,
+                        &printTableTraversal,
+                        &closure);
+  assert(ret == 0);
+
+  closure.desc1 = "C";
+  ret = cb_bst_traverse(thread_cb,
+                        table->root_c,
+                        &printTableTraversal,
+                        &closure);
+  assert(ret == 0);
+
+  (void)ret;
+}
+
