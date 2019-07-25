@@ -600,13 +600,35 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
 {
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
   ObjID obj_id = { .id = cb_term_get_u64(key_term) };
-  cb_offset_t offset = (cb_offset_t)cb_term_get_u64(value_term);
+  cb_offset_t cEntryOffset = (cb_offset_t)cb_term_get_u64(value_term);
   struct cb_term temp_term;
   int ret;
 
-  //Skip keys of B.
-  if (cb_bst_lookup(cl->dest_cb, cl->old_root_b, key_term, &temp_term) == 0)
-    return 0;
+  // If an entry exists in both B and C, B's entry should mask C's EXCEPT when
+  // the B entry and C entry can be merged (which is when they are both ObjClass
+  // or both ObjInstance objects).
+  if (cb_bst_lookup(cl->dest_cb, cl->old_root_b, key_term, &temp_term) == 0) {
+    cb_offset_t bEntryOffset = (cb_offset_t)cb_term_get_u64(&temp_term);
+    CBO<Obj> bEntryObj = bEntryOffset;
+    CBO<Obj> cEntryObj = cEntryOffset;
+
+    if (bEntryObj.clp()->type == OBJ_CLASS &&
+        cEntryObj.clp()->type == OBJ_CLASS) {
+      printf("MERGE NOT YET SUPPORTED, SORRY\n");
+      //FIXME copy methods of C entry which do not exist in B.
+      //NOTE: This can't yet be done until the mutableCopyObject()/mlip() issues have been fixed.
+      abort();
+    } else if (bEntryObj.clp()->type == OBJ_INSTANCE &&
+               cEntryObj.clp()->type == OBJ_INSTANCE) {
+      printf("MERGE NOT YET SUPPORTED 2, SORRY\n");
+      //FIXME copy fields of C entry which do not exist in B.
+      //NOTE: This can't yet be done until the mutableCopyObject()/mlip() issues have been fixed.
+      abort();
+    } else {
+      // B's entry masks C's, so skip C's.
+      return 0;
+    }
+  }
 
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
   ret = cb_bst_insert(&(cl->dest_cb),
@@ -621,7 +643,7 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   printf("ACTUALINSERT2 +%ju bytes #%ju -> @%ju\n",
          (uintmax_t)(c1 - c0),
          (uintmax_t)obj_id.id,
-         (uintmax_t)offset);
+         (uintmax_t)cEntryOffset);
 
   (void)ret;
   return 0;
