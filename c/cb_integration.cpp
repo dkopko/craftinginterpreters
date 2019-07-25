@@ -156,32 +156,32 @@ resolveAsMutable(ObjID objid)
 
   o = objtable_lookup_A(&thread_objtable, objid);
   if (o != CB_NULL) {
-    printf("#%ju@%ju found in objtable A\n", (uintmax_t)objid.id, (uintmax_t)o);
+    //printf("#%ju@%ju found in objtable A\n", (uintmax_t)objid.id, (uintmax_t)o);
     assert(cb_offset_cmp(o, thread_cutoff_offset) > 0);
     return o;
   }
 
   o = objtable_lookup_B(&thread_objtable, objid);
   if (o != CB_NULL) {
-    printf("#%ju@%ju found in objtable B\n", (uintmax_t)objid.id, (uintmax_t)o);
+    //printf("#%ju@%ju found in objtable B\n", (uintmax_t)objid.id, (uintmax_t)o);
     cb_offset_t copy_o = mutableCopyObject(objid, o);
     assert(cb_offset_cmp(copy_o, thread_cutoff_offset) > 0);
     objtable_add_at(&thread_objtable, objid, copy_o);
     //printf("#%ju@%ju is new mutable copy in objtable A\n", (uintmax_t)objid_.id, copy_o);
-    printObjectValue(OBJ_VAL(objid));
-    printf(" is new mutable copy in objtable A\n");
+    //printObjectValue(OBJ_VAL(objid));
+    //printf(" is new mutable copy in objtable A\n");
     return copy_o;
   }
 
   o = objtable_lookup_C(&thread_objtable, objid);
   assert(o != CB_NULL);
-  printf("#%ju@%ju found in objtable C\n", (uintmax_t)objid.id, (uintmax_t)o);
+  //printf("#%ju@%ju found in objtable C\n", (uintmax_t)objid.id, (uintmax_t)o);
   cb_offset_t copy_o = mutableCopyObject(objid, o);
   assert(cb_offset_cmp(copy_o, thread_cutoff_offset) > 0);
   objtable_add_at(&thread_objtable, objid, copy_o);
   //printf("#%ju@%ju is new mutable copy in objtable A\n", (uintmax_t)objid_.id, copy_o);
-  printObjectValue(OBJ_VAL(objid));
-  printf(" is new mutable copy in objtable A\n");
+  //printObjectValue(OBJ_VAL(objid));
+  //printf(" is new mutable copy in objtable A\n");
   return copy_o;
 }
 
