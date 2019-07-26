@@ -157,12 +157,6 @@ bool isWhite(Value value) {
   return isWhiteObject(AS_OBJ_ID(value));
 }
 
-static void grayArray(const ValueArray* array) {
-  for (int i = 0; i < array->count; i++) {
-    grayValue(array->values.clp()[i]);
-  }
-}
-
 static int
 bstTraversalGray(const struct cb_term *key_term,
                  const struct cb_term *value_term,
@@ -227,7 +221,9 @@ static void grayObjectLeaves(const OID<Obj> objectOID) {
     case OBJ_FUNCTION: {
       const ObjFunction* function = (const ObjFunction*)object;
       grayObject(function->name.id());
-      grayArray(&function->chunk.constants);
+      for (int i = 0; i < function->chunk.constants.count; i++) {
+        grayValue(function->chunk.constants.values.clp()[i]);
+      }
       break;
     }
 
@@ -277,8 +273,8 @@ static void freeObject(OID<Obj> object) {
     }
 
     case OBJ_FUNCTION: {
-      ObjFunction* function = (ObjFunction*)object.clip();
-      freeChunk(&function->chunk);
+      //ObjFunction* function = (ObjFunction*)object.clip();
+      freeChunk(object.id());
       FREE(ObjFunction, object.co());
       break;
     }

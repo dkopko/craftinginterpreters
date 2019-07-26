@@ -131,7 +131,7 @@ OID<ObjFunction> newFunction() {
   function->upvalueCount = 0;
 //< Closures not-yet
   function->name = CB_NULL_OID;
-  initChunk(&function->chunk);
+  initChunk(functionOID.id());
   return functionOID;
 }
 //< Calls and Functions not-yet

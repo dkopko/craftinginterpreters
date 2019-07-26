@@ -160,6 +160,9 @@ static Chunk* currentChunk() {
 */
 //> Calls and Functions not-yet
 
+static OID<ObjFunction> currentFunction() {
+  return current->function;
+}
 static Chunk* currentChunk() {
   return &current->function.mlip()->chunk;
 }
@@ -233,7 +236,7 @@ static bool match(TokenType type) {
 //< Global Variables match
 //> Compiling Expressions emit-byte
 static void emitByte(uint8_t byte) {
-  writeChunk(currentChunk(), byte, parser.previous.line);
+  writeChunk(currentFunction().id(), byte, parser.previous.line);
 }
 //< Compiling Expressions emit-byte
 //> Compiling Expressions emit-bytes
@@ -283,7 +286,7 @@ static void emitReturn() {
 //< Compiling Expressions emit-return
 //> Compiling Expressions make-constant
 static uint8_t makeConstant(Value value) {
-  int constant = addConstant(currentChunk(), value);
+  int constant = addConstant(currentFunction().id(), value);
   if (constant > UINT8_MAX) {
     error("Too many constants in one chunk.");
     return 0;

@@ -10,30 +10,6 @@
 #include "memory.h"
 #include "value.h"
 
-void initValueArray(ValueArray* array) {
-  array->values = CB_NULL;
-  array->capacity = 0;
-  array->count = 0;
-}
-//> write-value-array
-void writeValueArray(ValueArray* array, Value value) {
-  if (array->capacity < array->count + 1) {
-    int oldCapacity = array->capacity;
-    array->capacity = GROW_CAPACITY(oldCapacity);
-    array->values = GROW_ARRAY(array->values.co(), Value,
-                               oldCapacity, array->capacity);
-  }
-  
-  array->values.mlp()[array->count] = value;
-  array->count++;
-}
-//< write-value-array
-//> free-value-array
-void freeValueArray(ValueArray* array) {
-  FREE_ARRAY(Value, array->values.co(), array->capacity);
-  initValueArray(array);
-}
-//< free-value-array
 //> print-value
 void printValue(Value value) {
 //> Optimization not-yet

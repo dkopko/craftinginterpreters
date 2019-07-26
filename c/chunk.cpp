@@ -1,76 +1,80 @@
-//> Chunks of Bytecode chunk-c
 #include <stdlib.h>
 
 #include "chunk.h"
-//> chunk-c-include-memory
 #include "memory.h"
-//< chunk-c-include-memory
-//> chunk-c-include-value
 #include "value.h"
-//< chunk-c-include-value
-//> Garbage Collection not-yet
 #include "vm.h"
-//< Garbage Collection not-yet
 
-void initChunk(Chunk* chunk) {
+void initChunk(OID<Obj> f) {
+  ObjFunction *fun = (ObjFunction *)f.mlip();
+  Chunk *chunk = &(fun->chunk);
+
   chunk->count = 0;
   chunk->capacity = 0;
   chunk->code = CB_NULL;
-//> chunk-null-lines
   chunk->lines = CB_NULL;
-//< chunk-null-lines
-//> chunk-init-constant-array
-  initValueArray(&chunk->constants);
-//< chunk-init-constant-array
+  chunk->constants.values = CB_NULL;
+  chunk->constants.capacity = 0;
+  chunk->constants.count = 0;
 }
-//> free-chunk
-void freeChunk(Chunk* chunk) {
+
+void freeChunk(OID<Obj> f) {
+  ObjFunction *fun = (ObjFunction *)f.mlip();
+  Chunk *chunk = &(fun->chunk);
+
   FREE_ARRAY(uint8_t, chunk->code.co(), chunk->capacity);
-//> chunk-free-lines
   FREE_ARRAY(int, chunk->lines.co(), chunk->capacity);
-//< chunk-free-lines
-//> chunk-free-constants
-  freeValueArray(&chunk->constants);
-//< chunk-free-constants
-  initChunk(chunk);
+  FREE_ARRAY(Value, chunk->constants.values.co(), chunk->constants.capacity);
+  chunk->constants.values = CB_NULL;
+  chunk->constants.capacity = 0;
+  chunk->constants.count = 0;
+  initChunk(f);
 }
-//< free-chunk
-/* Chunks of Bytecode write-chunk < Chunks of Bytecode write-chunk-with-line
-void writeChunk(Chunk* chunk, uint8_t byte) {
-*/
-//> write-chunk
-//> write-chunk-with-line
-void writeChunk(Chunk* chunk, uint8_t byte, int line) {
-//< write-chunk-with-line
+
+void writeChunk(OID<Obj> f, uint8_t byte, int line) {
+  ObjFunction *fun = (ObjFunction *)f.mlip();
+  Chunk *chunk = &(fun->chunk);
+
   if (chunk->capacity < chunk->count + 1) {
     int oldCapacity = chunk->capacity;
     chunk->capacity = GROW_CAPACITY(oldCapacity);
     chunk->code = GROW_ARRAY(chunk->code.co(), uint8_t,
         oldCapacity, chunk->capacity);
-//> write-chunk-line
     chunk->lines = GROW_ARRAY(chunk->lines.co(), int,
         oldCapacity, chunk->capacity);
-//< write-chunk-line
   }
 
+  //Rederive chunk, in case intervening GC caused it to become read-only.
+  fun = (ObjFunction *)f.mlip();
+  chunk = &(fun->chunk);
+
   chunk->code.mlp()[chunk->count] = byte;
-//> chunk-write-line
   chunk->lines.mlp()[chunk->count] = line;
-//< chunk-write-line
   chunk->count++;
 }
-//< write-chunk
-//> add-constant
-int addConstant(Chunk* chunk, Value value) {
-//> Garbage Collection not-yet
-  // Make sure the value doesn't get collected when resizing the array.
-  push(value);
 
-//< Garbage Collection not-yet
-  writeValueArray(&chunk->constants, value);
-//> Garbage Collection not-yet
+int addConstant(OID<Obj> f, Value value) {
+  ObjFunction *fun = (ObjFunction *)f.mlip();
+  Chunk *chunk = &(fun->chunk);
+
+  push(value);  //Protect value from GC
+
+  if (chunk->constants.capacity < chunk->constants.count + 1) {
+    int oldCapacity = chunk->constants.capacity;
+    chunk->constants.capacity = GROW_CAPACITY(oldCapacity);
+    chunk->constants.values = GROW_ARRAY(chunk->constants.values.co(), Value,
+                               oldCapacity, chunk->constants.capacity);
+  }
+
+  //Rederive chunk, in case intervening GC caused it to become read-only.
+  fun = (ObjFunction *)f.mlip();
+  chunk = &(fun->chunk);
+
+  chunk->constants.values.mlp()[chunk->constants.count] = value;
+  chunk->constants.count++;
+
   pop();
-//< Garbage Collection not-yet
+
   return chunk->constants.count - 1;
 }
-//< add-constant
+

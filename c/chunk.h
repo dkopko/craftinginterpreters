@@ -137,19 +137,19 @@ typedef struct {
 //< chunk-struct
 //> init-chunk-h
 
-void initChunk(Chunk* chunk);
+void initChunk(OID<Obj> f);
 //< init-chunk-h
 //> free-chunk-h
-void freeChunk(Chunk* chunk);
+void freeChunk(OID<Obj> f);
 //< free-chunk-h
 /* Chunks of Bytecode write-chunk-h < Chunks of Bytecode write-chunk-with-line-h
 void writeChunk(Chunk* chunk, uint8_t byte);
 */
 //> write-chunk-with-line-h
-void writeChunk(Chunk* chunk, uint8_t byte, int line);
+void writeChunk(OID<Obj> f, uint8_t byte, int line);
 //< write-chunk-with-line-h
 //> add-constant-h
-int addConstant(Chunk* chunk, Value value);
+int addConstant(OID<Obj> f, Value value);
 //< add-constant-h
 
 #endif

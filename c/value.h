@@ -153,10 +153,6 @@ typedef struct {
 //> Types of Values values-equal-h
 bool valuesEqual(Value a, Value b);
 //< Types of Values values-equal-h
-void initValueArray(ValueArray* array);
-void writeValueArray(ValueArray* array, Value value);
-void freeValueArray(ValueArray* array);
-//< array-fns-h
 //> print-value-h
 void printValue(Value value);
 //< print-value-h
