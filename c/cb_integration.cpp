@@ -551,12 +551,82 @@ gc_init(void)
   return 0;
 }
 
+struct merge_class_methods_closure
+{
+  struct cb         *src_cb;
+  cb_offset_t        b_class_methods_bst;
+  struct cb         *dest_cb;
+  struct cb_region  *dest_region;
+  cb_offset_t       *dest_methods_bst;
+};
+
+static int
+merge_c_class_methods(const struct cb_term *key_term,
+                      const struct cb_term *value_term,
+                      void                 *closure)
+{
+  struct merge_class_methods_closure *cl = (struct merge_class_methods_closure *)closure;
+  //Value keyValue = numToValue(cb_term_get_dbl(key_term));
+  Value valueValue = numToValue(cb_term_get_dbl(value_term));
+  struct cb_term temp_term;
+  int ret;
+
+  (void)ret;
+
+  // No sense copying deleted/TOMBSTONE'd values.
+  if (valueValue.val == TOMBSTONE_VAL.val)
+    return 0;
+
+  // The presence of an entry under this method name in the B class masks
+  // our value (and will be subsequently copied if not a TOMBSTONE Value), so
+  // no sense in copying it.
+  if (cb_bst_lookup(cl->src_cb, cl->b_class_methods_bst, key_term, &temp_term) == 0)
+    return 0;
+
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      cl->dest_region,
+                      cl->dest_methods_bst,
+                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+
+  return 0;
+}
+
+static int
+merge_b_class_methods(const struct cb_term *key_term,
+                      const struct cb_term *value_term,
+                      void                 *closure)
+{
+  struct merge_class_methods_closure *cl = (struct merge_class_methods_closure *)closure;
+  //Value keyValue = numToValue(cb_term_get_dbl(key_term));
+  Value valueValue = numToValue(cb_term_get_dbl(value_term));
+  int ret;
+
+  (void)ret;
+
+  if (valueValue.val == TOMBSTONE_VAL.val)
+    return 0;
+
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      cl->dest_region,
+                      cl->dest_methods_bst,
+                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+
+  return 0;
+}
+
 struct copy_objtable_closure
 {
-  struct cb        *dest_cb;
-  struct cb_region *dest_region;
+  struct cb        *src_cb;
   cb_offset_t       old_root_b;
   cb_offset_t       old_root_c;
+  struct cb        *dest_cb;
+  struct cb_region *dest_region;
   cb_offset_t      *new_root_c;
 };
 
@@ -565,6 +635,9 @@ copy_objtable_b(const struct cb_term *key_term,
                 const struct cb_term *value_term,
                 void                 *closure)
 {
+  //NOTE: This is simply copying the #ID -> @offset mapping into an
+  // initially-blank cb_bst. It is not copying Objs.
+
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
   ObjID obj_id = { .id = cb_term_get_u64(key_term) };
   cb_offset_t offset = (cb_offset_t)cb_term_get_u64(value_term);
@@ -598,39 +671,71 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
                          const struct cb_term *value_term,
                          void                 *closure)
 {
+  //NOTE: For #ObjID keys which do not exist in B, this is simply copying the
+  // #ObjID -> @offset mapping into a cb_bst which already contains data from
+  // B. However, for #ObjID keys which DO exist in B and which are for Objs
+  // which have internal maps of their own (ObjClass's methods, and
+  // ObjInstance's fields), a new Obj must be created to contain the merged set
+  // of these contents.
+
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
-  ObjID obj_id = { .id = cb_term_get_u64(key_term) };
+  OID<Obj> objOID = (ObjID) { .id = cb_term_get_u64(key_term) };
   cb_offset_t cEntryOffset = (cb_offset_t)cb_term_get_u64(value_term);
   struct cb_term temp_term;
+  cb_offset_t c0, c1;
   int ret;
+
+  c0 = cb_region_cursor(cl->dest_region);
 
   // If an entry exists in both B and C, B's entry should mask C's EXCEPT when
   // the B entry and C entry can be merged (which is when they are both ObjClass
   // or both ObjInstance objects).
-  if (cb_bst_lookup(cl->dest_cb, cl->old_root_b, key_term, &temp_term) == 0) {
+  if (cb_bst_lookup(cl->src_cb, cl->old_root_b, key_term, &temp_term) == 0) {
     cb_offset_t bEntryOffset = (cb_offset_t)cb_term_get_u64(&temp_term);
     CBO<Obj> bEntryObj = bEntryOffset;
     CBO<Obj> cEntryObj = cEntryOffset;
 
-    if (bEntryObj.clp()->type == OBJ_CLASS &&
-        cEntryObj.clp()->type == OBJ_CLASS) {
-      printf("MERGE NOT YET SUPPORTED, SORRY\n");
-      //FIXME copy methods of C entry which do not exist in B.
-      //NOTE: This can't yet be done until the mutableCopyObject()/mlip() issues have been fixed.
-      abort();
-    } else if (bEntryObj.clp()->type == OBJ_INSTANCE &&
-               cEntryObj.clp()->type == OBJ_INSTANCE) {
+    if (bEntryObj.clp()->type == OBJ_CLASS && cEntryObj.clp()->type == OBJ_CLASS) {
+      //1) Make a new ObjClass via mutableCopyObject.  methods set will be empty.
+      //2) Copy C ObjClass's methods WHICH DO NOT EXIST IN B ObjClass's methods
+      //   into the new ObjClass's methods set.
+      //3) Copy B ObjClass's methods into this new ObjClass's methods set.
+      //4) Insert this new merged object into the objtable.
+      ObjClass *classB = (ObjClass *)bEntryObj.clp();
+      ObjClass *classC = (ObjClass *)cEntryObj.clp();
+      CBO<ObjClass> newObjClassCBO = mutableCopyObject(objOID.id(), objOID.co());
+      struct merge_class_methods_closure subclosure;
+
+      subclosure.src_cb              = cl->src_cb;
+      subclosure.b_class_methods_bst = classB->methods_bst;
+      subclosure.dest_cb             = cl->dest_cb;
+      subclosure.dest_region         = cl->dest_region;
+      subclosure.dest_methods_bst    = &(newObjClassCBO.mlp()->methods_bst);
+
+      ret = cb_bst_traverse(cl->src_cb,
+                            classC->methods_bst,
+                            merge_c_class_methods,
+                            &subclosure);
+      assert(ret == 0);
+
+      ret = cb_bst_traverse(cl->src_cb,
+                            classB->methods_bst,
+                            merge_b_class_methods,
+                            &subclosure);
+      assert(ret == 0);
+
+      objtable_add_at(&thread_objtable, objOID.id(), newObjClassCBO.co());
+    } else if (bEntryObj.clp()->type == OBJ_INSTANCE && cEntryObj.clp()->type == OBJ_INSTANCE) {
       printf("MERGE NOT YET SUPPORTED 2, SORRY\n");
       //FIXME copy fields of C entry which do not exist in B.
-      //NOTE: This can't yet be done until the mutableCopyObject()/mlip() issues have been fixed.
       abort();
     } else {
-      // B's entry masks C's, so skip C's.
+      // B's entry masks C's, so skip C's entry.
+      // (We are presently traversing C's entries.)
       return 0;
     }
   }
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_c,
@@ -638,11 +743,12 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
                       key_term,
                       value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
+
+  c1 = cb_region_cursor(cl->dest_region);
 
   printf("ACTUALINSERT2 +%ju bytes #%ju -> @%ju\n",
          (uintmax_t)(c1 - c0),
-         (uintmax_t)obj_id.id,
+         (uintmax_t)objOID.id().id,
          (uintmax_t)cEntryOffset);
 
   (void)ret;
@@ -659,10 +765,11 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
   {
     struct copy_objtable_closure closure;
 
-    closure.dest_cb     = req->orig_cb;
-    closure.dest_region = &(req->objtable_new_region);
+    closure.src_cb      = req->orig_cb;
     closure.old_root_b  = req->objtable_root_b;
     closure.old_root_c  = req->objtable_root_c;
+    closure.dest_cb     = req->orig_cb;
+    closure.dest_region = &(req->objtable_new_region);
     closure.new_root_c  = &(resp->objtable_new_root_c);
 
     resp->objtable_new_root_c = CB_BST_SENTINEL;
