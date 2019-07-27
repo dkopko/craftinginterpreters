@@ -620,6 +620,75 @@ merge_b_class_methods(const struct cb_term *key_term,
   return 0;
 }
 
+struct merge_instance_fields_closure
+{
+  struct cb         *src_cb;
+  cb_offset_t        b_instance_fields_bst;
+  struct cb         *dest_cb;
+  struct cb_region  *dest_region;
+  cb_offset_t       *dest_fields_bst;
+};
+
+static int
+merge_c_instance_fields(const struct cb_term *key_term,
+                        const struct cb_term *value_term,
+                        void                 *closure)
+{
+  struct merge_instance_fields_closure *cl = (struct merge_instance_fields_closure *)closure;
+  //Value keyValue = numToValue(cb_term_get_dbl(key_term));
+  Value valueValue = numToValue(cb_term_get_dbl(value_term));
+  struct cb_term temp_term;
+  int ret;
+
+  (void)ret;
+
+  // No sense copying deleted/TOMBSTONE'd values.
+  if (valueValue.val == TOMBSTONE_VAL.val)
+    return 0;
+
+  // The presence of an entry under this method name in the B class masks
+  // our value (and will be subsequently copied if not a TOMBSTONE Value), so
+  // no sense in copying it.
+  if (cb_bst_lookup(cl->src_cb, cl->b_instance_fields_bst, key_term, &temp_term) == 0)
+    return 0;
+
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      cl->dest_region,
+                      cl->dest_fields_bst,
+                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+
+  return 0;
+}
+
+static int
+merge_b_instance_fields(const struct cb_term *key_term,
+                        const struct cb_term *value_term,
+                        void                 *closure)
+{
+  struct merge_instance_fields_closure *cl = (struct merge_instance_fields_closure *)closure;
+  //Value keyValue = numToValue(cb_term_get_dbl(key_term));
+  Value valueValue = numToValue(cb_term_get_dbl(value_term));
+  int ret;
+
+  (void)ret;
+
+  if (valueValue.val == TOMBSTONE_VAL.val)
+    return 0;
+
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      cl->dest_region,
+                      cl->dest_fields_bst,
+                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+
+  return 0;
+}
+
 struct copy_objtable_closure
 {
   struct cb        *src_cb;
@@ -672,8 +741,8 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
                          void                 *closure)
 {
   //NOTE: For #ObjID keys which do not exist in B, this is simply copying the
-  // #ObjID -> @offset mapping into a cb_bst which already contains data from
-  // B. However, for #ObjID keys which DO exist in B and which are for Objs
+  // #ObjID -> @offset mapping into a cb_bst which already contains the entries
+  // from B. However, for #ObjID keys which DO exist in B and which are for Objs
   // which have internal maps of their own (ObjClass's methods, and
   // ObjInstance's fields), a new Obj must be created to contain the merged set
   // of these contents.
@@ -726,9 +795,35 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
 
       objtable_add_at(&thread_objtable, objOID.id(), newObjClassCBO.co());
     } else if (bEntryObj.clp()->type == OBJ_INSTANCE && cEntryObj.clp()->type == OBJ_INSTANCE) {
-      printf("MERGE NOT YET SUPPORTED 2, SORRY\n");
-      //FIXME copy fields of C entry which do not exist in B.
-      abort();
+      //1) Make a new ObjInstance via mutableCopyObject.  fields set will be empty.
+      //2) Copy C ObjInstance's fields WHICH DO NOT EXIST IN B ObjInstance's fields
+      //   into the new ObjInstance's fields set.
+      //3) Copy B ObjInstance's fields into this new ObjInstance's fields set.
+      //4) Insert this new merged object into the objtable.
+      ObjInstance *instanceB = (ObjInstance *)bEntryObj.clp();
+      ObjInstance *instanceC = (ObjInstance *)cEntryObj.clp();
+      CBO<ObjInstance> newObjInstanceCBO = mutableCopyObject(objOID.id(), objOID.co());
+      struct merge_instance_fields_closure subclosure;
+
+      subclosure.src_cb                = cl->src_cb;
+      subclosure.b_instance_fields_bst = instanceB->fields_bst;
+      subclosure.dest_cb               = cl->dest_cb;
+      subclosure.dest_region           = cl->dest_region;
+      subclosure.dest_fields_bst       = &(newObjInstanceCBO.mlp()->fields_bst);
+
+      ret = cb_bst_traverse(cl->src_cb,
+                            instanceC->fields_bst,
+                            merge_c_instance_fields,
+                            &subclosure);
+      assert(ret == 0);
+
+      ret = cb_bst_traverse(cl->src_cb,
+                            instanceB->fields_bst,
+                            merge_b_instance_fields,
+                            &subclosure);
+      assert(ret == 0);
+
+      objtable_add_at(&thread_objtable, objOID.id(), newObjInstanceCBO.co());
     } else {
       // B's entry masks C's, so skip C's entry.
       // (We are presently traversing C's entries.)
