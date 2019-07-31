@@ -93,7 +93,7 @@ int main(int argc, const char* argv[]) {
   }
 
   /* Create thread-local continuous buffer. */
-  cb_params.ring_size = 8388608;
+  cb_params.ring_size = 8388608 * 4;
   cb_params.mmap_flags &= ~MAP_ANONYMOUS;
   cb_params.on_resize = &clox_on_cb_resize;
   thread_cb = cb_create(&cb_params, sizeof(cb_params));

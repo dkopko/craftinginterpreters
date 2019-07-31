@@ -536,7 +536,7 @@ gc_init(void)
 {
   struct cb_params cb_params = CB_PARAMS_DEFAULT;
 
-  cb_params.ring_size = 8388608;
+  cb_params.ring_size = 8388608 * 4;
   cb_params.mmap_flags &= ~MAP_ANONYMOUS;
   cb_params.on_resize = &clox_on_cb_resize;
   strncpy(cb_params.filename_prefix, "gc", sizeof(cb_params.filename_prefix));

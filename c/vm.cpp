@@ -123,6 +123,27 @@ tristack_pop(TriStack *ts) {
   return v;
 }
 
+void
+tristack_print(TriStack *ts) {
+  for (unsigned int i = ts->cbi, e = ts->bbi; i < e; ++i) {
+    printf("tristackC[%u]@%ju: ", i, (uintmax_t)(ts->cbo + (i * sizeof(Value))));
+    printValue(*tristack_at(ts, i));
+    printf("\n");
+  }
+
+  for (unsigned int i = ts->bbi, e = ts->abi; i < e; ++i) {
+    printf("tristackB[%u]@%ju: ", i, (uintmax_t)(ts->bbo + (i * sizeof(Value))));
+    printValue(*tristack_at(ts, i));
+    printf("\n");
+  }
+
+  for (unsigned int i = ts->abi, e = ts->stackDepth; i < e; ++i) {
+    printf("tristackA[%u]@%ju: ", i, (uintmax_t)(ts->abo + (i * sizeof(Value))));
+    printValue(*tristack_at(ts, i));
+    printf("\n");
+  }
+}
+
 static void
 triframes_reset(TriFrames *tf) {
   cb_offset_t new_offset;
@@ -828,6 +849,8 @@ static InterpretResult run() {
       printf(" ]");
     }
     printf("\n");
+    printf("DANDEBUGSTACK\n");
+    tristack_print(&(vm.tristack));
 
     disassembleInstruction(&frame->closure.clip()->function.clip()->chunk,
         (int)(frame->ip - frame->closure.clip()->function.clip()->chunk.code.clp()));

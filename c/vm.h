@@ -117,6 +117,8 @@ typedef enum {
 //> Strings extern-vm
 extern VM vm;
 
+void tristack_print(TriStack *ts);
+
 //< Strings extern-vm
 void initVM();
 void freeVM();
