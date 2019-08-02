@@ -125,13 +125,13 @@ tristack_pop(TriStack *ts) {
 
 void
 tristack_print(TriStack *ts) {
-  for (unsigned int i = ts->cbi, e = ts->bbi; i < e; ++i) {
+  for (unsigned int i = ts->cbi, e = ts->bbi; i < e && i < ts->stackDepth; ++i) {
     printf("tristackC[%u]@%ju: ", i, (uintmax_t)(ts->cbo + (i * sizeof(Value))));
     printValue(*tristack_at(ts, i));
     printf("\n");
   }
 
-  for (unsigned int i = ts->bbi, e = ts->abi; i < e; ++i) {
+  for (unsigned int i = ts->bbi, e = ts->abi; i < e && i < ts->stackDepth; ++i) {
     printf("tristackB[%u]@%ju: ", i, (uintmax_t)(ts->bbo + (i * sizeof(Value))));
     printValue(*tristack_at(ts, i));
     printf("\n");
@@ -1198,23 +1198,11 @@ static InterpretResult run() {
 
 //< Closures not-yet
       case OP_RETURN: {
-//> Global Variables op-return
-        // Exit interpreter.
-//< Global Variables op-return
-/* A Virtual Machine print-return < Global Variables op-return
-        printValue(pop());
-        printf("\n");
-*/
-/* A Virtual Machine run < Calls and Functions not-yet
-        return INTERPRET_OK;
-*/
-//> Calls and Functions not-yet
+        printf("DANDEBUG from frame's slotsIndex: %d, slotsCount: %d\n", frame->slotsIndex, frame->slotsCount);
         Value result = pop();
-//> Closures not-yet
 
         // Close any upvalues still in scope.
         closeUpvalues(frame->slotsIndex);
-//< Closures not-yet
 
         triframes_leaveFrame(&(vm.triframes));  // NOTE: does not yet update our local variable 'frame'.
         if (triframes_frameCount(&(vm.triframes)) == 0) return INTERPRET_OK;
@@ -1228,7 +1216,7 @@ static InterpretResult run() {
         // section A.
         // The frame we're leaving should have always only existed in the
         // mutable A region.
-        assert(frame->slotsIndex >= vm.tristack.abi);
+        //assert(frame->slotsIndex >= vm.tristack.abi);  //NOT TRUE, A region may be empty due to GC.
         // Shorten the stack.
         vm.tristack.stackDepth = frame->slotsIndex;  //slotsIndex being one-past the highest index of new shorter stack
         push(result);
@@ -1237,6 +1225,7 @@ static InterpretResult run() {
         // non-mutable regions of the stack, adjust the tristack to shift the
         // outer frame's slots into the A region.
         frame = triframes_currentFrame(&(vm.triframes));
+        printf("DANDEBUG to frame's slotsIndex: %d, slotsCount: %d\n", frame->slotsIndex, frame->slotsCount);
         if (frame->slotsIndex < vm.tristack.abi) {
           vm.tristack.abi = frame->slotsIndex;
           memcpy(tristack_at(&(vm.tristack), vm.tristack.abi),
@@ -1245,8 +1234,10 @@ static InterpretResult run() {
           frame->slots = tristack_at(&(vm.tristack), frame->slotsIndex);  //re-derive.
         }
         assert(frame->slots == tristack_at(&(vm.tristack), frame->slotsIndex));
-        assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Must be contiguous, and in mutable section A.
+        assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Must be contiguous, and in mutable section A.  FIXME a pointer comparison doesn't guarantee this due to ring wrap-around
         assert(frame->slotsIndex >= vm.tristack.abi);
+
+        printf("OP_RETURN COMPLETE\n");
         break;
 //< Calls and Functions not-yet
       }
