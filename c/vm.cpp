@@ -85,6 +85,13 @@ tristack_at(TriStack *ts, unsigned int index) {
   return tristack_at_bc(ts, index);
 }
 
+const char *
+tristack_regionname_at(TriStack *ts, unsigned int index) {
+  if (index >= ts->abi) return "A";
+  if (index >= ts->bbi) return "B";
+  return "C";
+}
+
 static Value
 tristack_peek(TriStack *ts, unsigned int down) {
   assert(down < ts->stackDepth);
@@ -125,23 +132,12 @@ tristack_pop(TriStack *ts) {
 
 void
 tristack_print(TriStack *ts) {
-  for (unsigned int i = ts->cbi, e = ts->bbi; i < e && i < ts->stackDepth; ++i) {
-    printf("tristackC[%u]@%ju: ", i, (uintmax_t)(ts->cbo + (i * sizeof(Value))));
-    printValue(*tristack_at(ts, i));
-    printf("\n");
+  for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
+    printf("%d%s[ ", i, tristack_regionname_at(&(vm.tristack), i));
+    printValue(*tristack_at(&(vm.tristack), i));
+    printf(" ] ");
   }
-
-  for (unsigned int i = ts->bbi, e = ts->abi; i < e && i < ts->stackDepth; ++i) {
-    printf("tristackB[%u]@%ju: ", i, (uintmax_t)(ts->bbo + (i * sizeof(Value))));
-    printValue(*tristack_at(ts, i));
-    printf("\n");
-  }
-
-  for (unsigned int i = ts->abi, e = ts->stackDepth; i < e; ++i) {
-    printf("tristackA[%u]@%ju: ", i, (uintmax_t)(ts->abo + (i * sizeof(Value))));
-    printValue(*tristack_at(ts, i));
-    printf("\n");
-  }
+  printf("\n");
 }
 
 static void
@@ -842,14 +838,8 @@ static InterpretResult run() {
 
   for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
-    printf("          ");
-    for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
-      printf("[ ");
-      printValue(*tristack_at(&(vm.tristack), i));
-      printf(" ]");
-    }
-    printf("\n");
-    printf("DANDEBUGSTACK\n");
+    //printf("          ");
+    printf("DANDEBUGSTACK  ");
     tristack_print(&(vm.tristack));
 
     disassembleInstruction(&frame->closure.clip()->function.clip()->chunk,

@@ -541,19 +541,7 @@ void printStateOfWorld(const char *desc) {
   printf("----- end vm.globals -----\n");
 
   printf("----- begin vm.tristack -----\n");
-  for (unsigned int i = 0, e = vm.tristack.stackDepth; i < e; ++i) {
-    const char *regionName;
-    if (i >= vm.tristack.cbi && i < vm.tristack.bbi) {
-      regionName = "C";
-    } else if (i >= vm.tristack.bbi && i < vm.tristack.abi) {
-      regionName = "B";
-    } else {
-      regionName = "A";
-    }
-    printf("tristack[%d](%s) ", i, regionName);
-    printValue(*tristack_at(&vm.tristack, i));
-    printf("\n");
-  }
+  tristack_print(&(vm.tristack));
   printf("----- end vm.tristack -----\n");
 
   printf("----- begin vm.triframes -----\n");
