@@ -177,6 +177,8 @@ bstTraversalGray(const struct cb_term *key_term,
 static void grayBst(cb_offset_t bst) {
   int ret;
 
+  (void)ret;
+
   ret = cb_bst_traverse(thread_cb,
                         bst,
                         &bstTraversalGray,
@@ -442,6 +444,8 @@ cb_offset_t mutableCopyObject(ObjID id, cb_offset_t object_offset) {
 
 void collectGarbageCB() {
   static int gccount = 0;
+
+  (void)gccount;
 #ifdef DEBUG_TRACE_GC
   printf("-- BEGIN CB GC %d\n", gccount);
 #endif
@@ -507,6 +511,8 @@ printObjtableTraversal(const struct cb_term *key_term,
 
 void printStateOfWorld(const char *desc) {
   int ret;
+
+  (void)ret;
 
   printf("===== BEGIN STATE OF WORLD %s =====\n", desc);
 
@@ -587,6 +593,8 @@ void printStateOfWorld(const char *desc) {
 
 void collectGarbage() {
   static int gcnestlevel = 0;
+
+  (void)gcnestlevel;
 
 #ifdef DEBUG_TRACE_GC
   printf("-- gc begin nestlevel:%d\n", gcnestlevel++);
