@@ -1188,6 +1188,7 @@ static InterpretResult run() {
 
 //< Closures not-yet
       case OP_RETURN: {
+        printf("DANDEBUG upon OP_RETURN, stackDepth is %ju\n", (uintmax_t)vm.tristack.stackDepth);
         printf("DANDEBUG from frame's slotsIndex: %d, slotsCount: %d\n", frame->slotsIndex, frame->slotsCount);
         Value result = pop();
 
