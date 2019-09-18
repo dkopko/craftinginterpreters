@@ -857,6 +857,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
 
   (void)ret;
 
+  // Condense objtable
   {
     struct copy_objtable_closure closure;
 
@@ -890,6 +891,32 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     assert(ret == 0);
   }
 
+  //Condense tristack
+  {
+    cb_offset_t   new_cbo              = cb_region_start(&(req->tristack_new_region));
+    Value        *new_condensed_values = static_cast<Value*>(cb_at(req->orig_cb, new_cbo));
+    Value        *old_c_values         = static_cast<Value*>(cb_at(req->orig_cb, req->tristack_cbo));
+    Value        *old_b_values         = static_cast<Value*>(cb_at(req->orig_cb, req->tristack_bbo));
+    unsigned int  i                    = req->tristack_cbi;  //(always 0, really)
+
+    assert(i == 0);
+
+    //Copy C section
+    while (i < req->tristack_stackDepth && i < req->tristack_bbi) {
+      new_condensed_values[i] = old_c_values[i - req->tristack_cbi];
+      ++i;
+    }
+
+    //Copy B section
+    while (i < req->tristack_stackDepth && i < req->tristack_abi) {
+      new_condensed_values[i] = old_b_values[i - req->tristack_bbi];
+      ++i;
+    }
+
+    //Write response
+    resp->tristack_new_cbo = new_cbo;
+    resp->tristack_new_cbi = req->tristack_cbi;
+  }
 
   return 0;
 }

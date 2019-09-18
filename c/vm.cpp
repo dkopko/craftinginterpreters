@@ -1105,6 +1105,7 @@ static InterpretResult run() {
       case OP_CALL_7:
       case OP_CALL_8: {
         int argCount = instruction - OP_CALL_0;
+        printf("DANDEBUG callValue() with %d args\n", argCount);
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
@@ -1188,47 +1189,46 @@ static InterpretResult run() {
 
 //< Closures not-yet
       case OP_RETURN: {
-        printf("DANDEBUG upon OP_RETURN, stackDepth is %ju\n", (uintmax_t)vm.tristack.stackDepth);
-        printf("DANDEBUG from frame's slotsIndex: %d, slotsCount: %d\n", frame->slotsIndex, frame->slotsCount);
         Value result = pop();
+        unsigned int oldFrameSlotsIndex = frame->slotsIndex;
 
         // Close any upvalues still in scope.
         closeUpvalues(frame->slotsIndex);
+
+        // The frame we're leaving may not even be in the mutable A region if
+        // we have recently performed a GC, so we cannot do the following:
+        //assert(frame->slotsIndex >= vm.tristack.abi);
 
         triframes_leaveFrame(&(vm.triframes));  // NOTE: does not yet update our local variable 'frame'.
         if (triframes_frameCount(&(vm.triframes)) == 0) return INTERPRET_OK;
 
         //NOTE: The purpose of this section is to move "up" (read: lower in
-        // index) the stack. If we've returned to a position which is at a
-        // lower index than where abi begins, we must move everything which
-        // exists higher than this index into the mutable section A, and shift
-        // abi to the target index.  This will maintain the invariant that
-        // our function arguments are always contiguous in the mutable
-        // section A.
-        // The frame we're leaving should have always only existed in the
-        // mutable A region.
-        //assert(frame->slotsIndex >= vm.tristack.abi);  //NOT TRUE, A region may be empty due to GC.
-        // Shorten the stack.
-        vm.tristack.stackDepth = frame->slotsIndex;  //slotsIndex being one-past the highest index of new shorter stack
-        push(result);
-
-        // Now move to the outer frame, but if we've returned into the B or C
-        // non-mutable regions of the stack, adjust the tristack to shift the
-        // outer frame's slots into the A region.
+        // index) the stack. If we've returned to a frame whose slotsIndex is at
+        // a lower index than where abi begins (such that it is not in the
+        // mutable A region), we must move the contents of this returned-to
+        // frame into the mutable section A and shift abi to reflect that this
+        // portion of the stack indexes is now mutable.  This will maintain the
+        // invariant that the present frame's portion of the stack is always
+        // contiguous in the mutable section A.
         frame = triframes_currentFrame(&(vm.triframes));
-        printf("DANDEBUG to frame's slotsIndex: %d, slotsCount: %d\n", frame->slotsIndex, frame->slotsCount);
         if (frame->slotsIndex < vm.tristack.abi) {
           vm.tristack.abi = frame->slotsIndex;
           memcpy(tristack_at(&(vm.tristack), vm.tristack.abi),
                  tristack_at_bc(&(vm.tristack), frame->slotsIndex),
-                 frame->slotsCount * sizeof(Value));
-          frame->slots = tristack_at(&(vm.tristack), frame->slotsIndex);  //re-derive.
+                 (oldFrameSlotsIndex - frame->slotsIndex) * sizeof(Value));
+          frame->slots = tristack_at(&(vm.tristack), frame->slotsIndex);  //re-derive pointer
         }
+
+        // Shorten the stack to whatever was its depth prior to entering the
+        // frame we have now returned from.
+        vm.tristack.stackDepth = oldFrameSlotsIndex;
         assert(frame->slots == tristack_at(&(vm.tristack), frame->slotsIndex));
-        assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Must be contiguous, and in mutable section A.  FIXME a pointer comparison doesn't guarantee this due to ring wrap-around
+        assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Slots must be contiguous, and in mutable section A.
         assert(frame->slotsIndex >= vm.tristack.abi);
 
-        printf("OP_RETURN COMPLETE\n");
+        //Place the return value into the value stack.
+        push(result);
+
         break;
 //< Calls and Functions not-yet
       }

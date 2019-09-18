@@ -188,10 +188,21 @@ clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb);
 struct gc_request
 {
   struct cb        *orig_cb;
+
+  //Objtable
   struct cb_region  objtable_new_region;
   cb_offset_t       objtable_root_b;
   cb_offset_t       objtable_root_c;
-  //FIXME vm.tristack B & C
+
+  //Tristack
+  struct cb_region  tristack_new_region;
+  unsigned int      tristack_abi; // A base index  (mutable region)
+  cb_offset_t       tristack_bbo; // B base offset
+  unsigned int      tristack_bbi; // B base index
+  cb_offset_t       tristack_cbo; // C base offset
+  unsigned int      tristack_cbi; // C base index (always 0, really)
+  unsigned int      tristack_stackDepth;  // [0, stack_depth-1] are valid entries.
+
   //FIXME vm.triframes B & C
   //FIXME openUpvalues??
   //FIXME vm.strings B & C
@@ -203,6 +214,9 @@ struct gc_request
 struct gc_response
 {
   cb_offset_t objtable_new_root_c;
+
+  cb_offset_t       tristack_new_cbo; // C base offset
+  unsigned int      tristack_new_cbi; // C base index (always 0, really)
 };
 
 int gc_init(void);

@@ -459,6 +459,9 @@ void collectGarbageCB() {
 
   //FIXME prepare request contents
   req.orig_cb = thread_cb;
+
+
+  // Prepare condensing objtable B+C
   size_t objtable_b_size = cb_bst_size(thread_cb, thread_objtable.root_b);
   size_t objtable_c_size = cb_bst_size(thread_cb, thread_objtable.root_c);
   printf("DANDEBUG objtable_b_size: %zd, objtable_c_size: %zd\n",
@@ -467,25 +470,61 @@ void collectGarbageCB() {
                          &req.objtable_new_region,
                          64 /* FIXME cacheline size */,
                          objtable_b_size + objtable_c_size,
-                         CB_REGION_FINAL); //FIXME CB_REGION_REVERSED  brken here
-  printf("DANDEBUG cb_region_create(): %d\n", ret);
+                         CB_REGION_FINAL);
   assert(ret == 0);
   req.objtable_root_b = thread_objtable.root_b;
   req.objtable_root_c = thread_objtable.root_c;
 
+  // Prepare condensing tristack B+C
+  size_t tristack_b_plus_c_size = sizeof(Value) * (vm.tristack.abi - vm.tristack.cbi);
+  printf("DANDEBUG tristack_b_plus_c_size: %zd\n", tristack_b_plus_c_size);
+  ret = cb_region_create(&thread_cb,
+                         &req.tristack_new_region,
+                         64 /* FIXME cacheline size */,
+                         tristack_b_plus_c_size,
+                         CB_REGION_FINAL);
+  assert(ret == 0);
+  req.tristack_abi        = vm.tristack.abi;
+  req.tristack_bbo        = vm.tristack.bbo;
+  req.tristack_bbi        = vm.tristack.bbi;
+  req.tristack_cbo        = vm.tristack.cbo;
+  req.tristack_cbi        = vm.tristack.cbi;
+  req.tristack_stackDepth = vm.tristack.stackDepth;
+
+
+  //Do the Garbage Collection / Condensing.
   ret = gc_perform(&req, &resp);
   if (ret != 0) {
     fprintf(stderr, "Failed to GC via CB.\n");
   }
   assert(ret == 0);
 
-  //FIXME integrate response contents
+
+  //Integrate condensed objtable.
   printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)resp.objtable_new_root_c);
   thread_objtable.root_c = resp.objtable_new_root_c;
   printf("DANDEBUG objtable B %ju -> %ju\n", (uintmax_t)thread_objtable.root_b, (uintmax_t)thread_objtable.root_a);
   thread_objtable.root_b = thread_objtable.root_a;
   printf("DANDEBUG objtable A %ju -> %ju\n", (uintmax_t)thread_objtable.root_a, (uintmax_t)CB_BST_SENTINEL);
   thread_objtable.root_a = CB_BST_SENTINEL;
+
+  //printf("BEFORE CONDENSING TRISTACK\n");
+  //tristack_print(&(vm.tristack));
+
+  //Integrate condensed tristack.
+  vm.tristack.cbo = resp.tristack_new_cbo;
+  vm.tristack.cbi = resp.tristack_new_cbi;
+  vm.tristack.bbo = vm.tristack.abo;
+  vm.tristack.bbi = vm.tristack.abi;
+  ret = cb_region_memalign(&thread_cb,
+                           &thread_region,
+                           &(vm.tristack.abo),
+                           cb_alignof(Value),
+                           sizeof(Value) * STACK_MAX);
+  vm.tristack.abi = vm.tristack.stackDepth;
+
+  //printf("AFTER CONDENSING TRISTACK\n");
+  //tristack_print(&(vm.tristack));
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC %d\n", gccount++);
