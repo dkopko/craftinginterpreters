@@ -491,6 +491,22 @@ void collectGarbageCB() {
   req.tristack_cbi        = vm.tristack.cbi;
   req.tristack_stackDepth = vm.tristack.stackDepth;
 
+  // Prepare condensing triframes B+C
+  size_t triframes_b_plus_c_size = sizeof(CallFrame) * (vm.triframes.abi - vm.triframes.cbi);
+  printf("DANDEBUG triframes_b_plus_c_size: %zd\n", triframes_b_plus_c_size);
+  ret = cb_region_create(&thread_cb,
+                         &req.triframes_new_region,
+                         64 /* FIXME cacheline size */,
+                         triframes_b_plus_c_size,
+                         CB_REGION_FINAL);
+  assert(ret == 0);
+  req.triframes_abi        = vm.triframes.abi;
+  req.triframes_bbo        = vm.triframes.bbo;
+  req.triframes_bbi        = vm.triframes.bbi;
+  req.triframes_cbo        = vm.triframes.cbo;
+  req.triframes_cbi        = vm.triframes.cbi;
+  req.triframes_frameCount = vm.triframes.frameCount;
+
 
   //Do the Garbage Collection / Condensing.
   ret = gc_perform(&req, &resp);
@@ -525,6 +541,19 @@ void collectGarbageCB() {
 
   //printf("AFTER CONDENSING TRISTACK\n");
   //tristack_print(&(vm.tristack));
+
+  //Integrate condensed triframes.
+  vm.triframes.cbo = resp.triframes_new_cbo;
+  vm.triframes.cbi = resp.triframes_new_cbi;
+  vm.triframes.bbo = vm.triframes.abo;
+  vm.triframes.bbi = vm.triframes.abi;
+  ret = cb_region_memalign(&thread_cb,
+                           &thread_region,
+                           &(vm.triframes.abo),
+                           cb_alignof(Value),
+                           sizeof(Value) * FRAMES_MAX);
+  vm.triframes.abi = vm.triframes.frameCount;
+  //triframes_ensureCurrentFrameIsMutable(&vm.triframes);
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC %d\n", gccount++);

@@ -203,7 +203,15 @@ struct gc_request
   unsigned int      tristack_cbi; // C base index (always 0, really)
   unsigned int      tristack_stackDepth;  // [0, stack_depth-1] are valid entries.
 
-  //FIXME vm.triframes B & C
+  //Triframes
+  struct cb_region  triframes_new_region;
+  unsigned int      triframes_abi; // A base index  (mutable region)
+  cb_offset_t       triframes_bbo; // B base offset
+  unsigned int      triframes_bbi; // B base index
+  cb_offset_t       triframes_cbo; // C base offset
+  unsigned int      triframes_cbi; // C base index (always 0, really)
+  unsigned int      triframes_frameCount;  // [0, stack_depth-1] are valid entries.
+
   //FIXME openUpvalues??
   //FIXME vm.strings B & C
   //FIXME vm.globals B & C
@@ -217,6 +225,9 @@ struct gc_response
 
   cb_offset_t       tristack_new_cbo; // C base offset
   unsigned int      tristack_new_cbi; // C base index (always 0, really)
+
+  cb_offset_t       triframes_new_cbo; // C base offset
+  unsigned int      triframes_new_cbi; // C base index (always 0, really)
 };
 
 int gc_init(void);

@@ -6,6 +6,7 @@
 #include "object.h"
 #include "memory.h"
 #include "value.h"
+#include "vm.h"
 
 
 __thread struct cb        *thread_cb            = NULL;
@@ -916,6 +917,33 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     //Write response
     resp->tristack_new_cbo = new_cbo;
     resp->tristack_new_cbi = req->tristack_cbi;
+  }
+
+  //Condense triframes
+  {
+    cb_offset_t   new_cbo              = cb_region_start(&(req->triframes_new_region));
+    CallFrame    *new_condensed_frames = static_cast<CallFrame*>(cb_at(req->orig_cb, new_cbo));
+    CallFrame    *old_c_frames         = static_cast<CallFrame*>(cb_at(req->orig_cb, req->triframes_cbo));
+    CallFrame    *old_b_frames         = static_cast<CallFrame*>(cb_at(req->orig_cb, req->triframes_bbo));
+    unsigned int  i                    = req->triframes_cbi;  //(always 0, really)
+
+    assert(i == 0);
+
+    //Copy C section
+    while (i < req->triframes_frameCount && i < req->triframes_bbi) {
+      new_condensed_frames[i] = old_c_frames[i - req->triframes_cbi];
+      ++i;
+    }
+
+    //Copy B section
+    while (i < req->triframes_frameCount && i < req->triframes_abi) {
+      new_condensed_frames[i] = old_b_frames[i - req->triframes_bbi];
+      ++i;
+    }
+
+    //Write response
+    resp->triframes_new_cbo = new_cbo;
+    resp->triframes_new_cbi = req->triframes_cbi;
   }
 
   return 0;
