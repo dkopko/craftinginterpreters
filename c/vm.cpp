@@ -175,20 +175,20 @@ triframes_enterFrame(TriFrames *tf) {
   ++(tf->frameCount);
 }
 
-static void
-triframes_leaveFrame(TriFrames *tf) {
+void
+triframes_ensureCurrentFrameIsMutable(TriFrames *tf) {
   CallFrame *newFrame;
   cb_offset_t offset;
-  unsigned int parentFrameIndex;
+  unsigned int currentFrameIndex;
 
-  assert(tf->frameCount > 0);
+  if (tf->frameCount == 0)
+    return;
 
-  --(tf->frameCount);
-  parentFrameIndex = tf->frameCount - 1;
+  currentFrameIndex = tf->frameCount - 1;
 
-  if (parentFrameIndex >= tf->abi) {
+  if (currentFrameIndex >= tf->abi) {
     // Parent frame we are returning to is already in the mutable A section.
-    offset = tf->abo + (parentFrameIndex - tf->abi) * sizeof(CallFrame);
+    offset = tf->abo + (currentFrameIndex - tf->abi) * sizeof(CallFrame);
     tf->currentFrame = static_cast<CallFrame*>(cb_at(thread_cb, offset));
     return;
   }
@@ -196,10 +196,10 @@ triframes_leaveFrame(TriFrames *tf) {
   // Otherwise, parent frame we are returning to is in either the B or C
   // read-only sections. It must be copied to the mutable A section (will
   // have destination of abo), and abi adjustment must be made.
-  if (parentFrameIndex < tf->bbi) {
-    offset = tf->cbo + (parentFrameIndex - tf->cbi) * sizeof(CallFrame);
+  if (currentFrameIndex < tf->bbi) {
+    offset = tf->cbo + (currentFrameIndex - tf->cbi) * sizeof(CallFrame);
   } else {
-    offset = tf->bbo + (parentFrameIndex - tf->bbi) * sizeof(CallFrame);
+    offset = tf->bbo + (currentFrameIndex - tf->bbi) * sizeof(CallFrame);
   }
   newFrame = static_cast<CallFrame*>(cb_at(thread_cb, tf->abo));
 #pragma GCC diagnostic push
@@ -208,8 +208,15 @@ triframes_leaveFrame(TriFrames *tf) {
          static_cast<CallFrame*>(cb_at(thread_cb, offset)),
          sizeof(CallFrame));
 #pragma GCC diagnostic pop
-  tf->abi = parentFrameIndex;
+  tf->abi = currentFrameIndex;
   tf->currentFrame = newFrame;
+}
+
+static void
+triframes_leaveFrame(TriFrames *tf) {
+  assert(tf->frameCount > 0);
+  --(tf->frameCount);
+  triframes_ensureCurrentFrameIsMutable(tf);
 }
 
 CallFrame*

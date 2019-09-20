@@ -68,6 +68,7 @@ typedef struct {
   CallFrame *currentFrame;
 } TriFrames;
 
+void triframes_ensureCurrentFrameIsMutable(TriFrames *tf);
 CallFrame* triframes_at(TriFrames *tf, unsigned int index);
 
 
