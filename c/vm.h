@@ -119,6 +119,7 @@ typedef enum {
 extern VM vm;
 
 void tristack_print(TriStack *ts);
+void printCallFrame(CallFrame *frame);
 
 //< Strings extern-vm
 void initVM();
