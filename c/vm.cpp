@@ -245,6 +245,31 @@ triframes_currentFrame(TriFrames *tf) {
   return tf->currentFrame;
 }
 
+const char *
+triframes_regionname_at(TriFrames *tf, unsigned int index) {
+  if (index >= tf->abi) return "A";
+  if (index >= tf->bbi) return "B";
+  return "C";
+}
+
+void
+printCallFrame(CallFrame *frame) {
+  //FIXME print closure?
+  printf("ip:%p, ", frame->ip);
+  printf("si:%ju, ", (uintmax_t)frame->slotsIndex);
+  printf("sc:%ju", (uintmax_t)frame->slotsCount);
+}
+
+void
+triframes_print(TriFrames *tf) {
+  for (unsigned int i = 0; i < vm.triframes.frameCount; ++i) {
+    printf("%d%s{ ", i, triframes_regionname_at(&(vm.triframes), i));
+    printCallFrame(triframes_at(&(vm.triframes), i));
+    printf(" } ");
+  }
+  printf("\n");
+}
+
 VM vm; // [one]
 //> Calls and Functions not-yet
 
@@ -848,6 +873,9 @@ static InterpretResult run() {
     //printf("          ");
     printf("DANDEBUGSTACK  ");
     tristack_print(&(vm.tristack));
+
+    printf("DANDEBUGFRAMES ");
+    triframes_print(&(vm.triframes));
 
     disassembleInstruction(&frame->closure.clip()->function.clip()->chunk,
         (int)(frame->ip - frame->closure.clip()->function.clip()->chunk.code.clp()));
