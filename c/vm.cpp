@@ -253,11 +253,17 @@ triframes_regionname_at(TriFrames *tf, unsigned int index) {
 }
 
 void
-printCallFrame(CallFrame *frame) {
-  //FIXME print closure?
-  printf("ip:%p, ", frame->ip);
-  printf("si:%ju, ", (uintmax_t)frame->slotsIndex);
-  printf("sc:%ju", (uintmax_t)frame->slotsCount);
+printCallFrame(CallFrame *cf) {
+  printf("ip:%p, ", cf->ip);
+  //printf("si:%ju, ", (uintmax_t)cf->slotsIndex);
+  //printf("sc:%ju, ", (uintmax_t)cf->slotsCount);
+  printObject(cf->closure.id(), cf->closure.co(), (const Obj *)cf->closure.clip());
+  printf(" | ");
+  for (unsigned int i = 0; i < cf->slotsCount; ++i) {
+    printf("%d%s[ ", cf->slotsIndex + i, tristack_regionname_at(&(vm.tristack), cf->slotsIndex + i));
+    printValue(cf->slots[i]);
+    printf(" ] ");
+  }
 }
 
 void

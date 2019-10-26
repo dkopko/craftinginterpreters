@@ -613,26 +613,7 @@ void printStateOfWorld(const char *desc) {
   printf("----- end vm.tristack -----\n");
 
   printf("----- begin vm.triframes -----\n");
-  for (unsigned int i = 0, e = vm.triframes.frameCount; i < e; ++i) {
-    const char *regionName;
-    if (i >= vm.triframes.cbi && i < vm.triframes.bbi) {
-      regionName = "C";
-    } else if (i >= vm.triframes.bbi && i < vm.triframes.abi) {
-      regionName = "B";
-    } else {
-      regionName = "A";
-    }
-    printf("triframes[%d](%s) ", i, regionName);
-    CallFrame *cf = triframes_at(&vm.triframes, i);
-    printObject(cf->closure.id(), cf->closure.co(), (const Obj *)cf->closure.clip());
-    printf(" (slotsIndex: %u, slotsCount: %u)\n", cf->slotsIndex, cf->slotsCount);
-    for (unsigned int j = 0, f = cf->slotsCount; j < f ; ++j) {
-      printf(" stack[%u]: ", j + cf->slotsIndex);
-      printValue(cf->slots[j]);
-      printf("\n");
-    }
-    printf("\n");
-  }
+  triframes_print(&(vm.triframes));
   printf("----- end vm.triframes -----\n");
 
   printf("----- begin vm.openUpvalues -----\n");
