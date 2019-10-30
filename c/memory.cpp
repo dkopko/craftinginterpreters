@@ -543,17 +543,50 @@ void collectGarbageCB() {
   //tristack_print(&(vm.tristack));
 
   //Integrate condensed triframes.
-  vm.triframes.cbo = resp.triframes_new_cbo;
-  vm.triframes.cbi = resp.triframes_new_cbi;
-  vm.triframes.bbo = vm.triframes.abo;
-  vm.triframes.bbi = vm.triframes.abi;
+  printf("DANDEBUG before integrating triframes  abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
+      (uintmax_t)vm.triframes.abo,
+      (uintmax_t)vm.triframes.abi,
+      (uintmax_t)vm.triframes.bbo,
+      (uintmax_t)vm.triframes.bbi,
+      (uintmax_t)vm.triframes.cbo,
+      (uintmax_t)vm.triframes.cbi);
+  triframes_print(&(vm.triframes));
+
+  cb_offset_t old_triframes_abo = vm.triframes.abo;
   ret = cb_region_memalign(&thread_cb,
                            &thread_region,
                            &(vm.triframes.abo),
                            cb_alignof(Value),
                            sizeof(Value) * FRAMES_MAX);
+  vm.triframes.cbo = resp.triframes_new_cbo;
+  vm.triframes.cbi = resp.triframes_new_cbi;
+  vm.triframes.bbo = old_triframes_abo;
+  vm.triframes.bbi = vm.triframes.abi;
   vm.triframes.abi = vm.triframes.frameCount;
-  //triframes_ensureCurrentFrameIsMutable(&vm.triframes);
+
+  printf("DANDEBUG after integrating triframes  abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
+      (uintmax_t)vm.triframes.abo,
+      (uintmax_t)vm.triframes.abi,
+      (uintmax_t)vm.triframes.bbo,
+      (uintmax_t)vm.triframes.bbi,
+      (uintmax_t)vm.triframes.cbo,
+      (uintmax_t)vm.triframes.cbi);
+  triframes_print(&(vm.triframes));
+
+#if 0
+  FIXME put back
+  triframes_ensureFrameIsMutable(&vm.triframes, vm.triframes.frameCount - 1);
+  vm.currentFrame = triframes_currentFrame(&(vm.triframes));
+
+  printf("DANDEBUG after ensuring last frame is mutable: abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
+      (uintmax_t)vm.triframes.abo,
+      (uintmax_t)vm.triframes.abi,
+      (uintmax_t)vm.triframes.bbo,
+      (uintmax_t)vm.triframes.bbi,
+      (uintmax_t)vm.triframes.cbo,
+      (uintmax_t)vm.triframes.cbi);
+  triframes_print(&(vm.triframes));
+#endif
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC %d\n", gccount++);

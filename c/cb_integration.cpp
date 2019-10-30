@@ -932,10 +932,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     //Copy C section
     while (i < req->triframes_frameCount && i < req->triframes_bbi) {
       CallFrame *src = &(old_c_frames[i - req->triframes_cbi]);
-
-      printf("DANDEBUG Copying C frame: ");
-      printCallFrame(src);
-
+      //printf("Copying C frame: ");
+      //printCallFrame(src);
       new_condensed_frames[i] = *src;
       ++i;
     }
@@ -943,10 +941,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     //Copy B section
     while (i < req->triframes_frameCount && i < req->triframes_abi) {
       CallFrame *src = &(old_b_frames[i - req->triframes_bbi]);
-
-      printf("DANDEBUG Copying B frame: ");
-      printCallFrame(src);
-
+      //printf("Copying B frame: ");
+      //printCallFrame(src);
       new_condensed_frames[i] = *src;
       ++i;
     }
