@@ -77,6 +77,7 @@ typedef struct {
   TriStack tristack;
 //< vm-stack
 //> Calls and Functions not-yet
+  CallFrame *currentFrame;
   TriFrames triframes;
 //< Calls and Functions not-yet
 //> Global Variables vm-globals

@@ -573,10 +573,7 @@ void collectGarbageCB() {
       (uintmax_t)vm.triframes.cbi);
   triframes_print(&(vm.triframes));
 
-#if 0
-  FIXME put back
-  triframes_ensureFrameIsMutable(&vm.triframes, vm.triframes.frameCount - 1);
-  vm.currentFrame = triframes_currentFrame(&(vm.triframes));
+  triframes_ensureCurrentFrameIsMutable(&vm.triframes);
 
   printf("DANDEBUG after ensuring last frame is mutable: abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
       (uintmax_t)vm.triframes.abo,
@@ -586,7 +583,6 @@ void collectGarbageCB() {
       (uintmax_t)vm.triframes.cbo,
       (uintmax_t)vm.triframes.cbi);
   triframes_print(&(vm.triframes));
-#endif
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC %d\n", gccount++);

@@ -190,16 +190,17 @@ triframes_ensureCurrentFrameIsMutable(TriFrames *tf) {
     // Parent frame we are returning to is already in the mutable A section.
     offset = tf->abo + (currentFrameIndex - tf->abi) * sizeof(CallFrame);
     tf->currentFrame = static_cast<CallFrame*>(cb_at(thread_cb, offset));
+    vm.currentFrame = tf->currentFrame;
     return;
   }
 
-  // Otherwise, parent frame we are returning to is in either the B or C
-  // read-only sections. It must be copied to the mutable A section (will
-  // have destination of abo), and abi adjustment must be made.
-  if (currentFrameIndex < tf->bbi) {
-    offset = tf->cbo + (currentFrameIndex - tf->cbi) * sizeof(CallFrame);
-  } else {
+  // Otherwise, current frame is in either the B or C read-only sections. It
+  // must be copied to the mutable A section (will have destination of abo), and
+  // abi adjustment must be made.
+  if (currentFrameIndex >= tf->bbi) {
     offset = tf->bbo + (currentFrameIndex - tf->bbi) * sizeof(CallFrame);
+  } else {
+    offset = tf->cbo + (currentFrameIndex - tf->cbi) * sizeof(CallFrame);
   }
   newFrame = static_cast<CallFrame*>(cb_at(thread_cb, tf->abo));
 #pragma GCC diagnostic push
@@ -210,6 +211,7 @@ triframes_ensureCurrentFrameIsMutable(TriFrames *tf) {
 #pragma GCC diagnostic pop
   tf->abi = currentFrameIndex;
   tf->currentFrame = newFrame;
+  vm.currentFrame = tf->currentFrame;
 }
 
 static void
@@ -241,7 +243,7 @@ triframes_frameCount(TriFrames *tf) {
 
 static CallFrame*
 triframes_currentFrame(TriFrames *tf) {
-  assert(tf->currentFrame == triframes_at(tf, triframes_frameCount(tf) - 1));
+  assert((tf->frameCount == 0 && tf->currentFrame == NULL) || tf->currentFrame == triframes_at(tf, triframes_frameCount(tf) - 1));
   return tf->currentFrame;
 }
 
@@ -851,13 +853,13 @@ static void concatenate() {
 //< Strings concatenate
 //> run
 static InterpretResult run() {
-  CallFrame* frame = triframes_currentFrame(&(vm.triframes));
+  vm.currentFrame = triframes_currentFrame(&(vm.triframes));
 
-#define READ_BYTE() (*frame->ip++)
+#define READ_BYTE() (*vm.currentFrame->ip++)
 #define READ_SHORT() \
-    (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+    (vm.currentFrame->ip += 2, (uint16_t)((vm.currentFrame->ip[-2] << 8) | vm.currentFrame->ip[-1]))
 #define READ_CONSTANT() \
-    (frame->closure.clip()->function.clip()->chunk.constants.values.clp()[READ_BYTE()])
+    (vm.currentFrame->closure.clip()->function.clip()->chunk.constants.values.clp()[READ_BYTE()])
 #define READ_STRING() AS_STRING_OID(READ_CONSTANT())
 
 //> Types of Values binary-op
@@ -883,8 +885,8 @@ static InterpretResult run() {
     printf("DANDEBUGFRAMES ");
     triframes_print(&(vm.triframes));
 
-    disassembleInstruction(&frame->closure.clip()->function.clip()->chunk,
-        (int)(frame->ip - frame->closure.clip()->function.clip()->chunk.code.clp()));
+    disassembleInstruction(&vm.currentFrame->closure.clip()->function.clip()->chunk,
+        (int)(vm.currentFrame->ip - vm.currentFrame->closure.clip()->function.clip()->chunk.code.clp()));
 #endif
 
     uint8_t instruction;
@@ -918,7 +920,7 @@ static InterpretResult run() {
         push(vm.stack[slot]);
 */
 //> Calls and Functions not-yet
-        push(frame->slots[slot]);
+        push(vm.currentFrame->slots[slot]);
 //< Calls and Functions not-yet
         break;
       }
@@ -929,7 +931,7 @@ static InterpretResult run() {
         vm.stack[slot] = peek(0);
 */
 //> Calls and Functions not-yet
-        frame->slots[slot] = peek(0);
+        vm.currentFrame->slots[slot] = peek(0);
 //< Calls and Functions not-yet
         break;
       }
@@ -971,7 +973,7 @@ static InterpretResult run() {
 
       case OP_GET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        const ObjUpvalue* upvalue = frame->closure.clip()->upvalues.clp()[slot].clip();
+        const ObjUpvalue* upvalue = vm.currentFrame->closure.clip()->upvalues.clp()[slot].clip();
         if (upvalue->valueStackIndex == -1) {
           push(upvalue->closed);
         } else {
@@ -982,7 +984,7 @@ static InterpretResult run() {
 
       case OP_SET_UPVALUE: {
         uint8_t slot = READ_BYTE();
-        ObjUpvalue* upvalue = frame->closure.mlip()->upvalues.mlp()[slot].mlip();
+        ObjUpvalue* upvalue = vm.currentFrame->closure.mlip()->upvalues.mlp()[slot].mlip();
         if (upvalue->valueStackIndex == -1) {
           upvalue->closed = peek(0);
         } else {
@@ -1118,19 +1120,19 @@ static InterpretResult run() {
 //> Jumping Forward and Back not-yet
       case OP_JUMP: {
         uint16_t offset = READ_SHORT();
-        frame->ip += offset;
+        vm.currentFrame->ip += offset;
         break;
       }
 
       case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
-        if (isFalsey(peek(0))) frame->ip += offset;
+        if (isFalsey(peek(0))) vm.currentFrame->ip += offset;
         break;
       }
 
       case OP_LOOP: {
         uint16_t offset = READ_SHORT();
-        frame->ip -= offset;
+        vm.currentFrame->ip -= offset;
         break;
       }
 //< Jumping Forward and Back not-yet
@@ -1150,7 +1152,7 @@ static InterpretResult run() {
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = triframes_currentFrame(&(vm.triframes));
+        vm.currentFrame = triframes_currentFrame(&(vm.triframes));
         break;
       }
 //< Calls and Functions not-yet
@@ -1170,7 +1172,7 @@ static InterpretResult run() {
         if (!invoke(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = triframes_currentFrame(&(vm.triframes));
+        vm.currentFrame = triframes_currentFrame(&(vm.triframes));
         break;
       }
 //< Methods and Initializers not-yet
@@ -1191,7 +1193,7 @@ static InterpretResult run() {
         if (!invokeFromClass(superclass, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
-        frame = triframes_currentFrame(&(vm.triframes));
+        vm.currentFrame = triframes_currentFrame(&(vm.triframes));
         break;
       }
 //< Superclasses not-yet
@@ -1212,10 +1214,10 @@ static InterpretResult run() {
           if (isLocal) {
             // Make an new upvalue to close over the parent's local
             // variable.
-            closure.mlip()->upvalues.mlp()[i] = captureUpvalue(frame->slotsIndex + index);
+            closure.mlip()->upvalues.mlp()[i] = captureUpvalue(vm.currentFrame->slotsIndex + index);
           } else {
             // Use the same upvalue as the current call frame.
-            closure.mlip()->upvalues.mlp()[i] = frame->closure.mlip()->upvalues.mlp()[index];
+            closure.mlip()->upvalues.mlp()[i] = vm.currentFrame->closure.mlip()->upvalues.mlp()[index];
           }
         }
 
@@ -1231,10 +1233,10 @@ static InterpretResult run() {
 //< Closures not-yet
       case OP_RETURN: {
         Value result = pop();
-        unsigned int oldFrameSlotsIndex = frame->slotsIndex;
+        unsigned int oldFrameSlotsIndex = vm.currentFrame->slotsIndex;
 
         // Close any upvalues still in scope.
-        closeUpvalues(frame->slotsIndex);
+        closeUpvalues(vm.currentFrame->slotsIndex);
 
         // The frame we're leaving may not even be in the mutable A region if
         // we have recently performed a GC, so we cannot do the following:
@@ -1251,21 +1253,21 @@ static InterpretResult run() {
         // portion of the stack indexes is now mutable.  This will maintain the
         // invariant that the present frame's portion of the stack is always
         // contiguous in the mutable section A.
-        frame = triframes_currentFrame(&(vm.triframes));
-        if (frame->slotsIndex < vm.tristack.abi) {
-          vm.tristack.abi = frame->slotsIndex;
+        vm.currentFrame = triframes_currentFrame(&(vm.triframes));
+        if (vm.currentFrame->slotsIndex < vm.tristack.abi) {
+          vm.tristack.abi = vm.currentFrame->slotsIndex;
           memcpy(tristack_at(&(vm.tristack), vm.tristack.abi),
-                 tristack_at_bc(&(vm.tristack), frame->slotsIndex),
-                 (oldFrameSlotsIndex - frame->slotsIndex) * sizeof(Value));
-          frame->slots = tristack_at(&(vm.tristack), frame->slotsIndex);  //re-derive pointer
+                 tristack_at_bc(&(vm.tristack), vm.currentFrame->slotsIndex),
+                 (oldFrameSlotsIndex - vm.currentFrame->slotsIndex) * sizeof(Value));
+          vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);  //re-derive pointer
         }
 
         // Shorten the stack to whatever was its depth prior to entering the
         // frame we have now returned from.
         vm.tristack.stackDepth = oldFrameSlotsIndex;
-        assert(frame->slots == tristack_at(&(vm.tristack), frame->slotsIndex));
-        assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Slots must be contiguous, and in mutable section A.
-        assert(frame->slotsIndex >= vm.tristack.abi);
+        assert(vm.currentFrame->slots == tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex));
+        assert(vm.currentFrame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Slots must be contiguous, and in mutable section A.
+        assert(vm.currentFrame->slotsIndex >= vm.tristack.abi);
 
         //Place the return value into the value stack.
         push(result);
