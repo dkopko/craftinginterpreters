@@ -697,7 +697,7 @@ struct copy_objtable_closure
   cb_offset_t       old_root_c;
   struct cb        *dest_cb;
   struct cb_region *dest_region;
-  cb_offset_t      *new_root_c;
+  cb_offset_t      *new_root_b;
 };
 
 static int
@@ -721,7 +721,7 @@ copy_objtable_b(const struct cb_term *key_term,
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
-                      cl->new_root_c,
+                      cl->new_root_b,
                       cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
                       key_term,
                       value_term);
@@ -834,7 +834,7 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
 
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
-                      cl->new_root_c,
+                      cl->new_root_b,
                       cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
                       key_term,
                       value_term);
@@ -867,9 +867,9 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     closure.old_root_c  = req->objtable_root_c;
     closure.dest_cb     = req->orig_cb;
     closure.dest_region = &(req->objtable_new_region);
-    closure.new_root_c  = &(resp->objtable_new_root_c);
+    closure.new_root_b  = &(resp->objtable_new_root_b);
 
-    resp->objtable_new_root_c = CB_BST_SENTINEL;
+    resp->objtable_new_root_b = CB_BST_SENTINEL;
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->objtable_root_b,
@@ -894,8 +894,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
 
   //Condense tristack
   {
-    cb_offset_t   new_cbo              = cb_region_start(&(req->tristack_new_region));
-    Value        *new_condensed_values = static_cast<Value*>(cb_at(req->orig_cb, new_cbo));
+    cb_offset_t   new_bbo              = cb_region_start(&(req->tristack_new_region));
+    Value        *new_condensed_values = static_cast<Value*>(cb_at(req->orig_cb, new_bbo));
     Value        *old_c_values         = static_cast<Value*>(cb_at(req->orig_cb, req->tristack_cbo));
     Value        *old_b_values         = static_cast<Value*>(cb_at(req->orig_cb, req->tristack_bbo));
     unsigned int  i                    = req->tristack_cbi;  //(always 0, really)
@@ -915,14 +915,14 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     }
 
     //Write response
-    resp->tristack_new_cbo = new_cbo;
-    resp->tristack_new_cbi = req->tristack_cbi;
+    resp->tristack_new_bbo = new_bbo;
+    resp->tristack_new_bbi = req->tristack_cbi;
   }
 
   //Condense triframes
   {
-    cb_offset_t   new_cbo              = cb_region_start(&(req->triframes_new_region));
-    CallFrame    *new_condensed_frames = static_cast<CallFrame*>(cb_at(req->orig_cb, new_cbo));
+    cb_offset_t   new_bbo              = cb_region_start(&(req->triframes_new_region));
+    CallFrame    *new_condensed_frames = static_cast<CallFrame*>(cb_at(req->orig_cb, new_bbo));
     CallFrame    *old_c_frames         = static_cast<CallFrame*>(cb_at(req->orig_cb, req->triframes_cbo));
     CallFrame    *old_b_frames         = static_cast<CallFrame*>(cb_at(req->orig_cb, req->triframes_bbo));
     unsigned int  i                    = req->triframes_cbi;  //(always 0, really)
@@ -948,8 +948,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     }
 
     //Write response
-    resp->triframes_new_cbo = new_cbo;
-    resp->triframes_new_cbi = req->triframes_cbi;
+    resp->triframes_new_bbo = new_bbo;
+    resp->triframes_new_bbi = req->triframes_cbi;
   }
 
   return 0;

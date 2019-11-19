@@ -444,22 +444,55 @@ cb_offset_t mutableCopyObject(ObjID id, cb_offset_t object_offset) {
 
 void collectGarbageCB() {
   static int gccount = 0;
+  struct gc_request req;
+  struct gc_response resp;
+  int ret;
 
   (void)gccount;
 #ifdef DEBUG_TRACE_GC
   printf("-- BEGIN CB GC %d\n", gccount);
 #endif
 
-  struct gc_request req;
-  struct gc_response resp;
-  int ret;
+
+  // === Begin Freeze A regions ===
+  assert(thread_objtable.root_c == CB_BST_SENTINEL);
+  thread_objtable.root_c = thread_objtable.root_b;
+  thread_objtable.root_b = thread_objtable.root_a;
+  thread_objtable.root_a = CB_BST_SENTINEL;
+
+  assert(vm.tristack.cbo == CB_NULL);
+  assert(vm.tristack.cbi == 0);
+  vm.tristack.cbo = vm.tristack.bbo;
+  vm.tristack.cbi = vm.tristack.bbi;
+  vm.tristack.bbo = vm.tristack.abo;
+  vm.tristack.bbi = vm.tristack.abi;
+  ret = cb_region_memalign(&thread_cb,
+                           &thread_region,
+                           &(vm.tristack.abo),
+                           cb_alignof(Value),
+                           sizeof(Value) * STACK_MAX);
+  vm.tristack.abi = vm.tristack.stackDepth;
+
+  assert(vm.triframes.cbo == CB_NULL);
+  assert(vm.triframes.cbi == 0);
+  vm.triframes.cbo = vm.triframes.bbo;
+  vm.triframes.cbi = vm.triframes.bbi;
+  vm.triframes.bbo = vm.triframes.abo;
+  vm.triframes.bbi = vm.triframes.abi;
+  ret = cb_region_memalign(&thread_cb,
+                           &thread_region,
+                           &(vm.triframes.abo),
+                           cb_alignof(CallFrame),
+                           sizeof(CallFrame) * FRAMES_MAX);
+  vm.triframes.abi = vm.triframes.frameCount;
+  // === End Freeze A regions ===
+
 
   memset(&req, 0, sizeof(req));
   memset(&resp, 0, sizeof(resp));
 
   //FIXME prepare request contents
   req.orig_cb = thread_cb;
-
 
   // Prepare condensing objtable B+C
   size_t objtable_b_size = cb_bst_size(thread_cb, thread_objtable.root_b);
@@ -517,28 +550,19 @@ void collectGarbageCB() {
 
 
   //Integrate condensed objtable.
-  printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)resp.objtable_new_root_c);
-  thread_objtable.root_c = resp.objtable_new_root_c;
-  printf("DANDEBUG objtable B %ju -> %ju\n", (uintmax_t)thread_objtable.root_b, (uintmax_t)thread_objtable.root_a);
-  thread_objtable.root_b = thread_objtable.root_a;
-  printf("DANDEBUG objtable A %ju -> %ju\n", (uintmax_t)thread_objtable.root_a, (uintmax_t)CB_BST_SENTINEL);
-  thread_objtable.root_a = CB_BST_SENTINEL;
-
-  //printf("BEFORE CONDENSING TRISTACK\n");
-  //tristack_print(&(vm.tristack));
+  printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)CB_BST_SENTINEL);
+  thread_objtable.root_c = CB_BST_SENTINEL;
+  printf("DANDEBUG objtable B %ju -> %ju\n", (uintmax_t)thread_objtable.root_b, (uintmax_t)resp.objtable_new_root_b);
+  thread_objtable.root_b = resp.objtable_new_root_b;
 
   //Integrate condensed tristack.
-  vm.tristack.cbo = resp.tristack_new_cbo;
-  vm.tristack.cbi = resp.tristack_new_cbi;
-  vm.tristack.bbo = vm.tristack.abo;
-  vm.tristack.bbi = vm.tristack.abi;
-  ret = cb_region_memalign(&thread_cb,
-                           &thread_region,
-                           &(vm.tristack.abo),
-                           cb_alignof(Value),
-                           sizeof(Value) * STACK_MAX);
-  vm.tristack.abi = vm.tristack.stackDepth;
-
+  //printf("BEFORE CONDENSING TRISTACK\n");
+  //tristack_print(&(vm.tristack));
+  vm.tristack.cbo = CB_NULL;
+  vm.tristack.cbi = 0;
+  vm.tristack.bbo = resp.tristack_new_bbo;
+  assert(resp.tristack_new_bbi == 0);
+  vm.tristack.bbi = resp.tristack_new_bbi;
   //printf("AFTER CONDENSING TRISTACK\n");
   //tristack_print(&(vm.tristack));
 
@@ -551,19 +575,10 @@ void collectGarbageCB() {
       (uintmax_t)vm.triframes.cbo,
       (uintmax_t)vm.triframes.cbi);
   triframes_print(&(vm.triframes));
-
-  cb_offset_t old_triframes_abo = vm.triframes.abo;
-  ret = cb_region_memalign(&thread_cb,
-                           &thread_region,
-                           &(vm.triframes.abo),
-                           cb_alignof(Value),
-                           sizeof(Value) * FRAMES_MAX);
-  vm.triframes.cbo = resp.triframes_new_cbo;
-  vm.triframes.cbi = resp.triframes_new_cbi;
-  vm.triframes.bbo = old_triframes_abo;
-  vm.triframes.bbi = vm.triframes.abi;
-  vm.triframes.abi = vm.triframes.frameCount;
-
+  vm.triframes.cbo = CB_NULL;
+  vm.triframes.cbi = 0;
+  vm.triframes.bbo = resp.triframes_new_bbo;
+  vm.triframes.bbi = resp.triframes_new_bbi;
   printf("DANDEBUG after integrating triframes  abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
       (uintmax_t)vm.triframes.abo,
       (uintmax_t)vm.triframes.abi,
@@ -572,9 +587,7 @@ void collectGarbageCB() {
       (uintmax_t)vm.triframes.cbo,
       (uintmax_t)vm.triframes.cbi);
   triframes_print(&(vm.triframes));
-
   triframes_ensureCurrentFrameIsMutable(&vm.triframes);
-
   printf("DANDEBUG after ensuring last frame is mutable: abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
       (uintmax_t)vm.triframes.abo,
       (uintmax_t)vm.triframes.abi,

@@ -221,13 +221,13 @@ struct gc_request
 
 struct gc_response
 {
-  cb_offset_t objtable_new_root_c;
+  cb_offset_t  objtable_new_root_b;
 
-  cb_offset_t       tristack_new_cbo; // C base offset
-  unsigned int      tristack_new_cbi; // C base index (always 0, really)
+  cb_offset_t  tristack_new_bbo; // B base offset
+  unsigned int tristack_new_bbi; // B base index (always 0, really)
 
-  cb_offset_t       triframes_new_cbo; // C base offset
-  unsigned int      triframes_new_cbi; // C base index (always 0, really)
+  cb_offset_t  triframes_new_bbo; // B base offset
+  unsigned int triframes_new_bbi; // B base index (always 0, really)
 };
 
 int gc_init(void);
