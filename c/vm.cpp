@@ -729,30 +729,35 @@ static bool bindMethod(OID<ObjClass> klass, OID<ObjString> name) {
 // important to ensure that multiple closures closing over the same
 // variable actually see the same variable.) Otherwise, it creates a
 // new open upvalue and adds it to the VM's list of upvalues.
-static OID<ObjUpvalue> captureUpvalue(unsigned int localStackIndex) {  //CBINT FIXME will need to be offset.
+// The passed-in stackIndex is in the domain of the full stack (and not just
+// an offset within the frame's region of the stack).
+static OID<ObjUpvalue> captureUpvalue(unsigned int stackIndex) {  //CBINT FIXME will need to be offset.
   // If there are no open upvalues at all, we must need a new one.
   if (vm.openUpvalues.is_nil()) {
-    vm.openUpvalues = newUpvalue(localStackIndex);
+    vm.openUpvalues = newUpvalue(stackIndex);
     return vm.openUpvalues;
   }
 
   OID<ObjUpvalue> prevUpvalue = CB_NULL_OID;
   OID<ObjUpvalue> upvalue = vm.openUpvalues;
 
-  // Walk towards the bottom of the stack until we find a previously
-  // existing upvalue or reach where it should be.
-  while (!upvalue.is_nil() && upvalue.clip()->valueStackIndex > (int)localStackIndex) {
+  // Walk towards the tail of the openUpvalues linked list until we find a
+  // previously existing upvalue or reach where it should be.  The elements
+  // of the list are ordered by decreasing stack indices, and we need to
+  // maintain that order.
+  while (!upvalue.is_nil() && upvalue.clip()->valueStackIndex > (int)stackIndex) {
     prevUpvalue = upvalue;
     upvalue = upvalue.clip()->next;
   }
 
   // If we found it, reuse it.
-  if (!upvalue.is_nil() && upvalue.clip()->valueStackIndex == (int)localStackIndex) return upvalue;
+  if (!upvalue.is_nil() && upvalue.clip()->valueStackIndex == (int)stackIndex) return upvalue;
 
-  // We walked past the local on the stack, so there must not be an
-  // upvalue for it already. Make a new one and link it in in the right
-  // place to keep the list sorted.
-  OID<ObjUpvalue> createdUpvalue = newUpvalue(localStackIndex);
+  // We (have just) walked past the location on the linked list which should
+  // have held an upvalue for this local, so there must not be an upvalue for
+  // it already. Make a new upvalue and link it in here to maintain the list
+  // order ("openUpvalue stack indices decrease towards the tail of the list").
+  OID<ObjUpvalue> createdUpvalue = newUpvalue(stackIndex);
   createdUpvalue.mlip()->next = upvalue;
 
   if (prevUpvalue.is_nil()) {
@@ -1208,7 +1213,7 @@ static InterpretResult run() {
         push(OBJ_VAL(closure.id()));
 
         // Capture upvalues.
-        for (int i = 0; i < closure.clip()->upvalueCount; i++) {
+        for (int i = 0, e = closure.clip()->upvalueCount; i < e; i++) {
           uint8_t isLocal = READ_BYTE();
           uint8_t index = READ_BYTE();  // an index within the present frame's slots
           if (isLocal) {
