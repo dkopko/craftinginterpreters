@@ -5,6 +5,15 @@
 #include "cb_integration.h"
 #include "object.h"
 
+
+enum {
+  GC_PHASE_NORMAL_EXEC,
+  GC_PHASE_ACTIVE_GC
+};
+
+extern int gc_phase;
+
+
 #define ALLOCATE(type, count) \
     logged_allocate(#type, sizeof(type), (count), cb_alignof(type))
 

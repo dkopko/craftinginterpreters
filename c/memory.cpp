@@ -17,6 +17,9 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
+int gc_phase = GC_PHASE_NORMAL_EXEC;
+
+
 cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc) {
   vm.bytesAllocated += newSize - oldSize;
 
@@ -485,6 +488,8 @@ void collectGarbageCB() {
                            cb_alignof(CallFrame),
                            sizeof(CallFrame) * FRAMES_MAX);
   vm.triframes.abi = vm.triframes.frameCount;
+
+  gc_phase = GC_PHASE_ACTIVE_GC;
   // === End Freeze A regions ===
 
 
@@ -596,6 +601,8 @@ void collectGarbageCB() {
       (uintmax_t)vm.triframes.cbo,
       (uintmax_t)vm.triframes.cbi);
   triframes_print(&(vm.triframes));
+
+  gc_phase = GC_PHASE_NORMAL_EXEC;
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC %d\n", gccount++);
