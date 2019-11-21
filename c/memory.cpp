@@ -458,11 +458,13 @@ void collectGarbageCB() {
 
 
   // === Begin Freeze A regions ===
+  // Objtable
   assert(thread_objtable.root_c == CB_BST_SENTINEL);
   thread_objtable.root_c = thread_objtable.root_b;
   thread_objtable.root_b = thread_objtable.root_a;
   thread_objtable.root_a = CB_BST_SENTINEL;
 
+  // Tristack
   assert(vm.tristack.cbo == CB_NULL);
   assert(vm.tristack.cbi == 0);
   vm.tristack.cbo = vm.tristack.bbo;
@@ -476,6 +478,7 @@ void collectGarbageCB() {
                            sizeof(Value) * STACK_MAX);
   vm.tristack.abi = vm.tristack.stackDepth;
 
+  // Triframes
   assert(vm.triframes.cbo == CB_NULL);
   assert(vm.triframes.cbi == 0);
   vm.triframes.cbo = vm.triframes.bbo;
@@ -490,6 +493,19 @@ void collectGarbageCB() {
   vm.triframes.abi = vm.triframes.frameCount;
 
   gc_phase = GC_PHASE_ACTIVE_GC;
+
+  // Strings
+  //assert(cb_bst_empty(&thread_cb, &vm.strings.root_c));
+  vm.strings.root_c = vm.strings.root_b;
+  vm.strings.root_b = vm.strings.root_a;
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(vm.strings.root_a),
+                    &clox_value_deep_comparator,
+                    &clox_value_render,
+                    &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
+  assert(ret == 0);
+
   // === End Freeze A regions ===
 
 
@@ -544,6 +560,22 @@ void collectGarbageCB() {
   req.triframes_cbo        = vm.triframes.cbo;
   req.triframes_cbi        = vm.triframes.cbi;
   req.triframes_frameCount = vm.triframes.frameCount;
+
+
+  // Prepare condensing strings B+C
+  //FIXME should these be calls to cb_bst_internal_size() instead?
+  size_t strings_b_size = cb_bst_size(thread_cb, vm.strings.root_b);
+  size_t strings_c_size = cb_bst_size(thread_cb, vm.strings.root_c);
+  printf("DANDEBUG strings_b_size: %zd, strings_c_size: %zd\n",
+         strings_b_size, strings_c_size);
+  ret = cb_region_create(&thread_cb,
+                         &req.strings_new_region,
+                         64 /* FIXME cacheline size */,
+                         strings_b_size + strings_c_size,
+                         CB_REGION_FINAL);
+  assert(ret == 0);
+  req.strings_root_b = vm.strings.root_b;
+  req.strings_root_c = vm.strings.root_c;
 
 
   //Do the Garbage Collection / Condensing.
@@ -601,6 +633,16 @@ void collectGarbageCB() {
       (uintmax_t)vm.triframes.cbo,
       (uintmax_t)vm.triframes.cbi);
   triframes_print(&(vm.triframes));
+
+  //Integrate condensed strings.
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(vm.strings.root_c),
+                    &clox_value_deep_comparator,
+                    &clox_value_render,
+                    &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
+  assert(ret == 0);
+  vm.strings.root_b = resp.strings_new_root_b;
 
   gc_phase = GC_PHASE_NORMAL_EXEC;
 

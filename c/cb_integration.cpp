@@ -707,6 +707,9 @@ copy_objtable_b(const struct cb_term *key_term,
 {
   //NOTE: This is simply copying the #ID -> @offset mapping into an
   // initially-blank cb_bst. It is not copying Objs.
+  //FIXME objtable should probably be considered the owner of memory, and so
+  //should not just be copying key->value mappings, but also duplicating the
+  //values.
 
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
   ObjID obj_id = { .id = cb_term_get_u64(key_term) };
@@ -851,6 +854,71 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   return 0;
 }
 
+
+struct copy_strings_closure
+{
+  struct cb        *src_cb;
+  cb_offset_t       old_root_b;
+  cb_offset_t       old_root_c;
+  struct cb        *dest_cb;
+  struct cb_region *dest_region;
+  cb_offset_t      *new_root_b;
+};
+
+static int
+copy_strings_b(const struct cb_term *key_term,
+               const struct cb_term *value_term,
+               void                 *closure)
+{
+  struct copy_strings_closure *cl = (struct copy_strings_closure *)closure;
+  int ret;
+
+  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      cl->dest_region,
+                      cl->new_root_b,
+                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
+  printf("STRINGSINSERT1 +%ju bytes\n",
+         (uintmax_t)(c1 - c0));
+
+  (void)ret;
+  return 0;
+}
+
+static int
+copy_strings_c_not_in_b(const struct cb_term *key_term,
+                        const struct cb_term *value_term,
+                        void                 *closure)
+{
+  struct copy_strings_closure *cl = (struct copy_strings_closure *)closure;
+  struct cb_term temp_term;
+  int ret;
+
+  // If an entry exists in both B and C, B's entry should mask C's.
+  if (cb_bst_lookup(cl->src_cb, cl->old_root_b, key_term, &temp_term) == 0)
+      return 0;
+
+  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  ret = cb_bst_insert(&(cl->dest_cb),
+                      cl->dest_region,
+                      cl->new_root_b,
+                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
+  printf("STRINGSINSERT2 +%ju bytes\n",
+         (uintmax_t)(c1 - c0));
+
+  (void)ret;
+  return 0;
+}
+
+
 int
 gc_perform(struct gc_request *req, struct gc_response *resp)
 {
@@ -859,6 +927,9 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
   (void)ret;
 
   // Condense objtable
+  //FIXME objtable should probably be considered the owner of memory, and so
+  //should not just be copying key->value mappings, but also duplicating the
+  //values.
   {
     struct copy_objtable_closure closure;
 
@@ -950,6 +1021,45 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     //Write response
     resp->triframes_new_bbo = new_bbo;
     resp->triframes_new_bbi = req->triframes_cbi;
+  }
+
+  // Condense strings
+  {
+    struct copy_strings_closure closure;
+
+    closure.src_cb      = req->orig_cb;
+    closure.old_root_b  = req->strings_root_b;
+    closure.old_root_c  = req->strings_root_c;
+    closure.dest_cb     = req->orig_cb;
+    closure.dest_region = &(req->strings_new_region);
+    closure.new_root_b  = &(resp->strings_new_root_b);
+
+    ret = cb_bst_init(&(req->orig_cb),
+                      &(req->strings_new_region),
+                      &(resp->strings_new_root_b),
+                      &clox_value_deep_comparator,
+                      &clox_value_render,
+                      &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
+
+    ret = cb_bst_traverse(req->orig_cb,
+                          req->strings_root_b,
+                          copy_strings_b,
+                          &closure);
+    printf("DANDEBUG done with copy_strings_b() [s:%ju, c:%ju, e:%ju]\n",
+           (uintmax_t)cb_region_start(&(req->strings_new_region)),
+           (uintmax_t)cb_region_cursor(&(req->strings_new_region)),
+           (uintmax_t)cb_region_end(&(req->strings_new_region)));
+    assert(ret == 0);
+
+    ret = cb_bst_traverse(req->orig_cb,
+                          req->strings_root_c,
+                          copy_strings_c_not_in_b,
+                          &closure);
+    printf("DANDEBUG done with copy_strings_c_not_in_b() [s:%ju, c:%ju, e:%ju]\n",
+           (uintmax_t)cb_region_start(&(req->objtable_new_region)),
+           (uintmax_t)cb_region_cursor(&(req->objtable_new_region)),
+           (uintmax_t)cb_region_end(&(req->objtable_new_region)));
+    assert(ret == 0);
   }
 
   return 0;

@@ -213,9 +213,13 @@ struct gc_request
   unsigned int      triframes_frameCount;  // [0, stack_depth-1] are valid entries.
 
   //FIXME openUpvalues??
-  //FIXME vm.strings B & C
+
+  struct cb_region  strings_new_region;
+  cb_offset_t       strings_root_b;
+  cb_offset_t       strings_root_c;
+
   //FIXME vm.globals B & C
-  //FIXME thread_objtable B & C
+
   //FIXME grayCompilerRoots() -- entailed by thread_objtable, right??
 };
 
@@ -228,6 +232,8 @@ struct gc_response
 
   cb_offset_t  triframes_new_bbo; // B base offset
   unsigned int triframes_new_bbi; // B base index (always 0, really)
+
+  cb_offset_t  strings_new_root_b;
 };
 
 int gc_init(void);
