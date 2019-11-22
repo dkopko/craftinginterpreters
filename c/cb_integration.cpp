@@ -1056,9 +1056,9 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
                           copy_strings_c_not_in_b,
                           &closure);
     printf("DANDEBUG done with copy_strings_c_not_in_b() [s:%ju, c:%ju, e:%ju]\n",
-           (uintmax_t)cb_region_start(&(req->objtable_new_region)),
-           (uintmax_t)cb_region_cursor(&(req->objtable_new_region)),
-           (uintmax_t)cb_region_end(&(req->objtable_new_region)));
+           (uintmax_t)cb_region_start(&(req->strings_new_region)),
+           (uintmax_t)cb_region_cursor(&(req->strings_new_region)),
+           (uintmax_t)cb_region_end(&(req->strings_new_region)));
     assert(ret == 0);
   }
 

@@ -214,6 +214,7 @@ struct gc_request
 
   //FIXME openUpvalues??
 
+  //Strings
   struct cb_region  strings_new_region;
   cb_offset_t       strings_root_b;
   cb_offset_t       strings_root_c;
