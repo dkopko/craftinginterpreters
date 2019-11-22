@@ -506,6 +506,17 @@ void collectGarbageCB() {
                     &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
   assert(ret == 0);
 
+  // Globals
+  //assert(cb_bst_empty(&thread_cb, &vm.globals.root_c));
+  vm.globals.root_c = vm.globals.root_b;
+  vm.globals.root_b = vm.globals.root_a;
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(vm.globals.root_a),
+                    &clox_value_deep_comparator,
+                    &clox_value_render,
+                    &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
+  assert(ret == 0);
   // === End Freeze A regions ===
 
 
@@ -577,6 +588,21 @@ void collectGarbageCB() {
   req.strings_root_b = vm.strings.root_b;
   req.strings_root_c = vm.strings.root_c;
 
+  // Prepare condensing globals B+C
+  //FIXME should these be calls to cb_bst_internal_size() instead?
+  size_t globals_b_size = cb_bst_size(thread_cb, vm.globals.root_b);
+  size_t globals_c_size = cb_bst_size(thread_cb, vm.globals.root_c);
+  printf("DANDEBUG globals_b_size: %zd, globals_c_size: %zd\n",
+         globals_b_size, globals_c_size);
+  ret = cb_region_create(&thread_cb,
+                         &req.globals_new_region,
+                         64 /* FIXME cacheline size */,
+                         globals_b_size + globals_c_size,
+                         CB_REGION_FINAL);
+  assert(ret == 0);
+  req.globals_root_b = vm.globals.root_b;
+  req.globals_root_c = vm.globals.root_c;
+
 
   //Do the Garbage Collection / Condensing.
   ret = gc_perform(&req, &resp);
@@ -643,6 +669,16 @@ void collectGarbageCB() {
                     &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
   assert(ret == 0);
   vm.strings.root_b = resp.strings_new_root_b;
+
+  //Integrate condensed globals.
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    &(vm.globals.root_c),
+                    &clox_value_deep_comparator,
+                    &clox_value_render,
+                    &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
+  assert(ret == 0);
+  vm.globals.root_b = resp.globals_new_root_b;
 
   gc_phase = GC_PHASE_NORMAL_EXEC;
 

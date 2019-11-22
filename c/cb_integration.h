@@ -219,7 +219,10 @@ struct gc_request
   cb_offset_t       strings_root_b;
   cb_offset_t       strings_root_c;
 
-  //FIXME vm.globals B & C
+  //Globals
+  struct cb_region  globals_new_region;
+  cb_offset_t       globals_root_b;
+  cb_offset_t       globals_root_c;
 
   //FIXME grayCompilerRoots() -- entailed by thread_objtable, right??
 };
@@ -235,6 +238,8 @@ struct gc_response
   unsigned int triframes_new_bbi; // B base index (always 0, really)
 
   cb_offset_t  strings_new_root_b;
+
+  cb_offset_t  globals_new_root_b;
 };
 
 int gc_init(void);
