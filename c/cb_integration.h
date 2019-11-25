@@ -180,6 +180,10 @@ size_t
 clox_value_external_size(const struct cb      *cb,
                          const struct cb_term *term);
 
+size_t
+clox_value_no_external_size(const struct cb      *cb,
+                            const struct cb_term *term);
+
 void
 clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb);
 

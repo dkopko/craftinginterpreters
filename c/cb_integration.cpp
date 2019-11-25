@@ -514,6 +514,13 @@ clox_value_external_size(const struct cb      *cb,
   }
 }
 
+size_t
+clox_value_no_external_size(const struct cb      *cb,
+                         const struct cb_term *term)
+{
+  return 0;
+}
+
 void
 clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb)
 {
@@ -1103,7 +1110,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
                       &(resp->strings_new_root_b),
                       &clox_value_deep_comparator,
                       &clox_value_render,
-                      &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
+                      &clox_value_no_external_size);
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->strings_root_b,
@@ -1142,7 +1149,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
                       &(resp->globals_new_root_b),
                       &clox_value_deep_comparator,
                       &clox_value_render,
-                      &clox_value_external_size);  //FIXME this external-size comparator likely not necessary, but is consistent with initTable().
+                      &clox_value_no_external_size);
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->globals_root_b,
