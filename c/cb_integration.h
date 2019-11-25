@@ -75,7 +75,7 @@ void objtable_invalidate(ObjTable *obj_table, ObjID obj_id);
 
 #define CB_NULL_OID ((ObjID) { 0 })  //FIXME
 
-cb_offset_t resolveAsMutable(ObjID objid);
+cb_offset_t resolveAsMutableLayer(ObjID objid);
 
 template<typename T>
 struct OID
@@ -150,7 +150,7 @@ struct OID
 
   //Local mutable dereference
   T* mlip() {
-    return static_cast<T*>(cb_at(thread_cb, resolveAsMutable(objid_)));
+    return static_cast<T*>(cb_at(thread_cb, resolveAsMutableLayer(objid_)));
   }
 
   //Remote dereference

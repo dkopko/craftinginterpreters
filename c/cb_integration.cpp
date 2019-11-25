@@ -151,7 +151,7 @@ objtable_invalidate(ObjTable *obj_table, ObjID obj_id)
 }
 
 cb_offset_t
-resolveAsMutable(ObjID objid)
+resolveAsMutableLayer(ObjID objid)
 {
   cb_offset_t o;
 
