@@ -114,7 +114,7 @@ logged_free_array(const char *typeName, cb_offset_t previous, size_t typeSize, s
 
 
 bool isWhite(Value value);
-cb_offset_t mutableCopyObject(ObjID id, cb_offset_t object_offset);
+cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset);
 void grayObject(const OID<Obj> objectOID);
 void grayValue(Value value);
 void collectGarbage();

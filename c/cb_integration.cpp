@@ -165,25 +165,25 @@ resolveAsMutableLayer(ObjID objid)
   o = objtable_lookup_B(&thread_objtable, objid);
   if (o != CB_NULL) {
     //printf("#%ju@%ju found in objtable B\n", (uintmax_t)objid.id, (uintmax_t)o);
-    cb_offset_t copy_o = mutableCopyObject(objid, o);
-    assert(cb_offset_cmp(copy_o, thread_cutoff_offset) > 0);
-    objtable_add_at(&thread_objtable, objid, copy_o);
-    //printf("#%ju@%ju is new mutable copy in objtable A\n", (uintmax_t)objid_.id, copy_o);
+    cb_offset_t layer_o = deriveMutableObjectLayer(objid, o);
+    assert(cb_offset_cmp(layer_o, thread_cutoff_offset) > 0);
+    objtable_add_at(&thread_objtable, objid, layer_o);
+    //printf("#%ju@%ju is new mutable layer in objtable A\n", (uintmax_t)objid_.id, layer_o);
     //printObjectValue(OBJ_VAL(objid));
-    //printf(" is new mutable copy in objtable A\n");
-    return copy_o;
+    //printf(" is new mutable layer in objtable A\n");
+    return layer_o;
   }
 
   o = objtable_lookup_C(&thread_objtable, objid);
   assert(o != CB_NULL);
   //printf("#%ju@%ju found in objtable C\n", (uintmax_t)objid.id, (uintmax_t)o);
-  cb_offset_t copy_o = mutableCopyObject(objid, o);
-  assert(cb_offset_cmp(copy_o, thread_cutoff_offset) > 0);
-  objtable_add_at(&thread_objtable, objid, copy_o);
-  //printf("#%ju@%ju is new mutable copy in objtable A\n", (uintmax_t)objid_.id, copy_o);
+  cb_offset_t layer_o = deriveMutableObjectLayer(objid, o);
+  assert(cb_offset_cmp(layer_o, thread_cutoff_offset) > 0);
+  objtable_add_at(&thread_objtable, objid, layer_o);
+  //printf("#%ju@%ju is new mutable layer in objtable A\n", (uintmax_t)objid_.id, layer_o);
   //printObjectValue(OBJ_VAL(objid));
-  //printf(" is new mutable copy in objtable A\n");
-  return copy_o;
+  //printf(" is new mutable layer in objtable A\n");
+  return layer_o;
 }
 
 
@@ -776,14 +776,14 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
     CBO<Obj> cEntryObj = cEntryOffset;
 
     if (bEntryObj.clp()->type == OBJ_CLASS && cEntryObj.clp()->type == OBJ_CLASS) {
-      //1) Make a new ObjClass via mutableCopyObject.  methods set will be empty.
+      //1) Make a new ObjClass via deriveMutableObjectLayer().  methods set will be empty.
       //2) Copy C ObjClass's methods WHICH DO NOT EXIST IN B ObjClass's methods
       //   into the new ObjClass's methods set.
       //3) Copy B ObjClass's methods into this new ObjClass's methods set.
       //4) Insert this new merged object into the objtable.
       ObjClass *classB = (ObjClass *)bEntryObj.clp();
       ObjClass *classC = (ObjClass *)cEntryObj.clp();
-      CBO<ObjClass> newObjClassCBO = mutableCopyObject(objOID.id(), objOID.co());
+      CBO<ObjClass> newObjClassCBO = deriveMutableObjectLayer(objOID.id(), objOID.co());
       struct merge_class_methods_closure subclosure;
 
       subclosure.src_cb              = cl->src_cb;
@@ -806,14 +806,14 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
 
       objtable_add_at(&thread_objtable, objOID.id(), newObjClassCBO.co());
     } else if (bEntryObj.clp()->type == OBJ_INSTANCE && cEntryObj.clp()->type == OBJ_INSTANCE) {
-      //1) Make a new ObjInstance via mutableCopyObject.  fields set will be empty.
+      //1) Make a new ObjInstance via deriveMutableObjectLayer().  fields set will be empty.
       //2) Copy C ObjInstance's fields WHICH DO NOT EXIST IN B ObjInstance's fields
       //   into the new ObjInstance's fields set.
       //3) Copy B ObjInstance's fields into this new ObjInstance's fields set.
       //4) Insert this new merged object into the objtable.
       ObjInstance *instanceB = (ObjInstance *)bEntryObj.clp();
       ObjInstance *instanceC = (ObjInstance *)cEntryObj.clp();
-      CBO<ObjInstance> newObjInstanceCBO = mutableCopyObject(objOID.id(), objOID.co());
+      CBO<ObjInstance> newObjInstanceCBO = deriveMutableObjectLayer(objOID.id(), objOID.co());
       struct merge_instance_fields_closure subclosure;
 
       subclosure.src_cb                = cl->src_cb;

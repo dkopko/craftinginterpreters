@@ -311,11 +311,11 @@ static void freeObject(OID<Obj> object) {
   objtable_invalidate(&thread_objtable, object.id());
 }
 
-cb_offset_t mutableCopyObject(ObjID id, cb_offset_t object_offset) {
+cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
   CBO<Obj> srcCBO = object_offset;
   CBO<Obj> destCBO;
 
-  printf("#%ju@%ju mutableCopyObject() ", (uintmax_t)id.id, object_offset);
+  printf("#%ju@%ju deriveMutableObjectLayer() ", (uintmax_t)id.id, object_offset);
   printObject(id, object_offset, srcCBO.clp());
   printf("\n");
 
