@@ -751,12 +751,15 @@ static OID<ObjUpvalue> captureUpvalue(unsigned int stackIndex) {  //CBINT FIXME 
   }
 
   // If we found it, reuse it.
-  if (!upvalue.is_nil() && upvalue.clip()->valueStackIndex == (int)stackIndex) return upvalue;
+  if (!upvalue.is_nil() && upvalue.clip()->valueStackIndex == (int)stackIndex)
+    return upvalue;
 
   // We (have just) walked past the location on the linked list which should
-  // have held an upvalue for this local, so there must not be an upvalue for
-  // it already. Make a new upvalue and link it in here to maintain the list
-  // order ("openUpvalue stack indices decrease towards the tail of the list").
+  // have held an upvalue for this local, and we looked for it in the entry
+  // we're at without finding it.  So there must not already be an upvalue
+  // for this stack index. Make a new upvalue and link it in here to maintain
+  // the list order of "openUpvalue stack indices decrease towards the tail of
+  // the list".
   OID<ObjUpvalue> createdUpvalue = newUpvalue(stackIndex);
   createdUpvalue.mlip()->next = upvalue;
 
