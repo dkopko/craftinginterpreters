@@ -22,7 +22,10 @@ initTable(Table                *table,
                     &thread_region,
                     &(table->root_a),
                     term_cmp,
+                    term_cmp,
                     term_render,
+                    term_render,
+                    &clox_value_external_size,
                     &clox_value_external_size);
   assert(ret == 0);
 
@@ -30,7 +33,10 @@ initTable(Table                *table,
                     &thread_region,
                     &(table->root_b),
                     term_cmp,
+                    term_cmp,
                     term_render,
+                    term_render,
+                    &clox_value_external_size,
                     &clox_value_external_size);
   assert(ret == 0);
 
@@ -38,7 +44,10 @@ initTable(Table                *table,
                     &thread_region,
                     &(table->root_c),
                     term_cmp,
+                    term_cmp,
                     term_render,
+                    term_render,
+                    &clox_value_external_size,
                     &clox_value_external_size);
   assert(ret == 0);
 

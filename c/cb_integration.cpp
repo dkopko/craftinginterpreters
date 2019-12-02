@@ -1109,7 +1109,10 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
                       &(req->strings_new_region),
                       &(resp->strings_new_root_b),
                       &clox_value_deep_comparator,
+                      &clox_value_deep_comparator,
                       &clox_value_render,
+                      &clox_value_render,
+                      &clox_value_no_external_size,
                       &clox_value_no_external_size);
 
     ret = cb_bst_traverse(req->orig_cb,
@@ -1148,7 +1151,10 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
                       &(req->globals_new_region),
                       &(resp->globals_new_root_b),
                       &clox_value_deep_comparator,
+                      &clox_value_deep_comparator,
                       &clox_value_render,
+                      &clox_value_render,
+                      &clox_value_no_external_size,
                       &clox_value_no_external_size);
 
     ret = cb_bst_traverse(req->orig_cb,

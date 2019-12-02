@@ -93,7 +93,10 @@ OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
                     &thread_region,
                     &(klass->methods_bst),
                     &clox_value_shallow_comparator,
+                    &clox_value_shallow_comparator,
                     &clox_value_render,
+                    &clox_value_render,
+                    &clox_value_external_size,
                     &clox_value_external_size);
   assert(ret == 0);
   (void)ret;
@@ -146,7 +149,10 @@ OID<ObjInstance> newInstance(OID<ObjClass> klass) {
                     &thread_region,
                     &(instance->fields_bst),
                     &clox_value_shallow_comparator,
+                    &clox_value_shallow_comparator,
                     &clox_value_render,
+                    &clox_value_render,
+                    &clox_value_external_size,
                     &clox_value_external_size);
   assert(ret == 0);
   (void)ret;
