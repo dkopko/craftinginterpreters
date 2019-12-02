@@ -36,11 +36,15 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
   }
 
   if (newSize == 0) {
+#ifdef DEBUG_TRACE_GC
+    // Clobber old contents.
+    memset(((char *)cb_at(thread_cb, previous)), '!', oldSize);
+#endif
     return CB_NULL;
   } else if (newSize < oldSize) {
 #ifdef DEBUG_TRACE_GC
     // Clobber old contents.
-    memset(((char *)cb_at(thread_cb, previous)) + newSize, '#', oldSize - newSize);
+    memset(((char *)cb_at(thread_cb, previous)) + newSize, '!', oldSize - newSize);
 #endif
     return previous;
   } else {
@@ -63,7 +67,7 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     // force it to change for the sake of provoking any such errors.
     memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, previous), oldSize);
 #ifdef DEBUG_TRACE_GC
-    // Clobber old values.
+    // Clobber old contents.
     memset(cb_at(thread_cb, previous), '!', oldSize);
 #endif
     return new_offset;
