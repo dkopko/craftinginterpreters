@@ -20,7 +20,44 @@
 int gc_phase = GC_PHASE_NORMAL_EXEC;
 
 
+static size_t
+alloc_size_get(char *mem) {
+  size_t size;
+  memcpy(&size, mem - sizeof(size_t), sizeof(size_t));
+  return size;
+}
+
+static void
+alloc_size_set(char *mem, size_t size) {
+  memcpy(mem - sizeof(size_t), &size, sizeof(size_t));
+}
+
+static size_t
+alloc_alignment_get(char *mem) {
+  size_t alignment;
+  memcpy(&alignment, mem - (2 * sizeof(size_t)), sizeof(size_t));
+  return alignment;
+}
+
+static void
+alloc_alignment_set(char *mem, size_t alignment) {
+  memcpy(mem - (2 * sizeof(size_t)), &alignment, sizeof(size_t));
+}
+
+static bool
+alloc_is_object_get(char *mem) {
+  size_t is_object;
+  memcpy(&is_object, mem - (2 * sizeof(size_t) + sizeof(bool)), sizeof(bool));
+  return is_object;
+}
+
+static void
+alloc_is_object_set(char *mem, bool is_object) {
+  memcpy(mem - (2 * sizeof(size_t) + sizeof(bool)) , &is_object, sizeof(bool));
+}
+
 cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc) {
+  bool isObject = false;  //FIXME turn into argument.
   vm.bytesAllocated += newSize - oldSize;
 
   if (!suppress_gc) {
@@ -35,6 +72,19 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     }
   }
 
+#ifdef DEBUG_TRACE_GC
+  if (previous != CB_NULL) {
+    //Check that old values are as expected, given that this function
+    //historically has expected to be given the old size and alignments
+    //cannot change over reallocate()s.
+    char *mem = (char *)cb_at(thread_cb, previous);
+    assert(alloc_size_get(mem) == oldSize);
+    assert(alloc_alignment_get(mem) == alignment);
+    assert(alloc_is_object_get(mem) == isObject);
+    (void)mem;
+  }
+#endif
+
   if (newSize == 0) {
 #ifdef DEBUG_TRACE_GC
     // Clobber old contents.
@@ -48,6 +98,9 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
 #endif
     return previous;
   } else {
+    size_t header_size = sizeof(size_t)   /* size field */
+                         + sizeof(size_t) /* alignment field */;
+    size_t needed_contiguous_size = header_size + (alignment - 1) + newSize;
     cb_offset_t new_offset;
     int ret;
 
@@ -55,21 +108,31 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
                              &thread_region,
                              &new_offset,
                              alignment,
-                             newSize);
+                             needed_contiguous_size);
     if (ret != CB_SUCCESS) {
       return CB_NULL;
     }
+    new_offset = cb_offset_aligned_gte(new_offset + header_size, alignment);
+
+    char *mem = (char *)cb_at(thread_cb, new_offset);
+    alloc_size_set(mem, newSize);
+    alloc_alignment_set(mem, alignment);
+    alloc_is_object_set(mem, isObject);
 
     //Q: Should we keep the ObjID the same over reallocation?
     //A: No, changing it adheres to the earlier API which expects a shift of
     // offset (or earlier API than that, pointer).  Although it may work to
     // leave the ObjID the same, this may gloss over errors elsewhere, so we
     // force it to change for the sake of provoking any such errors.
-    memcpy(cb_at(thread_cb, new_offset), cb_at(thread_cb, previous), oldSize);
+    if (previous != CB_NULL) {
+      char *prevMem = (char *)cb_at(thread_cb, previous);
+      memcpy(mem, prevMem, oldSize);
 #ifdef DEBUG_TRACE_GC
-    // Clobber old contents.
-    memset(cb_at(thread_cb, previous), '!', oldSize);
+      // Clobber old contents.
+      memset(prevMem, '!', oldSize);
 #endif
+    }
+
     return new_offset;
   }
 }
