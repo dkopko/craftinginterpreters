@@ -99,7 +99,8 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     return previous;
   } else {
     size_t header_size = sizeof(size_t)   /* size field */
-                         + sizeof(size_t) /* alignment field */;
+                         + sizeof(size_t) /* alignment field */
+                         + sizeof(bool);  /* isObject field */
     size_t needed_contiguous_size = header_size + (alignment - 1) + newSize;
     cb_offset_t new_offset;
     int ret;
