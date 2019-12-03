@@ -56,8 +56,7 @@ alloc_is_object_set(char *mem, bool is_object) {
   memcpy(mem - (2 * sizeof(size_t) + sizeof(bool)) , &is_object, sizeof(bool));
 }
 
-cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc) {
-  bool isObject = false;  //FIXME turn into argument.
+cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc) {
   vm.bytesAllocated += newSize - oldSize;
 
   if (!suppress_gc) {
@@ -195,6 +194,7 @@ void grayObject(const OID<Obj> objectOID) {
                               sizeof(OID<Obj>) * oldGrayCapacity,
                               sizeof(OID<Obj>) * vm.grayCapacity,
                               cb_alignof(OID<Obj>),
+                              false,
                               true);
 
 #ifdef DEBUG_TRACE_GC
@@ -389,7 +389,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
 
   switch (srcCBO.clp()->type) {
     case OBJ_BOUND_METHOD: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true, true);
       ObjBoundMethod       *dest = (ObjBoundMethod *)destCBO.mlp();
       const ObjBoundMethod *src  = (const ObjBoundMethod *)srcCBO.clp();
 
@@ -401,7 +401,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_CLASS: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true, true);
       ObjClass       *dest = (ObjClass *)destCBO.mlp();
       const ObjClass *src  = (const ObjClass *)srcCBO.clp();
 
@@ -415,7 +415,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_CLOSURE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true, true);
       ObjClosure *dest      = (ObjClosure *)destCBO.mlp();
       const ObjClosure *src = (const ObjClosure *)srcCBO.clp();
 
@@ -436,7 +436,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_FUNCTION: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true, true);
       ObjFunction       *dest = (ObjFunction *)destCBO.mlp();
       const ObjFunction *src  = (const ObjFunction *)srcCBO.clp();
 
@@ -459,7 +459,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_INSTANCE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true, true);
       ObjInstance       *dest = (ObjInstance *)destCBO.mlp();
       const ObjInstance *src  = (const ObjInstance *)srcCBO.clp();
 
@@ -472,7 +472,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_NATIVE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true, true);
       ObjNative       *dest = (ObjNative *)destCBO.mlp();
       const ObjNative *src  = (const ObjNative *)srcCBO.clp();
 
@@ -483,7 +483,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_STRING: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true, true);
       ObjString       *dest = (ObjString *)destCBO.mlp();
       const ObjString *src  = (const ObjString *)srcCBO.clp();
 
@@ -497,7 +497,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_UPVALUE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true);
+      destCBO = reallocate(CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true, true);
       ObjUpvalue       *dest = (ObjUpvalue *)destCBO.mlp();
       const ObjUpvalue *src  = (const ObjUpvalue *)srcCBO.clp();
 
@@ -922,6 +922,7 @@ void freeObjects() {
                             sizeof(OID<Obj>) * oldGrayCapacity,
                             0,
                             cb_alignof(OID<Obj>),
+                            false,
                             true);
 
 #ifdef DEBUG_TRACE_GC

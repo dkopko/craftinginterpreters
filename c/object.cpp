@@ -36,7 +36,7 @@ objTypeString(ObjType objType)
 }
 
 static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
-  CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size, alignment, false);
+  CBO<Obj> objectCBO = reallocate(CB_NULL, 0, size, alignment, true, false);
   OID<Obj> objectOID = objtable_add(&thread_objtable, objectCBO.mo());
 
   Obj* object = objectCBO.mlp();

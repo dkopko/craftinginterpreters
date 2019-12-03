@@ -14,32 +14,34 @@ enum {
 extern int gc_phase;
 
 
+// This is only ever used on non-Obj allocations.
 #define ALLOCATE(type, count) \
-    logged_allocate(#type, sizeof(type), (count), cb_alignof(type))
+    logged_allocate(#type, sizeof(type), (count), cb_alignof(type), false)
 
+// FIXME This is only ever used Obj deallocations, and should be renamed to FREE_OBJ and shifted to object.h.
 #define FREE(type, offset) \
-    logged_free(#type, offset, sizeof(type), cb_alignof(type))
+    logged_free(#type, offset, sizeof(type), cb_alignof(type), true)
 
 #define GROW_CAPACITY(capacity) \
     ((capacity) < 8 ? 8 : (capacity) * 2)
 
 #define GROW_ARRAY(previous, type, oldCount, count) \
-    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false)
+    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false, false)
 
 #define GROW_ARRAY_NOGC(previous, type, oldCount, count) \
-    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), true)
+    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false, true)
 
 #define FREE_ARRAY(type, previous, oldCount) \
-    logged_free_array(#type, previous, sizeof(type), (oldCount), cb_alignof(type))
+    logged_free_array(#type, previous, sizeof(type), (oldCount), cb_alignof(type), false)
 
 
-cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool suppress_gc);
+cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc);
 
 
 extern inline cb_offset_t
-logged_allocate(const char *typeName, size_t typeSize, size_t count, size_t alignment)
+logged_allocate(const char *typeName, size_t typeSize, size_t count, size_t alignment, bool isObject)
 {
-  cb_offset_t retval = reallocate(CB_NULL, 0, typeSize * count, alignment, false);
+  cb_offset_t retval = reallocate(CB_NULL, 0, typeSize * count, alignment, isObject, false);
 
 #ifdef DEBUG_TRACE_GC
   printf("@%ju %s[%zd] array allocated (%zd bytes)\n",
@@ -53,9 +55,9 @@ logged_allocate(const char *typeName, size_t typeSize, size_t count, size_t alig
 }
 
 extern inline cb_offset_t
-logged_free(const char *typeName, cb_offset_t previous, size_t typeSize, size_t alignment)
+logged_free(const char *typeName, cb_offset_t previous, size_t typeSize, size_t alignment, bool isObject)
 {
-  cb_offset_t retval = reallocate(previous, typeSize, 0, alignment, false);
+  cb_offset_t retval = reallocate(previous, typeSize, 0, alignment, isObject, false);
 
 #ifdef DEBUG_TRACE_GC
   printf("@%ju %s object freed (-%zd bytes)\n",
@@ -69,9 +71,9 @@ logged_free(const char *typeName, cb_offset_t previous, size_t typeSize, size_t 
 }
 
 extern inline cb_offset_t
-logged_grow_array(const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t count, size_t alignment, bool suppress_gc)
+logged_grow_array(const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t count, size_t alignment, bool isObject, bool suppress_gc)
 {
-  cb_offset_t retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment, suppress_gc);
+  cb_offset_t retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment, isObject, suppress_gc);
 
 #ifdef DEBUG_TRACE_GC
   if (count > oldCount) {
@@ -96,9 +98,9 @@ logged_grow_array(const char *typeName, cb_offset_t previous, size_t typeSize, s
 }
 
 extern inline cb_offset_t
-logged_free_array(const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t alignment)
+logged_free_array(const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t alignment, bool isObject)
 {
-  cb_offset_t retval = reallocate(previous, typeSize * oldCount, 0, alignment, false);
+  cb_offset_t retval = reallocate(previous, typeSize * oldCount, 0, alignment, isObject, false);
 
 #ifdef DEBUG_TRACE_GC
   printf("@%ju %s[%zd] array freed (-%zd bytes)\n",
