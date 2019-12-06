@@ -528,7 +528,7 @@ void collectGarbageCB() {
 
   // === Begin Freeze A regions ===
   // Objtable
-  assert(thread_objtable.root_c == CB_BST_SENTINEL);
+  assert(cb_bst_num_entries(thread_cb, thread_objtable.root_c) == 0);
   thread_objtable.root_c = thread_objtable.root_b;
   thread_objtable.root_b = thread_objtable.root_a;
   thread_objtable.root_a = CB_BST_SENTINEL;
@@ -564,7 +564,7 @@ void collectGarbageCB() {
   gc_phase = GC_PHASE_ACTIVE_GC;
 
   // Strings
-  //assert(cb_bst_empty(&thread_cb, &vm.strings.root_c));
+  assert(cb_bst_num_entries(thread_cb, vm.strings.root_c) == 0);
   vm.strings.root_c = vm.strings.root_b;
   vm.strings.root_b = vm.strings.root_a;
   ret = cb_bst_init(&thread_cb,
@@ -579,7 +579,7 @@ void collectGarbageCB() {
   assert(ret == 0);
 
   // Globals
-  //assert(cb_bst_empty(&thread_cb, &vm.globals.root_c));
+  assert(cb_bst_num_entries(thread_cb, vm.globals.root_c) == 0);
   vm.globals.root_c = vm.globals.root_b;
   vm.globals.root_b = vm.globals.root_a;
   ret = cb_bst_init(&thread_cb,
