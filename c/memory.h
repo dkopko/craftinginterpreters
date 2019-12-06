@@ -115,6 +115,10 @@ logged_free_array(const char *typeName, cb_offset_t previous, size_t typeSize, s
 }
 
 
+bool alloc_is_object_get(const char *mem);
+size_t alloc_size_get(const char *mem);
+size_t alloc_alignment_get(const char *mem);
+
 bool isWhite(Value value);
 cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset);
 void grayObject(const OID<Obj> objectOID);

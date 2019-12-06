@@ -20,7 +20,7 @@
 int gc_phase = GC_PHASE_NORMAL_EXEC;
 
 
-static size_t
+size_t
 alloc_size_get(const char *mem) {
   size_t size;
   memcpy(&size, mem - sizeof(size_t), sizeof(size_t));
@@ -32,7 +32,7 @@ alloc_size_set(char *mem, size_t size) {
   memcpy(mem - sizeof(size_t), &size, sizeof(size_t));
 }
 
-static size_t
+size_t
 alloc_alignment_get(const char *mem) {
   size_t alignment;
   memcpy(&alignment, mem - (2 * sizeof(size_t)), sizeof(size_t));
@@ -44,7 +44,7 @@ alloc_alignment_set(char *mem, size_t alignment) {
   memcpy(mem - (2 * sizeof(size_t)), &alignment, sizeof(size_t));
 }
 
-static bool
+bool
 alloc_is_object_get(const char *mem) {
   size_t is_object;
   memcpy(&is_object, mem - (2 * sizeof(size_t) + sizeof(bool)), sizeof(bool));
