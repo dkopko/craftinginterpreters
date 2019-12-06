@@ -468,7 +468,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
       dest->klass      = src->klass;
       //NOTE: We expect lookup of fields to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      dest->fields_bst = CB_BST_SENTINEL;  //FIXME cb_bst_init
+      fields_layer_init(&(dest->fields_bst));
       break;
     }
 

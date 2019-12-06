@@ -137,15 +137,7 @@ OID<ObjInstance> newInstance(OID<ObjClass> klass) {
   OID<ObjInstance> instanceOID = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   ObjInstance* instance = instanceOID.mlip();
   instance->klass = klass;
-  ret = cb_bst_init(&thread_cb,
-                    &thread_region,
-                    &(instance->fields_bst),
-                    &clox_value_shallow_comparator,
-                    &clox_value_shallow_comparator,
-                    &clox_value_render,
-                    &clox_value_render,
-                    &clox_value_external_size,
-                    &clox_value_external_size);
+  ret = fields_layer_init(&(instance->fields_bst));
   assert(ret == 0);
   (void)ret;
 
