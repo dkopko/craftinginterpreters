@@ -56,6 +56,13 @@ alloc_is_object_set(char *mem, bool is_object) {
   memcpy(mem - (2 * sizeof(size_t) + sizeof(bool)) , &is_object, sizeof(bool));
 }
 
+static inline void
+clobber_mem(void *p, size_t len) {
+#ifdef DEBUG_TRACE_GC
+    memset(p, '!', len);
+#endif
+}
+
 cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc) {
   vm.bytesAllocated += newSize - oldSize;
 
@@ -85,16 +92,10 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
 #endif
 
   if (newSize == 0) {
-#ifdef DEBUG_TRACE_GC
-    // Clobber old contents.
-    memset(((char *)cb_at(thread_cb, previous)), '!', oldSize);
-#endif
+    clobber_mem(cb_at(thread_cb, previous), oldSize);
     return CB_NULL;
   } else if (newSize < oldSize) {
-#ifdef DEBUG_TRACE_GC
-    // Clobber old contents.
-    memset(((char *)cb_at(thread_cb, previous)) + newSize, '!', oldSize - newSize);
-#endif
+    clobber_mem(((char *)cb_at(thread_cb, previous)) + newSize, oldSize - newSize);
     return previous;
   } else {
     size_t header_size = sizeof(size_t)   /* size field */
@@ -127,10 +128,7 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     if (previous != CB_NULL) {
       char *prevMem = (char *)cb_at(thread_cb, previous);
       memcpy(mem, prevMem, oldSize);
-#ifdef DEBUG_TRACE_GC
-      // Clobber old contents.
-      memset(prevMem, '!', oldSize);
-#endif
+      clobber_mem(prevMem, oldSize);
     }
 
     return new_offset;
