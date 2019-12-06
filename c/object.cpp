@@ -89,15 +89,7 @@ OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
   klass->superclass = superclass;
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
-  ret = cb_bst_init(&thread_cb,
-                    &thread_region,
-                    &(klass->methods_bst),
-                    &clox_value_shallow_comparator,
-                    &clox_value_shallow_comparator,
-                    &clox_value_render,
-                    &clox_value_render,
-                    &clox_value_external_size,
-                    &clox_value_external_size);
+  ret = methods_layer_init(&(klass->methods_bst));
   assert(ret == 0);
   (void)ret;
 //< Methods and Initializers not-yet

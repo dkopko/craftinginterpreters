@@ -178,6 +178,24 @@ objtable_layer_init(cb_offset_t *bst_root) {
   return ret;
 }
 
+int
+methods_layer_init(cb_offset_t *bst_root) {
+  int ret;
+
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    bst_root,
+                    &clox_value_shallow_comparator,
+                    &clox_value_shallow_comparator,
+                    &clox_value_render,
+                    &clox_value_render,
+                    &clox_no_external_size,
+                    &clox_no_external_size);
+  assert(ret == 0);
+
+  return ret;
+}
+
 void
 objtable_init(ObjTable *obj_table)
 {

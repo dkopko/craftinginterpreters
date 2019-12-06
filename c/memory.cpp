@@ -411,7 +411,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
       dest->superclass  = src->superclass;
       //NOTE: We expect lookup of methods to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      dest->methods_bst = CB_BST_SENTINEL;  //FIXME cb_bst_init
+      methods_layer_init(&(dest->methods_bst));
       break;
     }
 
