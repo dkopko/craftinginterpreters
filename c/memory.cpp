@@ -574,8 +574,8 @@ void collectGarbageCB() {
                     &clox_value_deep_comparator,
                     &clox_value_render,
                     &clox_value_render,
-                    &clox_value_no_external_size,
-                    &clox_value_no_external_size);
+                    &clox_no_external_size,
+                    &clox_no_external_size);
   assert(ret == 0);
 
   // Globals
@@ -589,8 +589,8 @@ void collectGarbageCB() {
                     &clox_value_deep_comparator,
                     &clox_value_render,
                     &clox_value_render,
-                    &clox_value_no_external_size,
-                    &clox_value_no_external_size);
+                    &clox_no_external_size,
+                    &clox_no_external_size);
   assert(ret == 0);
   // === End Freeze A regions ===
 
@@ -743,8 +743,8 @@ void collectGarbageCB() {
                     &clox_value_deep_comparator,
                     &clox_value_render,
                     &clox_value_render,
-                    &clox_value_no_external_size,
-                    &clox_value_no_external_size);
+                    &clox_no_external_size,
+                    &clox_no_external_size);
   assert(ret == 0);
   vm.strings.root_b = resp.strings_new_root_b;
 
@@ -756,8 +756,8 @@ void collectGarbageCB() {
                     &clox_value_deep_comparator,
                     &clox_value_render,
                     &clox_value_render,
-                    &clox_value_no_external_size,
-                    &clox_value_no_external_size);
+                    &clox_no_external_size,
+                    &clox_no_external_size);
   assert(ret == 0);
   vm.globals.root_b = resp.globals_new_root_b;
 

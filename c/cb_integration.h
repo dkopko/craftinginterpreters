@@ -160,6 +160,11 @@ struct OID
   //}
 };
 
+
+size_t
+clox_no_external_size(const struct cb      *cb,
+                      const struct cb_term *term);
+
 int
 clox_value_deep_comparator(const struct cb *cb,
                            const struct cb_term *lhs,

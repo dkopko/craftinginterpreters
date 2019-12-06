@@ -15,6 +15,13 @@ __thread cb_offset_t       thread_cutoff_offset = (cb_offset_t)0ULL;
 __thread struct ObjTable   thread_objtable;
 __thread cb_offset_t       thread_darkset_bst   = CB_BST_SENTINEL;
 
+size_t
+clox_no_external_size(const struct cb      *cb,
+                      const struct cb_term *term)
+{
+  return 0;
+}
+
 void
 objtable_init(ObjTable *obj_table)
 {
@@ -512,13 +519,6 @@ clox_value_external_size(const struct cb      *cb,
              || valType == VAL_OBJ);
       return -1;
   }
-}
-
-size_t
-clox_value_no_external_size(const struct cb      *cb,
-                         const struct cb_term *term)
-{
-  return 0;
 }
 
 void
@@ -1112,8 +1112,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
                       &clox_value_deep_comparator,
                       &clox_value_render,
                       &clox_value_render,
-                      &clox_value_no_external_size,
-                      &clox_value_no_external_size);
+                      &clox_no_external_size,
+                      &clox_no_external_size);
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->strings_root_b,
@@ -1154,8 +1154,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
                       &clox_value_deep_comparator,
                       &clox_value_render,
                       &clox_value_render,
-                      &clox_value_no_external_size,
-                      &clox_value_no_external_size);
+                      &clox_no_external_size,
+                      &clox_no_external_size);
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->globals_root_b,
