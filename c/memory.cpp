@@ -21,7 +21,7 @@ int gc_phase = GC_PHASE_NORMAL_EXEC;
 
 
 static size_t
-alloc_size_get(char *mem) {
+alloc_size_get(const char *mem) {
   size_t size;
   memcpy(&size, mem - sizeof(size_t), sizeof(size_t));
   return size;
@@ -33,7 +33,7 @@ alloc_size_set(char *mem, size_t size) {
 }
 
 static size_t
-alloc_alignment_get(char *mem) {
+alloc_alignment_get(const char *mem) {
   size_t alignment;
   memcpy(&alignment, mem - (2 * sizeof(size_t)), sizeof(size_t));
   return alignment;
@@ -45,7 +45,7 @@ alloc_alignment_set(char *mem, size_t alignment) {
 }
 
 static bool
-alloc_is_object_get(char *mem) {
+alloc_is_object_get(const char *mem) {
   size_t is_object;
   memcpy(&is_object, mem - (2 * sizeof(size_t) + sizeof(bool)), sizeof(bool));
   return is_object;
@@ -326,57 +326,60 @@ static void freeObject(OID<Obj> object) {
   printf("\n");
 #endif
 
-  switch (object.clip()->type) {
+  const Obj   *obj        = object.clip();
+  cb_offset_t  obj_offset = object.co();
+
+  objtable_invalidate(&thread_objtable, object.id());
+
+  switch (obj->type) {
     case OBJ_BOUND_METHOD:
-      FREE(ObjBoundMethod, object.co());
+      FREE(ObjBoundMethod, obj_offset);
       break;
 
     case OBJ_CLASS: {
-      //ObjClass* klass = (ObjClass*)object.clip();
+      //ObjClass* klass = (ObjClass*)obj;
       //freeTable(&klass->methods); FIXME CBINT
-      FREE(ObjClass, object.co());
+      FREE(ObjClass, obj_offset);
       break;
     }
 
     case OBJ_CLOSURE: {
-      ObjClosure* closure = (ObjClosure*)object.clip();
+      ObjClosure* closure = (ObjClosure*)obj;
       FREE_ARRAY(Value, closure->upvalues.co(), closure->upvalueCount);
-      FREE(ObjClosure, object.co());
+      FREE(ObjClosure, obj_offset);
       break;
     }
 
     case OBJ_FUNCTION: {
-      //ObjFunction* function = (ObjFunction*)object.clip();
+      //ObjFunction* function = (ObjFunction*)obj;
       freeChunk(object.id());
-      FREE(ObjFunction, object.co());
+      FREE(ObjFunction, obj_offset);
       break;
     }
 
     case OBJ_INSTANCE: {
-      //ObjInstance* instance = (ObjInstance*)object.clip();
+      //ObjInstance* instance = (ObjInstance*)obj;
       // freeTable(&instance->fields); FIXME CBINT
-      FREE(ObjInstance, object.co());
+      FREE(ObjInstance, obj_offset);
       break;
     }
 
     case OBJ_NATIVE:
-      FREE(ObjNative, object.co());
+      FREE(ObjNative, obj_offset);
       break;
 
     case OBJ_STRING: {
-      ObjString* string = (ObjString*)object.clip();
+      ObjString* string = (ObjString*)obj;
       FREE_ARRAY(char, string->chars.co(), string->length + 1);
       string->chars = CB_NULL;
-      FREE(ObjString, object.co());
+      FREE(ObjString, obj_offset);
       break;
     }
 
     case OBJ_UPVALUE:
-      FREE(ObjUpvalue, object.co());
+      FREE(ObjUpvalue, obj_offset);
       break;
   }
-
-  objtable_invalidate(&thread_objtable, object.id());
 }
 
 cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
