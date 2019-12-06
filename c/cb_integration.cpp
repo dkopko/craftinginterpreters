@@ -1,5 +1,6 @@
 #include "cb_integration.h"
 #include "cb_bst.h"
+#include "cb_term.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -22,12 +23,175 @@ clox_no_external_size(const struct cb      *cb,
   return 0;
 }
 
+static size_t
+clox_Obj_external_size(const struct cb *cb,
+                       Obj *obj)
+{
+
+  //FIXME This must be a quick O(1) calculation to maintain performance; it is
+  // inappropriate for this to recursively calculate size information.
+
+  //FIXME - A cb_bst's present external size is currently maintained on
+  // cb_bst insertions and removals.  However, there will be entries (in
+  // particular OBJ_CLASS and OBJ_INSTANCE) contained in the objtable which
+  // will be in-place modified.  In such cases, the calculation cannot be
+  // performed solely upon insertion/removal; something additional must be done
+  // to adjust the owning cb_bst's external size as these objects get modified.
+
+  //FIXME - determine that there's nothing funky with any of these ObjTypes.
+
+  //FIXME - compare with calculations in clox_object_external_size()
+
+  switch (obj->type) {
+    case OBJ_BOUND_METHOD: //DONE
+      return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1;
+
+    case OBJ_CLASS: {
+      //FIXME handle methods_bst mutation elsewhere.
+      ObjClass *clazz = (ObjClass *)obj;
+      return sizeof(ObjClass) + cb_alignof(ObjClass) - 1
+        + cb_bst_size(cb, clazz->methods_bst);
+    }
+
+    case OBJ_CLOSURE: {
+      //FIXME handle upvalueCount mutation
+      //FIXME do by capacity instead of upvalueCount?
+      ObjClosure *closure = (ObjClosure *)obj;
+      return sizeof(ObjClosure) + cb_alignof(ObjClosure) - 1
+        + (closure->upvalueCount * sizeof(OID<ObjUpvalue>)) + cb_alignof(OID<ObjUpvalue>) - 1;
+    }
+
+    case OBJ_FUNCTION: {
+      //FIXME handle chunk member capacity mutation (code, lines, constants)
+      ObjFunction *function = (ObjFunction *)obj;
+      return sizeof(ObjFunction) + cb_alignof(ObjFunction) - 1
+             + function->chunk.capacity * sizeof(uint8_t) + cb_alignof(uint8_t) - 1         //code
+             + function->chunk.capacity * sizeof(int) + cb_alignof(int) - 1                 //lines
+             + function->chunk.constants.capacity * sizeof(Value) + cb_alignof(Value) - 1;  //constants.values
+    }
+
+    case OBJ_INSTANCE: {
+      //FIXME handle fields_bst mutation elsewhere
+      ObjInstance *instance = (ObjInstance *)obj;
+      return sizeof(ObjInstance) + cb_alignof(ObjInstance) - 1
+             + cb_bst_size(cb, instance->fields_bst);
+    }
+
+    case OBJ_NATIVE: //DONE
+      return sizeof(ObjNative) + cb_alignof(ObjNative) - 1;
+
+    case OBJ_STRING: { //DONE
+      ObjString *str = (ObjString *)obj;
+      return sizeof(ObjString) + cb_alignof(ObjString) - 1
+        + str->length * sizeof(char);
+    }
+
+    case OBJ_UPVALUE: //DONE
+      return sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
+
+    default:
+      assert(obj->type == OBJ_BOUND_METHOD
+             || obj->type == OBJ_CLASS
+             || obj->type == OBJ_CLOSURE
+             || obj->type == OBJ_FUNCTION
+             || obj->type == OBJ_INSTANCE
+             || obj->type == OBJ_NATIVE
+             || obj->type == OBJ_STRING
+             || obj->type == OBJ_UPVALUE);
+      return 0;
+  }
+}
+
+static size_t
+clox_objtable_value_external_size(const struct cb      *cb,
+                                  const struct cb_term *term)
+{
+  assert(term->tag == CB_TERM_U64);
+
+  cb_offset_t allocation_offset = (cb_offset_t)cb_term_get_u64(term);
+  if (allocation_offset == CB_NULL)
+    return 0;
+
+  char *mem = (char *)cb_at(cb, allocation_offset);
+  if (!alloc_is_object_get(mem)) {
+    return alloc_size_get(mem) + alloc_alignment_get(mem) - 1;
+  }
+
+  return clox_Obj_external_size(cb, (Obj *)mem);
+}
+
+static int
+clox_objtable_key_render(cb_offset_t           *dest_offset,
+                         struct cb            **cb,
+                         const struct cb_term  *term,
+                         unsigned int           flags)
+{
+  // The key must be a u64 cb_term.
+  assert(term->tag == CB_TERM_U64);
+
+  return cb_asprintf(dest_offset, cb, "#%ju", (uintmax_t)cb_term_get_u64(term));
+}
+
+static int
+clox_objtable_value_render(cb_offset_t           *dest_offset,
+                           struct cb            **cb,
+                           const struct cb_term  *term,
+                           unsigned int           flags)
+{
+  // The value must be a u64 cb_term.
+  assert(term->tag == CB_TERM_U64);
+
+  cb_offset_t allocation_offset = (cb_offset_t)cb_term_get_u64(term);
+  char *mem = (char *)cb_at(*cb, allocation_offset);
+  if (alloc_is_object_get(mem)) {
+    Obj *obj = (Obj *)mem;
+
+    return cb_asprintf(dest_offset, cb, "@%ju<s:%ju,a:%ju,ObjType:%d>",
+                       (uintmax_t)allocation_offset,
+                       (uintmax_t)alloc_size_get(mem),
+                       (uintmax_t)alloc_alignment_get(mem),
+                       (int)obj->type);
+
+  } else {
+    return cb_asprintf(dest_offset, cb, "@%ju<s:%ju,a:%ju>",
+                       (uintmax_t)allocation_offset,
+                       (uintmax_t)alloc_size_get(mem),
+                       (uintmax_t)alloc_alignment_get(mem));
+  }
+}
+
+int
+objtable_layer_init(cb_offset_t *bst_root) {
+  int ret;
+
+  ret = cb_bst_init(&thread_cb,
+                    &thread_region,
+                    bst_root,
+                    &cb_term_cmp,                         //keys are uint64_t IDs and need only shallow comparison
+                    &cb_term_cmp,                         //values are uint64_t's (cb_offset_t's) and need only shallow comparison
+                    &clox_objtable_key_render,
+                    &clox_objtable_value_render,
+                    &clox_no_external_size,               //keys have no external size.
+                    &clox_objtable_value_external_size);  //values in objtables own the memory, and so should report their full size.
+  assert(ret == 0);
+
+  return ret;
+}
+
 void
 objtable_init(ObjTable *obj_table)
 {
-  obj_table->root_a = CB_BST_SENTINEL;
-  obj_table->root_b = CB_BST_SENTINEL;
-  obj_table->root_c = CB_BST_SENTINEL;
+  int ret;
+
+  (void)ret;
+
+  ret = objtable_layer_init(&(obj_table->root_a));
+  assert(ret == 0);
+  ret = objtable_layer_init(&(obj_table->root_b));
+  assert(ret == 0);
+  ret = objtable_layer_init(&(obj_table->root_c));
+  assert(ret == 0);
+
   obj_table->next_obj_id.id  = 1;
 }
 
@@ -456,7 +620,7 @@ clox_object_external_size(const struct cb      *cb,
     case OBJ_CLOSURE: {
       const ObjClosure *closure = AS_CLOSURE_OID(value).clip();
       return sizeof(ObjClosure) + cb_alignof(ObjClosure) - 1
-             + closure->upvalueCount * sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
+             + closure->upvalueCount * sizeof(OID<ObjUpvalue>) + cb_alignof(OID<ObjUpvalue>) - 1;
     }
     case OBJ_FUNCTION: {
       const ObjFunction *function = AS_FUNCTION_OID(value).clip();
@@ -476,7 +640,7 @@ clox_object_external_size(const struct cb      *cb,
     case OBJ_STRING: {
       const ObjString *str = AS_STRING_OID(value).clip();
       return sizeof(ObjString) + cb_alignof(ObjString) - 1
-             + str->length;
+             + str->length * sizeof(char);
     }
     case OBJ_UPVALUE:
       return sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
@@ -1011,7 +1175,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     closure.dest_region = &(req->objtable_new_region);
     closure.new_root_b  = &(resp->objtable_new_root_b);
 
-    resp->objtable_new_root_b = CB_BST_SENTINEL;
+    ret = objtable_layer_init(&(resp->objtable_new_root_b));
+    assert(ret == 0);
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->objtable_root_b,

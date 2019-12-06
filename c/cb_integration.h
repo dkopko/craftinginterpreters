@@ -63,6 +63,7 @@ typedef struct ObjTable {
   ObjID next_obj_id;
 } ObjTable;
 
+int objtable_layer_init(cb_offset_t *bst_root);
 void objtable_init(ObjTable *obj_table);
 void objtable_add_at(ObjTable *obj_table, ObjID obj_id, cb_offset_t offset);
 ObjID objtable_add(ObjTable *obj_table, cb_offset_t offset);

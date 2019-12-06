@@ -411,7 +411,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
       dest->superclass  = src->superclass;
       //NOTE: We expect lookup of methods to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      dest->methods_bst = CB_BST_SENTINEL;
+      dest->methods_bst = CB_BST_SENTINEL;  //FIXME cb_bst_init
       break;
     }
 
@@ -468,7 +468,7 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
       dest->klass      = src->klass;
       //NOTE: We expect lookup of fields to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      dest->fields_bst = CB_BST_SENTINEL;
+      dest->fields_bst = CB_BST_SENTINEL;  //FIXME cb_bst_init
       break;
     }
 
@@ -531,7 +531,8 @@ void collectGarbageCB() {
   assert(cb_bst_num_entries(thread_cb, thread_objtable.root_c) == 0);
   thread_objtable.root_c = thread_objtable.root_b;
   thread_objtable.root_b = thread_objtable.root_a;
-  thread_objtable.root_a = CB_BST_SENTINEL;
+  ret = objtable_layer_init(&(thread_objtable.root_a));
+  assert(ret == 0);
 
   // Tristack
   assert(vm.tristack.cbo == CB_NULL);
@@ -688,8 +689,10 @@ void collectGarbageCB() {
 
 
   //Integrate condensed objtable.
-  printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)CB_BST_SENTINEL);
-  thread_objtable.root_c = CB_BST_SENTINEL;
+  cb_offset_t old_objtable_root_c = thread_objtable.root_c;
+  ret = objtable_layer_init(&(thread_objtable.root_c));
+  assert(ret == 0);
+  printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)old_objtable_root_c, (uintmax_t)thread_objtable.root_c);
   printf("DANDEBUG objtable B %ju -> %ju\n", (uintmax_t)thread_objtable.root_b, (uintmax_t)resp.objtable_new_root_b);
   thread_objtable.root_b = resp.objtable_new_root_b;
 
