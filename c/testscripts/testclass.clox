@@ -1,0 +1,9 @@
+class Poo {
+    fn1(a,b) { return a+b; }
+    fn2(c,d) { return c*d; }
+}
+
+var p = Poo();
+print p.fn1("abc","123");
+print p.fn2(2,3);
+
