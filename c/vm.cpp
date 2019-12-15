@@ -625,9 +625,10 @@ static bool callValue(Value callee, int argCount) {
         OID<ObjClass> klass = AS_CLASS_OID(callee);
 
         // Create the instance.
+        Value tmp = OBJ_VAL(newInstance(klass).id());
         Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - (argCount + 1));
         assert(loc >= cb_at(thread_cb, vm.tristack.abo));  // Must be in the mutable section A.
-        *loc = OBJ_VAL(newInstance(klass).id());
+        *loc = tmp;
 //> Methods and Initializers not-yet
         // Call the initializer, if there is one.
         Value initializer;
