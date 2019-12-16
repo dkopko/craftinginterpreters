@@ -981,6 +981,9 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
       //   into the new ObjClass's methods set.
       //3) Copy B ObjClass's methods into this new ObjClass's methods set.
       //4) Insert this new merged object into the objtable.
+      //NOTE: We do not need to do a cb_bst_external_size_adjust() here due to
+      //  adding methods because newObjClassCBO will properly self-report size
+      //  upon insertion into the objtable (we are not modifying it in-place).
       ObjClass *classB = (ObjClass *)bEntryObj.clp();
       ObjClass *classC = (ObjClass *)cEntryObj.clp();
       CBO<ObjClass> newObjClassCBO = deriveMutableObjectLayer(objOID.id(), objOID.co());

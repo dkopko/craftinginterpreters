@@ -560,6 +560,8 @@ static bool classMethodSet(OID<ObjClass> klass, Value key, Value value) {
 
   classA = klass.mlip();
 
+  size_t size_before = cb_bst_size(thread_cb, classA->methods_bst);
+
   ret = cb_bst_insert(&thread_cb,
                       &thread_region,
                       &(classA->methods_bst),
@@ -567,6 +569,15 @@ static bool classMethodSet(OID<ObjClass> klass, Value key, Value value) {
                       &key_term,
                       &value_term);
   assert(ret == 0);
+
+  size_t size_after = cb_bst_size(thread_cb, classA->methods_bst);
+
+  //NOTE: Because this method addition is done to an ObjClass already present
+  // in the objtable, we must manually inform the objtable of this independent
+  // mutation of external size.
+  cb_bst_external_size_adjust(thread_cb,
+                              thread_objtable.root_a,
+                              size_after - size_before);
 
   //true if new key and we succeeded at inserting it.
   return (!already_exists && ret == 0);
@@ -597,11 +608,22 @@ static void classMethodsAddAll(OID<ObjClass> subclass, OID<ObjClass> superclass)
 
   (void)ret;
 
+  size_t size_before = cb_bst_size(thread_cb, subclass.mlip()->methods_bst);
+
   ret = cb_bst_traverse(thread_cb,
                         superclass.clip()->methods_bst,
                         &bstTraversalAdd,
                         &(subclass.mlip()->methods_bst));
   assert(ret == 0);
+
+  size_t size_after = cb_bst_size(thread_cb, subclass.mlip()->methods_bst);
+
+  //NOTE: Because this method addition is done to an ObjClass already present
+  // in the objtable, we must manually inform the objtable of this independent
+  // mutation of external size.
+  cb_bst_external_size_adjust(thread_cb,
+                              thread_objtable.root_a,
+                              size_after - size_before);
 }
 
 static bool callValue(Value callee, int argCount) {
