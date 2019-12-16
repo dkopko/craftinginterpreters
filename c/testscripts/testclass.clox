@@ -3,7 +3,14 @@ class Poo {
     fn2(c,d) { return c*d; }
 }
 
-var p = Poo();
-print p.fn1("abc","123");
-print p.fn2(2,3);
+class Turd < Poo {
+    fn3(a,b) { return a-b; }
+    fn4(c,d) { return c/d; }
+}
+
+var t = Turd();
+print t.fn1("abc","123");
+print t.fn2(2,3);
+print t.fn3(5,2);
+print t.fn4(9,2);
 
