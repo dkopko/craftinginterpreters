@@ -113,10 +113,10 @@ clox_objtable_value_external_size(const struct cb      *cb,
     return 0;
 
   char *mem = (char *)cb_at(cb, allocation_offset);
-  if (!alloc_is_object_get(mem)) {
-    return alloc_size_get(mem) + alloc_alignment_get(mem) - 1;
-  }
-
+  assert(alloc_is_object_get(mem));
+  //if (!alloc_is_object_get(mem)) {
+  //  return alloc_size_get(mem) + alloc_alignment_get(mem) - 1;
+  //}
   return clox_Obj_external_size(cb, (Obj *)mem);
 }
 
@@ -143,21 +143,19 @@ clox_objtable_value_render(cb_offset_t           *dest_offset,
 
   cb_offset_t allocation_offset = (cb_offset_t)cb_term_get_u64(term);
   char *mem = (char *)cb_at(*cb, allocation_offset);
-  if (alloc_is_object_get(mem)) {
-    Obj *obj = (Obj *)mem;
+  assert(alloc_is_object_get(mem));
+  //if (!alloc_is_object_get(mem)) {
+  //  return cb_asprintf(dest_offset, cb, "@%ju<s:%ju,a:%ju>",
+  //                     (uintmax_t)allocation_offset,
+  //                     (uintmax_t)alloc_size_get(mem),
+  //                     (uintmax_t)alloc_alignment_get(mem));
+  //}
+  return cb_asprintf(dest_offset, cb, "@%ju<s:%ju,a:%ju,ObjType:%d>",
+                     (uintmax_t)allocation_offset,
+                     (uintmax_t)alloc_size_get(mem),
+                     (uintmax_t)alloc_alignment_get(mem),
+                     (int)((Obj *)mem)->type);
 
-    return cb_asprintf(dest_offset, cb, "@%ju<s:%ju,a:%ju,ObjType:%d>",
-                       (uintmax_t)allocation_offset,
-                       (uintmax_t)alloc_size_get(mem),
-                       (uintmax_t)alloc_alignment_get(mem),
-                       (int)obj->type);
-
-  } else {
-    return cb_asprintf(dest_offset, cb, "@%ju<s:%ju,a:%ju>",
-                       (uintmax_t)allocation_offset,
-                       (uintmax_t)alloc_size_get(mem),
-                       (uintmax_t)alloc_alignment_get(mem));
-  }
 }
 
 int
