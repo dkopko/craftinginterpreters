@@ -1,5 +1,7 @@
 #include <stdlib.h>
 
+#include <cb_bst.h>
+
 #include "chunk.h"
 #include "memory.h"
 #include "value.h"
@@ -42,6 +44,14 @@ void writeChunk(OID<Obj> f, uint8_t byte, int line) {
         oldCapacity, chunk->capacity);
     chunk->lines = GROW_ARRAY(chunk->lines.co(), int,
         oldCapacity, chunk->capacity);
+
+    //NOTE: Because this chunk extension is done to an chunk already present
+    // in the objtable (it is held by an ObjFunction, which is held in the
+    // objtable), we must manually inform the objtable of this independent
+    // mutation of external size.
+    cb_bst_external_size_adjust(thread_cb,
+                                thread_objtable.root_a,
+                                (chunk->capacity - oldCapacity) * (sizeof(uint8_t) + sizeof(int)));
   }
 
   //Rederive chunk, in case intervening GC caused it to become read-only.
@@ -64,6 +74,14 @@ int addConstant(OID<Obj> f, Value value) {
     chunk->constants.capacity = GROW_CAPACITY(oldCapacity);
     chunk->constants.values = GROW_ARRAY(chunk->constants.values.co(), Value,
                                oldCapacity, chunk->constants.capacity);
+
+    //NOTE: Because this constants extension is done to an chunk already present
+    // in the objtable (it is held by an ObjFunction, which is held in the
+    // objtable), we must manually inform the objtable of this independent
+    // mutation of external size.
+    cb_bst_external_size_adjust(thread_cb,
+                                thread_objtable.root_a,
+                                (chunk->constants.capacity - oldCapacity) * sizeof(Value));
   }
 
   //Rederive chunk, in case intervening GC caused it to become read-only.

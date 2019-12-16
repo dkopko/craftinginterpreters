@@ -60,8 +60,7 @@ clox_Obj_external_size(const struct cb *cb,
         + (closure->upvalueCount * sizeof(OID<ObjUpvalue>)) + cb_alignof(OID<ObjUpvalue>) - 1;
     }
 
-    case OBJ_FUNCTION: {
-      //FIXME handle chunk member capacity mutation (code, lines, constants)
+    case OBJ_FUNCTION: { //DONE
       ObjFunction *function = (ObjFunction *)obj;
       return sizeof(ObjFunction) + cb_alignof(ObjFunction) - 1
              + function->chunk.capacity * sizeof(uint8_t) + cb_alignof(uint8_t) - 1         //code
