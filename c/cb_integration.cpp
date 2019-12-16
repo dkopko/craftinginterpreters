@@ -28,39 +28,36 @@ clox_Obj_external_size(const struct cb *cb,
                        Obj *obj)
 {
 
-  //FIXME This must be a quick O(1) calculation to maintain performance; it is
+  //NOTE: This must be a quick O(1) calculation to maintain performance; it is
   // inappropriate for this to recursively calculate size information.
+  //NOTE: The objtable's present external size will be maintained on insertions
+  // and removals of entries to it, as well as in-place mutations to its
+  // contained entries.  There will be entries (in particular OBJ_CLASS,
+  // OBJ_FUNCTION, and OBJ_INSTANCE) which will have such in-place
+  // mutations.  In such cases, the objtable's tracking of its own size cannot
+  // be performed solely upon insertions/removals of its contained objects;
+  // additional tracking (via cb_bst_external_size_adjust()) must be done at
+  // these points of mutations.
 
-  //FIXME - A cb_bst's present external size is currently maintained on
-  // cb_bst insertions and removals.  However, there will be entries (in
-  // particular OBJ_CLASS and OBJ_INSTANCE) contained in the objtable which
-  // will be in-place modified.  In such cases, the calculation cannot be
-  // performed solely upon insertion/removal; something additional must be done
-  // to adjust the owning cb_bst's external size as these objects get modified.
-
-  //FIXME - determine that there's nothing funky with any of these ObjTypes.
-
-  //FIXME - compare with calculations in clox_object_external_size()
+  //FIXME - remove redundant clox_object_external_size()
 
   switch (obj->type) {
-    case OBJ_BOUND_METHOD: //DONE
+    case OBJ_BOUND_METHOD:
       return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1;
 
-    case OBJ_CLASS: { //DONE
+    case OBJ_CLASS: {
       ObjClass *clazz = (ObjClass *)obj;
       return sizeof(ObjClass) + cb_alignof(ObjClass) - 1
         + cb_bst_size(cb, clazz->methods_bst);
     }
 
     case OBJ_CLOSURE: {
-      //FIXME handle upvalueCount mutation
-      //FIXME do by capacity instead of upvalueCount?
       ObjClosure *closure = (ObjClosure *)obj;
       return sizeof(ObjClosure) + cb_alignof(ObjClosure) - 1
         + (closure->upvalueCount * sizeof(OID<ObjUpvalue>)) + cb_alignof(OID<ObjUpvalue>) - 1;
     }
 
-    case OBJ_FUNCTION: { //DONE
+    case OBJ_FUNCTION: {
       ObjFunction *function = (ObjFunction *)obj;
       return sizeof(ObjFunction) + cb_alignof(ObjFunction) - 1
              + function->chunk.capacity * sizeof(uint8_t) + cb_alignof(uint8_t) - 1         //code
@@ -68,22 +65,22 @@ clox_Obj_external_size(const struct cb *cb,
              + function->chunk.constants.capacity * sizeof(Value) + cb_alignof(Value) - 1;  //constants.values
     }
 
-    case OBJ_INSTANCE: { //DONE
+    case OBJ_INSTANCE: {
       ObjInstance *instance = (ObjInstance *)obj;
       return sizeof(ObjInstance) + cb_alignof(ObjInstance) - 1
              + cb_bst_size(cb, instance->fields_bst);
     }
 
-    case OBJ_NATIVE: //DONE
+    case OBJ_NATIVE:
       return sizeof(ObjNative) + cb_alignof(ObjNative) - 1;
 
-    case OBJ_STRING: { //DONE
+    case OBJ_STRING: {
       ObjString *str = (ObjString *)obj;
       return sizeof(ObjString) + cb_alignof(ObjString) - 1
         + str->length * sizeof(char);
     }
 
-    case OBJ_UPVALUE: //DONE
+    case OBJ_UPVALUE:
       return sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
 
     default:
