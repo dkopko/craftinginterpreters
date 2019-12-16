@@ -46,8 +46,7 @@ clox_Obj_external_size(const struct cb *cb,
     case OBJ_BOUND_METHOD: //DONE
       return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1;
 
-    case OBJ_CLASS: {
-      //FIXME handle methods_bst mutation elsewhere.
+    case OBJ_CLASS: { //DONE
       ObjClass *clazz = (ObjClass *)obj;
       return sizeof(ObjClass) + cb_alignof(ObjClass) - 1
         + cb_bst_size(cb, clazz->methods_bst);
@@ -70,8 +69,7 @@ clox_Obj_external_size(const struct cb *cb,
              + function->chunk.constants.capacity * sizeof(Value) + cb_alignof(Value) - 1;  //constants.values
     }
 
-    case OBJ_INSTANCE: {
-      //FIXME handle fields_bst mutation elsewhere
+    case OBJ_INSTANCE: { //DONE
       ObjInstance *instance = (ObjInstance *)obj;
       return sizeof(ObjInstance) + cb_alignof(ObjInstance) - 1
              + cb_bst_size(cb, instance->fields_bst);
