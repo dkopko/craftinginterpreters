@@ -497,6 +497,8 @@ static bool instanceFieldSet(OID<ObjInstance> instance, Value key, Value value) 
 
   instanceA = instance.mlip();
 
+  size_t size_before = cb_bst_size(thread_cb, instanceA->fields_bst);
+
   ret = cb_bst_insert(&thread_cb,
                       &thread_region,
                       &(instanceA->fields_bst),
@@ -504,6 +506,15 @@ static bool instanceFieldSet(OID<ObjInstance> instance, Value key, Value value) 
                       &key_term,
                       &value_term);
   assert(ret == 0);
+
+  size_t size_after = cb_bst_size(thread_cb, instanceA->fields_bst);
+
+  //NOTE: Because this field addition is done to an ObjInstance already present
+  // in the objtable, we must manually inform the objtable of this independent
+  // mutation of external size.
+  cb_bst_external_size_adjust(thread_cb,
+                              thread_objtable.root_a,
+                              size_after - size_before);
 
   //true if new key and we succeeded at inserting it.
   return (!already_exists && ret == 0);

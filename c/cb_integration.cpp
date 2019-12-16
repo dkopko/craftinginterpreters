@@ -1014,6 +1014,9 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
       //   into the new ObjInstance's fields set.
       //3) Copy B ObjInstance's fields into this new ObjInstance's fields set.
       //4) Insert this new merged object into the objtable.
+      //NOTE: We do not need to do a cb_bst_external_size_adjust() here due to
+      //  adding fields because newObjInstanceCBO will properly self-report size
+      //  upon insertion into the objtable (we are not modifying it in-place).
       ObjInstance *instanceB = (ObjInstance *)bEntryObj.clp();
       ObjInstance *instanceC = (ObjInstance *)cEntryObj.clp();
       CBO<ObjInstance> newObjInstanceCBO = deriveMutableObjectLayer(objOID.id(), objOID.co());
