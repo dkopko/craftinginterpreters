@@ -25,8 +25,8 @@ initTable(Table                *table,
                     term_cmp,
                     term_render,
                     term_render,
-                    &clox_value_external_size,
-                    &clox_value_external_size);
+                    &clox_no_external_size,
+                    &clox_no_external_size);
   assert(ret == 0);
 
   ret = cb_bst_init(&thread_cb,
@@ -36,8 +36,8 @@ initTable(Table                *table,
                     term_cmp,
                     term_render,
                     term_render,
-                    &clox_value_external_size,
-                    &clox_value_external_size);
+                    &clox_no_external_size,
+                    &clox_no_external_size);
   assert(ret == 0);
 
   ret = cb_bst_init(&thread_cb,
@@ -47,8 +47,8 @@ initTable(Table                *table,
                     term_cmp,
                     term_render,
                     term_render,
-                    &clox_value_external_size,
-                    &clox_value_external_size);
+                    &clox_no_external_size,
+                    &clox_no_external_size);
   assert(ret == 0);
 
 }

@@ -39,8 +39,6 @@ clox_Obj_external_size(const struct cb *cb,
   // additional tracking (via cb_bst_external_size_adjust()) must be done at
   // these points of mutations.
 
-  //FIXME - remove redundant clox_object_external_size()
-
   switch (obj->type) {
     case OBJ_BOUND_METHOD:
       return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1;
@@ -611,98 +609,6 @@ clox_value_render(cb_offset_t           *dest_offset,
 
     case VAL_OBJ:
       return clox_object_render(dest_offset, cb, term, flags);
-
-    default:
-      assert(valType == VAL_BOOL
-             || valType == VAL_NIL
-             || valType == VAL_NUMBER
-             || valType == VAL_OBJ);
-      return -1;
-  }
-}
-
-static size_t
-clox_object_external_size(const struct cb      *cb,
-                          const struct cb_term *term)
-{
-  // We expect to only use the double value of cb_terms.
-  assert(term->tag == CB_TERM_DBL);
-
-  // We expect to only be used on object-type Values.
-  Value value = numToValue(cb_term_get_dbl(term));
-  assert(getValueType(value) == VAL_OBJ);
-
-  ObjType objType = OBJ_TYPE(value);
-  switch (objType) {
-    //NOTE: These sizes should include any alignment.  These sizes should only
-    // take into account those things which were *allocated* (and as such would
-    // be re-allocated for a copy) for the given object, and not the size of
-    // any objects which are simply held as references.
-    case OBJ_BOUND_METHOD:
-      return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1;
-    case OBJ_CLASS: {
-      const ObjClass *klass = AS_CLASS_OID(value).clip();
-      return sizeof(ObjClass) + cb_alignof(ObjClass) - 1
-             + cb_bst_size(thread_cb, klass->methods_bst);
-    }
-    case OBJ_CLOSURE: {
-      const ObjClosure *closure = AS_CLOSURE_OID(value).clip();
-      return sizeof(ObjClosure) + cb_alignof(ObjClosure) - 1
-             + closure->upvalueCount * sizeof(OID<ObjUpvalue>) + cb_alignof(OID<ObjUpvalue>) - 1;
-    }
-    case OBJ_FUNCTION: {
-      const ObjFunction *function = AS_FUNCTION_OID(value).clip();
-      return sizeof(ObjFunction) + cb_alignof(ObjFunction) - 1
-             + sizeof(ObjString) + cb_alignof(ObjString) - 1 + function->name.clip()->length  //name FIXME CBINT not needed if interning strings.
-             + function->chunk.capacity * sizeof(uint8_t) + cb_alignof(uint8_t) - 1         //code
-             + function->chunk.capacity * sizeof(int) + cb_alignof(int) - 1                 //lines
-             + function->chunk.constants.capacity * sizeof(Value) + cb_alignof(Value) - 1;  //constants.values
-    }
-    case OBJ_INSTANCE: {
-      const ObjInstance *instance = AS_INSTANCE_OID(value).clip();
-      return sizeof(ObjInstance) + cb_alignof(ObjInstance) - 1
-             + cb_bst_size(thread_cb, instance->fields_bst);
-    }
-    case OBJ_NATIVE:
-      return sizeof(ObjNative) + cb_alignof(ObjNative) - 1;
-    case OBJ_STRING: {
-      const ObjString *str = AS_STRING_OID(value).clip();
-      return sizeof(ObjString) + cb_alignof(ObjString) - 1
-             + str->length * sizeof(char);
-    }
-    case OBJ_UPVALUE:
-      return sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
-    default:
-      assert(objType == OBJ_BOUND_METHOD
-             || objType == OBJ_CLASS
-             || objType == OBJ_CLOSURE
-             || objType == OBJ_FUNCTION
-             || objType == OBJ_INSTANCE
-             || objType == OBJ_NATIVE
-             || objType == OBJ_STRING
-             || objType == OBJ_UPVALUE);
-      return 0;
-  }
-}
-
-size_t
-clox_value_external_size(const struct cb      *cb,
-                         const struct cb_term *term)
-{
-  // We expect to only use the double value of cb_terms.
-  assert(term->tag == CB_TERM_DBL);
-
-  Value value = numToValue(cb_term_get_dbl(term));
-
-  ValueType valType = getValueType(value);
-  switch (valType) {
-    case VAL_BOOL:
-    case VAL_NIL:
-    case VAL_NUMBER:
-      return 0;
-
-    case VAL_OBJ:
-      return clox_object_external_size(cb, term);
 
     default:
       assert(valType == VAL_BOOL

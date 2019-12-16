@@ -186,10 +186,6 @@ clox_value_render(cb_offset_t           *dest_offset,
                   unsigned int           flags);
 
 size_t
-clox_value_external_size(const struct cb      *cb,
-                         const struct cb_term *term);
-
-size_t
 clox_value_no_external_size(const struct cb      *cb,
                             const struct cb_term *term);
 
