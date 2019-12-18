@@ -490,8 +490,9 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
 
       dest->obj    = src->obj;
       dest->length = src->length;
-      dest->chars  = GROW_ARRAY_NOGC(CB_NULL, char, 0, src->length);
+      dest->chars  = GROW_ARRAY_NOGC(CB_NULL, char, 0, src->length + 1);
       memcpy(dest->chars.mlp(), src->chars.clp(), src->length * sizeof(char));
+      dest->chars.mlp()[src->length] = '\0';
       dest->hash   = src->hash;
 
       break;
