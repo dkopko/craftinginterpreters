@@ -324,11 +324,18 @@ static void freeObject(OID<Obj> object) {
   printf("\n");
 #endif
 
-  const Obj   *obj        = object.clip();
-  cb_offset_t  obj_offset = object.co();
+  //NOTE: We can no longer clobber old memory contents due to the fact that
+  // older maps (e.g. regions B and C of objtable) may still be working with
+  // the objects.  Instead, freeObject() now just means to nullify the referred
+  // #ID, so that it can no longer be dereferenced via the runtime of the
+  // executing program and will eventually have no @offset associated with it in
+  // any region of the objtable map.
 
   objtable_invalidate(&thread_objtable, object.id());
 
+#if 0
+  const Obj   *obj        = object.clip();
+  cb_offset_t  obj_offset = object.co();
   switch (obj->type) {
     case OBJ_BOUND_METHOD:
       FREE(ObjBoundMethod, obj_offset);
@@ -378,6 +385,7 @@ static void freeObject(OID<Obj> object) {
       FREE(ObjUpvalue, obj_offset);
       break;
   }
+#endif
 }
 
 cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
@@ -513,6 +521,71 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
   }
 
   return destCBO.mo();
+}
+
+static int
+copy_entry_to_bst(const struct cb_term *key_term,
+                  const struct cb_term *value_term,
+                  void                 *closure)
+{
+  cb_offset_t *dest_bst = (cb_offset_t *)closure;
+  int ret;
+
+  (void)ret;
+
+  ret = cb_bst_insert(&thread_cb,
+                      &thread_region,
+                      dest_bst,
+                      cb_region_start(&thread_region),  //NOTE: full contents are mutable
+                      key_term,
+                      value_term);
+  assert(ret == 0);
+
+  return 0;
+}
+
+cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset) {
+  CBO<Obj> srcCBO = object_offset;
+  CBO<Obj> cloneCBO = deriveMutableObjectLayer(id, object_offset);
+  int ret;
+
+  printf("#%ju@%ju cloneObject() ", (uintmax_t)id.id, object_offset);
+  printObject(id, object_offset, srcCBO.clp());
+  printf(" : NEW OFFSET = %ju\n", (uintmax_t)cloneCBO.mo());
+
+  //NOTE: ObjClasses and ObjInstances come out of deriveMutableObjectLayer()
+  // without contents in their respective methods_bst/fields_bst, so the
+  // contents must be copied in separately here.
+  switch (srcCBO.clp()->type) {
+    case OBJ_CLASS: {
+      ObjClass *srcClass = (ObjClass *)srcCBO.clp();
+      ObjClass *destClass = (ObjClass *)cloneCBO.clp();
+
+      ret = cb_bst_traverse(thread_cb,
+                            srcClass->methods_bst,
+                            copy_entry_to_bst,
+                            &(destClass->methods_bst));
+      assert(ret == 0);
+    }
+    break;
+
+    case OBJ_INSTANCE: {
+      ObjInstance *srcInstance = (ObjInstance *)srcCBO.clp();
+      ObjInstance *destInstance = (ObjInstance *)cloneCBO.clp();
+
+      ret = cb_bst_traverse(thread_cb,
+                            srcInstance->fields_bst,
+                            copy_entry_to_bst,
+                            &(destInstance->fields_bst));
+      assert(ret == 0);
+    }
+    break;
+
+    default:
+      break;
+  }
+
+  return cloneCBO.mo();
 }
 
 void collectGarbageCB() {

@@ -810,15 +810,17 @@ copy_objtable_b(const struct cb_term *key_term,
                 const struct cb_term *value_term,
                 void                 *closure)
 {
-  //NOTE: This is simply copying the #ID -> @offset mapping into an
-  // initially-blank cb_bst. It is not copying Objs.
-  //FIXME objtable should probably be considered the owner of memory, and so
-  //should not just be copying key->value mappings, but also duplicating the
-  //values.
+  //NOTE: This is generating a condensed #ID -> @offset mapping into an
+  // initially-blank cb_bst.  Each of the new entries contain the same old #ID,
+  // but with a new @offset which points to a clone of the object which existed
+  // at the old @offset. In the end, the map contents are the same value-wise,
+  // but have condensed relocations.
 
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
   ObjID obj_id = { .id = cb_term_get_u64(key_term) };
   cb_offset_t offset = (cb_offset_t)cb_term_get_u64(value_term);
+  cb_offset_t clone_offset;
+  cb_term clone_value_term;
   int ret;
 
   //Skip those ObjIDs which have been invalidated.  (CB_NULL serves as a
@@ -827,18 +829,22 @@ copy_objtable_b(const struct cb_term *key_term,
     return 0;
 
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+
+  clone_offset = cloneObject(obj_id, offset);
+  cb_term_set_u64(&clone_value_term, clone_offset);
+
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_b,
                       cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
                       key_term,
-                      value_term);
+                      &clone_value_term);
   assert(ret == 0);
   cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  printf("ACTUALINSERT1 +%ju bytes  #%ju -> @%ju\n",
+  printf("copy_objtable_b(): +%ju bytes  #%ju -> @%ju\n",
          (uintmax_t)(c1 - c0),
          (uintmax_t)obj_id.id,
-         (uintmax_t)offset);
+         (uintmax_t)clone_offset);
 
   (void)ret;
   return 0;
@@ -861,6 +867,7 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   cb_offset_t cEntryOffset = (cb_offset_t)cb_term_get_u64(value_term);
   struct cb_term temp_term;
   cb_offset_t c0, c1;
+  bool needs_external_size_adjustment = false;
   int ret;
 
   c0 = cb_region_cursor(cl->dest_region);
@@ -868,63 +875,44 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   // If an entry exists in both B and C, B's entry should mask C's EXCEPT when
   // the B entry and C entry can be merged (which is when they are both ObjClass
   // or both ObjInstance objects).
-  if (cb_bst_lookup(cl->src_cb, cl->old_root_b, key_term, &temp_term) == 0) {
+  if (cb_bst_lookup(cl->src_cb, *(cl->new_root_b), key_term, &temp_term) == 0) {
     cb_offset_t bEntryOffset = (cb_offset_t)cb_term_get_u64(&temp_term);
     CBO<Obj> bEntryObj = bEntryOffset;
     CBO<Obj> cEntryObj = cEntryOffset;
 
     if (bEntryObj.clp()->type == OBJ_CLASS && cEntryObj.clp()->type == OBJ_CLASS) {
-      //1) Make a new ObjClass via deriveMutableObjectLayer().  methods set will be empty.
-      //2) Copy C ObjClass's methods WHICH DO NOT EXIST IN B ObjClass's methods
-      //   into the new ObjClass's methods set.
-      //3) Copy B ObjClass's methods into this new ObjClass's methods set.
-      //4) Insert this new merged object into the objtable.
-      //NOTE: We do not need to do a cb_bst_external_size_adjust() here due to
-      //  adding methods because newObjClassCBO will properly self-report size
-      //  upon insertion into the objtable (we are not modifying it in-place).
-      ObjClass *classB = (ObjClass *)bEntryObj.clp();
+      //Copy C ObjClass's methods WHICH DO NOT EXIST IN B ObjClass's methods
+      //into the B ObjClass's methods set.
+      ObjClass *classB = (ObjClass *)bEntryObj.mlp();
       ObjClass *classC = (ObjClass *)cEntryObj.clp();
-      CBO<ObjClass> newObjClassCBO = deriveMutableObjectLayer(objOID.id(), objOID.co());
       struct merge_class_methods_closure subclosure;
 
       subclosure.src_cb              = cl->src_cb;
       subclosure.b_class_methods_bst = classB->methods_bst;
       subclosure.dest_cb             = cl->dest_cb;
       subclosure.dest_region         = cl->dest_region;
-      subclosure.dest_methods_bst    = &(newObjClassCBO.mlp()->methods_bst);
+      subclosure.dest_methods_bst    = &(classB->methods_bst);
 
+      c0 = cb_region_cursor(cl->dest_region);
       ret = cb_bst_traverse(cl->src_cb,
                             classC->methods_bst,
                             merge_c_class_methods,
                             &subclosure);
       assert(ret == 0);
 
-      ret = cb_bst_traverse(cl->src_cb,
-                            classB->methods_bst,
-                            merge_b_class_methods,
-                            &subclosure);
-      assert(ret == 0);
-
-      objtable_add_at(&thread_objtable, objOID.id(), newObjClassCBO.co());
+      needs_external_size_adjustment = true;
     } else if (bEntryObj.clp()->type == OBJ_INSTANCE && cEntryObj.clp()->type == OBJ_INSTANCE) {
-      //1) Make a new ObjInstance via deriveMutableObjectLayer().  fields set will be empty.
-      //2) Copy C ObjInstance's fields WHICH DO NOT EXIST IN B ObjInstance's fields
-      //   into the new ObjInstance's fields set.
-      //3) Copy B ObjInstance's fields into this new ObjInstance's fields set.
-      //4) Insert this new merged object into the objtable.
-      //NOTE: We do not need to do a cb_bst_external_size_adjust() here due to
-      //  adding fields because newObjInstanceCBO will properly self-report size
-      //  upon insertion into the objtable (we are not modifying it in-place).
+      //Copy C ObjInstance's fields WHICH DO NOT EXIST IN B ObjInstance's
+      //fields into the B ObjInstance's fields set.
       ObjInstance *instanceB = (ObjInstance *)bEntryObj.clp();
       ObjInstance *instanceC = (ObjInstance *)cEntryObj.clp();
-      CBO<ObjInstance> newObjInstanceCBO = deriveMutableObjectLayer(objOID.id(), objOID.co());
       struct merge_instance_fields_closure subclosure;
 
       subclosure.src_cb                = cl->src_cb;
       subclosure.b_instance_fields_bst = instanceB->fields_bst;
       subclosure.dest_cb               = cl->dest_cb;
       subclosure.dest_region           = cl->dest_region;
-      subclosure.dest_fields_bst       = &(newObjInstanceCBO.mlp()->fields_bst);
+      subclosure.dest_fields_bst       = &(instanceB->fields_bst);
 
       ret = cb_bst_traverse(cl->src_cb,
                             instanceC->fields_bst,
@@ -932,34 +920,36 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
                             &subclosure);
       assert(ret == 0);
 
-      ret = cb_bst_traverse(cl->src_cb,
-                            instanceB->fields_bst,
-                            merge_b_instance_fields,
-                            &subclosure);
-      assert(ret == 0);
-
-      objtable_add_at(&thread_objtable, objOID.id(), newObjInstanceCBO.co());
+      needs_external_size_adjustment = true;
     } else {
       // B's entry masks C's, so skip C's entry.
       // (We are presently traversing C's entries.)
       return 0;
     }
+  } else {
+    //Nothing in B masks the presently-traversed entry in C, just insert it.
+    ret = cb_bst_insert(&(cl->dest_cb),
+                        cl->dest_region,
+                        cl->new_root_b,
+                        cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
+                        key_term,
+                        value_term);
+    assert(ret == 0);
   }
-
-  ret = cb_bst_insert(&(cl->dest_cb),
-                      cl->dest_region,
-                      cl->new_root_b,
-                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
-                      key_term,
-                      value_term);
-  assert(ret == 0);
 
   c1 = cb_region_cursor(cl->dest_region);
 
-  printf("ACTUALINSERT2 +%ju bytes #%ju -> @%ju\n",
+  //NOTE: When we have expanded the size of the ObjClass or ObjInstance which
+  // had already existed as inserted in new_root_b, we have to adjust
+  // new_root_b's notion of its external size.
+  if (needs_external_size_adjustment)
+    cb_bst_external_size_adjust(cl->dest_cb, *(cl->new_root_b), (ssize_t)(c1 - c0));
+
+  printf("copy_objtable_c_not_in_b(): +%ju bytes #%ju -> @%ju%s\n",
          (uintmax_t)(c1 - c0),
          (uintmax_t)objOID.id().id,
-         (uintmax_t)cEntryOffset);
+         (uintmax_t)cEntryOffset,
+         (needs_external_size_adjustment ? " ADJUSTMENT" : ""));
 
   (void)ret;
   return 0;

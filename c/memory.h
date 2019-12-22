@@ -121,6 +121,7 @@ size_t alloc_alignment_get(const char *mem);
 
 bool isWhite(Value value);
 cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset);
+cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset);
 void grayObject(const OID<Obj> objectOID);
 void grayValue(Value value);
 void collectGarbage();
