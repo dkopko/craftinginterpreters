@@ -430,12 +430,16 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
 
       dest->obj          = src->obj;
       dest->function     = src->function;
-      dest->upvalues     = GROW_ARRAY_NOGC(CB_NULL, Value, 0, src->upvalueCount);
+      dest->upvalues     = GROW_ARRAY_NOGC(CB_NULL, OID<ObjUpvalue>, 0, src->upvalueCount);
       {
         const OID<ObjUpvalue> *srcUpvalues = src->upvalues.clp();
         OID<ObjUpvalue> *destUpvalues = dest->upvalues.mlp();
 
         for (unsigned int i = 0, e = src->upvalueCount; i < e; ++i) {
+          //printf("DANDEBUG copying upvalue (srcUpvalues:%p, srcUpvalues[%d].id(): %ju, srcUpvalues[%d].clip():%p\n",
+          //    srcUpvalues, i, (uintmax_t)srcUpvalues[i].id().id, i, srcUpvalues[i].clip());
+          //printValue(srcUpvalues[i].clip()->closed);
+          //printf("\n");
           destUpvalues[i] = srcUpvalues[i];
         }
       }
@@ -837,6 +841,9 @@ void collectGarbageCB() {
                     &clox_no_external_size);
   assert(ret == 0);
   vm.globals.root_b = resp.globals_new_root_b;
+
+  if (vm.currentFrame)
+    vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);
 
   gc_phase = GC_PHASE_NORMAL_EXEC;
 

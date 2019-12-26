@@ -71,6 +71,9 @@ tristack_at_bc(TriStack *ts, unsigned int index) {
 
 Value*
 tristack_at(TriStack *ts, unsigned int index) {
+  if (ts->stackDepth == 0)
+    return NULL;
+
   assert(index < ts->stackDepth);
 
   cb_offset_t offset;
@@ -929,6 +932,9 @@ static InterpretResult run() {
 
     disassembleInstruction(&vm.currentFrame->closure.clip()->function.clip()->chunk,
         (int)(vm.currentFrame->ip - vm.currentFrame->closure.clip()->function.clip()->chunk.code.clp()));
+
+    //FIXME CBINT why won't this hold?
+    //assert(vm.currentFrame->slots == tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex));
 #endif
 
     uint8_t instruction;
