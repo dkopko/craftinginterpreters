@@ -842,9 +842,6 @@ void collectGarbageCB() {
   assert(ret == 0);
   vm.globals.root_b = resp.globals_new_root_b;
 
-  if (vm.currentFrame)
-    vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);
-
   gc_phase = GC_PHASE_NORMAL_EXEC;
 
 #ifdef DEBUG_TRACE_GC

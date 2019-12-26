@@ -32,7 +32,6 @@ typedef struct {
   OID<ObjClosure> closure;
 //< Closures not-yet
   const uint8_t* ip;
-  Value* slots;
   unsigned int slotsIndex;  // the index within the stack where slots field points.
   unsigned int slotsCount;
 } CallFrame;
