@@ -968,7 +968,7 @@ static InterpretResult run() {
         push(vm.stack[slot]);
 */
 //> Calls and Functions not-yet
-        push(vm.currentFrame->slots[slot]);
+        push(*tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex + slot));
 //< Calls and Functions not-yet
         break;
       }
