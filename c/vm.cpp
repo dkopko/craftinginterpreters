@@ -74,7 +74,7 @@ tristack_at(TriStack *ts, unsigned int index) {
   if (ts->stackDepth == 0)
     return NULL;
 
-  assert(index < ts->stackDepth);
+  assert(index <= ts->stackDepth);
 
   cb_offset_t offset;
 
@@ -194,7 +194,7 @@ triframes_ensureCurrentFrameIsMutable(TriFrames *tf) {
     offset = tf->abo + (currentFrameIndex - tf->abi) * sizeof(CallFrame);
     tf->currentFrame = static_cast<CallFrame*>(cb_at(thread_cb, offset));
     vm.currentFrame = tf->currentFrame;
-    return;
+    goto fixup_slots;
   }
 
   // Otherwise, current frame is in either the B or C read-only sections. It
@@ -215,6 +215,18 @@ triframes_ensureCurrentFrameIsMutable(TriFrames *tf) {
   tf->abi = currentFrameIndex;
   tf->currentFrame = newFrame;
   vm.currentFrame = tf->currentFrame;
+
+  //NOTE: We must also ensure that the slots member of currentFrame
+  // points to a contiguous array in the mutable A region.
+fixup_slots:
+  if (vm.currentFrame->slotsIndex < vm.tristack.abi) {
+    Value *mutableRange = tristack_at(&(vm.tristack), vm.tristack.abi);
+    for (int i = vm.tristack.stackDepth, e = vm.currentFrame->slotsIndex; i > e; i--) {
+      mutableRange[(i-1) - vm.currentFrame->slotsIndex] = *tristack_at(&(vm.tristack), i-1);
+    }
+    vm.tristack.abi = vm.currentFrame->slotsIndex;
+    vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);
+  }
 }
 
 static void
@@ -933,8 +945,8 @@ static InterpretResult run() {
     disassembleInstruction(&vm.currentFrame->closure.clip()->function.clip()->chunk,
         (int)(vm.currentFrame->ip - vm.currentFrame->closure.clip()->function.clip()->chunk.code.clp()));
 
-    //FIXME CBINT why won't this hold?
-    //assert(vm.currentFrame->slots == tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex));
+    assert(vm.currentFrame->slots == tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex));
+    assert(vm.currentFrame->slotsIndex >= vm.tristack.abi);
 #endif
 
     uint8_t instruction;
@@ -968,7 +980,7 @@ static InterpretResult run() {
         push(vm.stack[slot]);
 */
 //> Calls and Functions not-yet
-        push(*tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex + slot));
+        push(vm.currentFrame->slots[slot]);
 //< Calls and Functions not-yet
         break;
       }
