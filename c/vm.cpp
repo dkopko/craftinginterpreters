@@ -264,9 +264,9 @@ printCallFrame(CallFrame *cf) {
   //printf("sc:%ju, ", (uintmax_t)cf->slotsCount);
   printObject(cf->closure.id(), cf->closure.co(), (const Obj *)cf->closure.clip());
   printf(" | ");
-  for (unsigned int i = 0; i < cf->slotsCount && cf->slotsIndex + i < vm.tristack.stackDepth; ++i) {
+  for (unsigned int i = 0; i < cf->slotsCount; ++i) {
     printf("%d%s[ ", cf->slotsIndex + i, tristack_regionname_at(&(vm.tristack), cf->slotsIndex + i));
-    printValue(*tristack_at(&(vm.tristack), cf->slotsIndex + i));
+    printValue(cf->slots[i]);
     printf(" ] ");
   }
 }
@@ -444,6 +444,8 @@ static bool call(OID<ObjClosure> closure, int argCount) {
   // +1 to include either the called function or the receiver.
   frame->slotsCount = argCount + 1;
   frame->slotsIndex = vm.tristack.stackDepth - frame->slotsCount;
+  frame->slots = tristack_at(&(vm.tristack), frame->slotsIndex);
+  assert(frame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Slots must be contiguous in mutable section A.
   return true;
 }
 
@@ -930,6 +932,9 @@ static InterpretResult run() {
 
     disassembleInstruction(&vm.currentFrame->closure.clip()->function.clip()->chunk,
         (int)(vm.currentFrame->ip - vm.currentFrame->closure.clip()->function.clip()->chunk.code.clp()));
+
+    //FIXME CBINT why won't this hold?
+    //assert(vm.currentFrame->slots == tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex));
 #endif
 
     uint8_t instruction;
@@ -974,7 +979,7 @@ static InterpretResult run() {
         vm.stack[slot] = peek(0);
 */
 //> Calls and Functions not-yet
-        *tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex + slot) = peek(0);
+        vm.currentFrame->slots[slot] = peek(0);
 //< Calls and Functions not-yet
         break;
       }
@@ -1302,11 +1307,14 @@ static InterpretResult run() {
           memcpy(tristack_at(&(vm.tristack), vm.tristack.abi),
                  tristack_at_bc(&(vm.tristack), vm.currentFrame->slotsIndex),
                  (oldFrameSlotsIndex - vm.currentFrame->slotsIndex) * sizeof(Value));
+          vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);  //re-derive pointer
         }
 
         // Shorten the stack to whatever was its depth prior to entering the
         // frame we have now returned from.
         vm.tristack.stackDepth = oldFrameSlotsIndex;
+        assert(vm.currentFrame->slots == tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex));
+        assert(vm.currentFrame->slots >= cb_at(thread_cb, vm.tristack.abo));  //Slots must be contiguous, and in mutable section A.
         assert(vm.currentFrame->slotsIndex >= vm.tristack.abi);
 
         //Place the return value into the value stack.
