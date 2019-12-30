@@ -553,6 +553,8 @@ cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset) {
   CBO<Obj> cloneCBO = deriveMutableObjectLayer(id, object_offset);
   int ret;
 
+  (void)ret;
+
   printf("#%ju@%ju cloneObject() ", (uintmax_t)id.id, object_offset);
   printObject(id, object_offset, srcCBO.clp());
   printf(" : NEW OFFSET = %ju\n", (uintmax_t)cloneCBO.mo());
