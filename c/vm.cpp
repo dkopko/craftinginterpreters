@@ -780,7 +780,7 @@ static bool bindMethod(OID<ObjClass> klass, OID<ObjString> name) {
 // new open upvalue and adds it to the VM's list of upvalues.
 // The passed-in stackIndex is in the domain of the full stack (and not just
 // an offset within the frame's region of the stack).
-static OID<ObjUpvalue> captureUpvalue(unsigned int stackIndex) {  //CBINT FIXME will need to be offset.
+static OID<ObjUpvalue> captureUpvalue(unsigned int stackIndex) {
   // If there are no open upvalues at all, we must need a new one.
   if (vm.openUpvalues.is_nil()) {
     vm.openUpvalues = newUpvalue(stackIndex);

@@ -1123,9 +1123,6 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
   (void)ret;
 
   // Condense objtable
-  //FIXME objtable should probably be considered the owner of memory, and so
-  //should not just be copying key->value mappings, but also duplicating the
-  //values.
   {
     struct copy_objtable_closure closure;
 

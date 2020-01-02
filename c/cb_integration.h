@@ -221,7 +221,9 @@ struct gc_request
   unsigned int      triframes_cbi; // C base index (always 0, really)
   unsigned int      triframes_frameCount;  // [0, stack_depth-1] are valid entries.
 
-  //FIXME openUpvalues??
+  //NOTE: openUpvalues need no special handling, as they are simply a linked
+  // list through OIDs in the objtable.  As long as they are grayed, they will
+  // be consolidated through objtable consolidation.
 
   //Strings
   struct cb_region  strings_new_region;
@@ -232,8 +234,6 @@ struct gc_request
   struct cb_region  globals_new_region;
   cb_offset_t       globals_root_b;
   cb_offset_t       globals_root_c;
-
-  //FIXME grayCompilerRoots() -- entailed by thread_objtable, right??
 };
 
 struct gc_response
