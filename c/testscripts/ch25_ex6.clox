@@ -1,0 +1,19 @@
+// http://craftinginterpreters.com/closures.html
+fun outer() {
+  var x = "value";
+  fun middle() {
+    fun inner() {
+      print x;
+    }
+
+    print "create inner closure";
+    return inner;
+  }
+
+  print "return from outer";
+  return middle;
+}
+
+var mid = outer();  //should print "return from outer"
+var in = mid();     //should print "create inner closure"
+in();               //should print "value"

@@ -1,0 +1,14 @@
+// http://craftinginterpreters.com/closures.html
+var x = "global";
+fun outer() {
+  var x = "outer";
+
+  fun inner() {
+    print x;
+  }
+
+  inner();
+}
+
+outer();  //should print "outer"
+
