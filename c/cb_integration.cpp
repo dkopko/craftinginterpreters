@@ -828,6 +828,11 @@ copy_objtable_b(const struct cb_term *key_term,
   if (offset == CB_NULL)
     return 0;
 
+  //Skip those ObjIDs which are not marked dark (and are therefore unreachable
+  // from the roots of the VM state).
+  if (!objectIsDark(obj_id))
+    return 0;
+
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
 
   clone_offset = cloneObject(obj_id, offset);
@@ -869,6 +874,11 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   cb_offset_t c0, c1;
   bool needs_external_size_adjustment = false;
   int ret;
+
+  //Skip those ObjIDs which are not marked dark (and are therefore unreachable
+  // from the roots of the VM state).
+  if (!objectIsDark(objOID))
+    return 0;
 
   c0 = cb_region_cursor(cl->dest_region);
 

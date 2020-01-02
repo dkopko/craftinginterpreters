@@ -135,12 +135,10 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
   }
 }
 
-static bool objectIsDark(const OID<Obj> objectOID) {
+bool objectIsDark(const OID<Obj> objectOID) {
   cb_term key_term;
-  cb_term value_term;
 
   cb_term_set_u64(&key_term, objectOID.id().id);
-  cb_term_set_u64(&value_term, objectOID.id().id);
 
   return cb_bst_contains_key(thread_cb,
                              thread_darkset_bst,
@@ -256,7 +254,16 @@ static void grayBst(cb_offset_t bst) {
 }
 
 static void grayObjectLeaves(const OID<Obj> objectOID) {
-  const Obj *object = objectOID.clip();
+  const Obj *object;
+  bool found_in_b;
+
+  //There should never be any A region contents during this call.
+  assert(!objectOID.clipA());
+
+  //Find the Obj whose leaves are to be darkened in either the B or C region.
+  object = objectOID.clipB();
+  found_in_b = !!object;
+  if (!found_in_b) object = objectOID.clipC();
 
 #ifdef DEBUG_TRACE_GC
   printf("#%ju grayObjectLeaves() ", (uintmax_t)objectOID.id().id);
@@ -277,6 +284,18 @@ static void grayObjectLeaves(const OID<Obj> objectOID) {
       grayObject(klass->name.id());
       grayObject(klass->superclass.id());
       grayBst(klass->methods_bst);
+
+      //NOTE: Classes are represented by ObjClass layers.  The garbage
+      // collector only deals with regions B and C.  If retrieval of the
+      // objectOID has given us a B region ObjClass layer, then also gray any
+      // methods of any backing C region ObjClass layer.
+      if (found_in_b) {
+        const ObjClass* klass_C = (const ObjClass*)objectOID.clipC();
+        if (klass_C) {
+          printf("DANDEBUG FOUND BACKING CLASS\n");
+          grayBst(klass_C->methods_bst);
+        }
+      }
       break;
     }
 
@@ -302,6 +321,18 @@ static void grayObjectLeaves(const OID<Obj> objectOID) {
       const ObjInstance* instance = (const ObjInstance*)object;
       grayObject(instance->klass.id());
       grayBst(instance->fields_bst);
+
+      //NOTE: Instances are represented by ObjInstance layers.  The garbage
+      // collector only deals with regions B and C.  If retrieval of the
+      // objectOID has given us a B region ObjInstance layer, then also gray any
+      // fields of any backing C region ObjInstance layer.
+      if (found_in_b) {
+        const ObjInstance* instance_C = (const ObjInstance*)objectOID.clipC();
+        if (instance_C) {
+          printf("DANDEBUG FOUND BACKING INSTANCE\n");
+          grayBst(instance_C->fields_bst);
+        }
+      }
       break;
     }
 
@@ -594,17 +625,8 @@ cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset) {
   return cloneCBO.mo();
 }
 
-void collectGarbageCB() {
-  static int gccount = 0;
-  struct gc_request req;
-  struct gc_response resp;
+void freezeARegions() {
   int ret;
-
-  (void)gccount;
-#ifdef DEBUG_TRACE_GC
-  printf("-- BEGIN CB GC %d\n", gccount);
-#endif
-
 
   // === Begin Freeze A regions ===
   // Objtable
@@ -675,6 +697,18 @@ void collectGarbageCB() {
   assert(ret == 0);
   // === End Freeze A regions ===
 
+}
+
+void collectGarbageCB() {
+  static int gccount = 0;
+  struct gc_request req;
+  struct gc_response resp;
+  int ret;
+
+  (void)gccount;
+#ifdef DEBUG_TRACE_GC
+  printf("-- BEGIN CB GC %d\n", gccount);
+#endif
 
   memset(&req, 0, sizeof(req));
   memset(&resp, 0, sizeof(resp));
@@ -933,7 +967,7 @@ void collectGarbage() {
   printStateOfWorld("pre-gc");
 #endif
 
-  collectGarbageCB();
+  freezeARegions();
 
   // Mark the stack roots.
   for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
@@ -951,6 +985,10 @@ void collectGarbage() {
     grayObject(upvalue.id());
   }
 
+  //FIXME CBINT The vm.strings interning table needs a greying rework now that
+  // graying happens in the garbage collector after the A region has been frozen.
+  // rework grayInterningTable() and tableRemoveWhite()
+
   // Mark the global roots.
   grayInterningTable(&vm.strings);
   grayTable(&vm.globals);
@@ -965,7 +1003,9 @@ void collectGarbage() {
   }
 
   // Delete unused interned strings.
-  tableRemoveWhite(&vm.strings);
+  //tableRemoveWhite(&vm.strings);  //FIXME CBINT put back?
+
+  collectGarbageCB();
 
   // Collect the white objects.
   OID<Obj>* object = &vm.objects;
