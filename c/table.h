@@ -31,11 +31,7 @@ OID<ObjString> tableFindString(Table      *table,
                                int         length,
                                uint32_t    hash);
 
-void tableRemoveWhite(Table* table);
-
 void grayTable(Table* table);
-
-void grayInterningTable(Table* table);
 
 void printTable(Table* table, const char *desc);
 

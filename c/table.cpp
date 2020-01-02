@@ -241,59 +241,6 @@ done:
   return AS_OBJ_ID(internedStringValue);
 }
 
-struct delete_white_keys_closure
-{
-  struct cb        **cb;
-  struct cb_region  *region;
-  cb_offset_t        new_root;
-  cb_offset_t        cutoff_offset;
-};
-
-static int
-delete_white_keys(const struct cb_term *key_term,
-                  const struct cb_term *value_term,
-                  void                 *closure)
-{
-  struct delete_white_keys_closure *c = (struct delete_white_keys_closure *)closure;
-  Value keyValue = numToValue(cb_term_get_dbl(key_term));
-  int ret;
-
-  if (isWhite(keyValue)) {
-    printf("DANDEBUG deleting white key of ");
-    printObjectValue(keyValue);
-    printf("\n");
-
-    ret = cb_bst_delete(c->cb,
-                        c->region,
-                        &(c->new_root),
-                        c->cutoff_offset,
-                        key_term);
-    assert(ret == 0);
-    (void)ret;
-  }
-
-  return CB_SUCCESS;
-}
-
-void
-tableRemoveWhite(Table *table)
-{
-  struct delete_white_keys_closure closure = { &thread_cb,
-                                               &thread_region,
-                                               table->root_a,
-                                               cb_cursor(thread_cb) };
-  int ret;
-
-  ret = cb_bst_traverse(thread_cb,
-                        table->root_a,
-                        &delete_white_keys,
-                        &closure);
-  assert(ret == 0);
-  (void)ret;
-
-  table->root_a = closure.new_root;
-}
-
 static int
 gray_entry(const struct cb_term *key_term,
            const struct cb_term *value_term,
@@ -302,29 +249,6 @@ gray_entry(const struct cb_term *key_term,
   grayValue(numToValue(cb_term_get_dbl(key_term)));
   grayValue(numToValue(cb_term_get_dbl(value_term)));
 
-  return CB_SUCCESS;
-}
-
-static int
-gray_entry_if_in_b_or_c(const struct cb_term *key_term,
-                        const struct cb_term *value_term,
-                        void                 *closure)
-{
-  Table *table = (Table *)closure;
-  struct cb_term temp_value_term;
-  int ret;
-
-  ret = cb_bst_lookup(thread_cb, table->root_b, key_term, &temp_value_term);
-  if (ret == 0) goto do_gray;
-  ret = cb_bst_lookup(thread_cb, table->root_c, key_term, &temp_value_term);
-  if (ret == 0) goto do_gray;
-  goto done;
-
-do_gray:
-  grayValue(numToValue(cb_term_get_dbl(key_term)));
-  grayValue(numToValue(cb_term_get_dbl(value_term)));
-
-done:
   return CB_SUCCESS;
 }
 
@@ -343,53 +267,6 @@ grayTable(Table* table)
                         table->root_a,
                         &gray_entry,
                         NULL);
-  assert(ret == 0);
-
-  ret = cb_bst_traverse(thread_cb,
-                        table->root_b,
-                        &gray_entry,
-                        NULL);
-  assert(ret == 0);
-
-  ret = cb_bst_traverse(thread_cb,
-                        table->root_c,
-                        &gray_entry,
-                        NULL);
-  assert(ret == 0);
-
-  (void)ret;
-}
-
-void
-grayInterningTable(Table* table)
-{
-  //NOTE: This is a special case needed for a table used for interning, written
-  //  with a nod to generality (i.e. handling TOMBSTONEs, which will never
-  //  truly exist in vm.strings). Using this on vm.strings will probably be the
-  //  only case we ever need.
-  //
-  //  The idea is to mark all "load-bearing" keys.  For table A, this is any key
-  //  which masks an entry in B or C, whether or not this key contains a value
-  //  or a TOMBSTONE. For those keys in A which do not mask entries in B or C,
-  //  then we require reachability from elsewhere in the program state to gray
-  //  this entry, which signifies it is still in use aside from our own use of
-  //  it.  For tables B and C, these tables must remain static in their
-  //  contents, and we must not allow any key or value still existing in the
-  //  table to become invalid, so all keys and values of these tables get
-  //  marked.
-  //
-  // For every entry in A, gray key and value if key is present in B or C.
-  //  (This is needed even if A's entry's value is just a TOMBSTONE which masks
-  //   an entry in B and/or C.)
-  // For every entry in B, gray key and value.
-  // For every entry in C, gray key and value.
-
-  int ret;
-
-  ret = cb_bst_traverse(thread_cb,
-                        table->root_a,
-                        &gray_entry_if_in_b_or_c,
-                        table);
   assert(ret == 0);
 
   ret = cb_bst_traverse(thread_cb,

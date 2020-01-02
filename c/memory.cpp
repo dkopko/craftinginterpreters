@@ -985,12 +985,10 @@ void collectGarbage() {
     grayObject(upvalue.id());
   }
 
-  //FIXME CBINT The vm.strings interning table needs a greying rework now that
-  // graying happens in the garbage collector after the A region has been frozen.
-  // rework grayInterningTable() and tableRemoveWhite()
-
   // Mark the global roots.
-  grayInterningTable(&vm.strings);
+  //NOTE: vm.strings is omitted here because it only holds weak references.
+  // These entries will be removed during consolidation if they were not
+  // grayed as reachable from the root set.
   grayTable(&vm.globals);
   grayCompilerRoots();
   grayObject(vm.initString.id());
@@ -1001,9 +999,6 @@ void collectGarbage() {
     OID<Obj> object = vm.grayStack.clp()[--vm.grayCount];
     grayObjectLeaves(object);
   }
-
-  // Delete unused interned strings.
-  //tableRemoveWhite(&vm.strings);  //FIXME CBINT put back?
 
   collectGarbageCB();
 

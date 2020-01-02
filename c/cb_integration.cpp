@@ -982,7 +982,17 @@ copy_strings_b(const struct cb_term *key_term,
                void                 *closure)
 {
   struct copy_strings_closure *cl = (struct copy_strings_closure *)closure;
+  Value keyValue = numToValue(cb_term_get_dbl(key_term));
   int ret;
+
+  //Skip those ObjIDs which are not marked dark (and are therefore unreachable
+  // from the roots of the VM state).
+  if (!objectIsDark(AS_OBJ_ID(keyValue))) {
+    printf("DANDEBUG DROPPING UNREACHABLE STRING (0 case) ");
+    printValue(keyValue);
+    printf("\n");
+    return 0;
+  }
 
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
   ret = cb_bst_insert(&(cl->dest_cb),
@@ -1006,8 +1016,19 @@ copy_strings_c_not_in_b(const struct cb_term *key_term,
                         void                 *closure)
 {
   struct copy_strings_closure *cl = (struct copy_strings_closure *)closure;
+  Value keyValue = numToValue(cb_term_get_dbl(key_term));
   struct cb_term temp_term;
   int ret;
+
+  //Skip those ObjIDs which are not marked dark (and are therefore unreachable
+  // from the roots of the VM state).
+  if (!objectIsDark(AS_OBJ_ID(keyValue))) {
+    printf("DANDEBUG DROPPING UNREACHABLE STRING (1 case) ");
+    printValue(keyValue);
+    printf("\n");
+    return 0;
+  }
+
 
   // If an entry exists in both B and C, B's entry should mask C's.
   if (cb_bst_lookup(cl->src_cb, cl->old_root_b, key_term, &temp_term) == 0)
