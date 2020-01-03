@@ -362,62 +362,7 @@ static void freeObject(OID<Obj> object) {
   // #ID, so that it can no longer be dereferenced via the runtime of the
   // executing program and will eventually have no @offset associated with it in
   // any region of the objtable map.
-
   objtable_invalidate(&thread_objtable, object.id());
-
-#if 0
-  const Obj   *obj        = object.clip();
-  cb_offset_t  obj_offset = object.co();
-  switch (obj->type) {
-    case OBJ_BOUND_METHOD:
-      FREE(ObjBoundMethod, obj_offset);
-      break;
-
-    case OBJ_CLASS: {
-      //ObjClass* klass = (ObjClass*)obj;
-      //freeTable(&klass->methods); FIXME CBINT
-      FREE(ObjClass, obj_offset);
-      break;
-    }
-
-    case OBJ_CLOSURE: {
-      ObjClosure* closure = (ObjClosure*)obj;
-      FREE_ARRAY(Value, closure->upvalues.co(), closure->upvalueCount);
-      FREE(ObjClosure, obj_offset);
-      break;
-    }
-
-    case OBJ_FUNCTION: {
-      //ObjFunction* function = (ObjFunction*)obj;
-      freeChunk(object.id());
-      FREE(ObjFunction, obj_offset);
-      break;
-    }
-
-    case OBJ_INSTANCE: {
-      //ObjInstance* instance = (ObjInstance*)obj;
-      // freeTable(&instance->fields); FIXME CBINT
-      FREE(ObjInstance, obj_offset);
-      break;
-    }
-
-    case OBJ_NATIVE:
-      FREE(ObjNative, obj_offset);
-      break;
-
-    case OBJ_STRING: {
-      ObjString* string = (ObjString*)obj;
-      FREE_ARRAY(char, string->chars.co(), string->length + 1);
-      string->chars = CB_NULL;
-      FREE(ObjString, obj_offset);
-      break;
-    }
-
-    case OBJ_UPVALUE:
-      FREE(ObjUpvalue, obj_offset);
-      break;
-  }
-#endif
 }
 
 cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
@@ -765,14 +710,13 @@ void collectGarbageCB() {
 
 
   // Prepare condensing strings B+C
-  //FIXME should these be calls to cb_bst_internal_size() instead?
   size_t strings_b_size = cb_bst_size(thread_cb, vm.strings.root_b);
   size_t strings_c_size = cb_bst_size(thread_cb, vm.strings.root_c);
   printf("DANDEBUG strings_b_size: %zd, strings_c_size: %zd\n",
          strings_b_size, strings_c_size);
   ret = cb_region_create(&thread_cb,
                          &req.strings_new_region,
-                         64 /* FIXME cacheline size */,
+                         CB_CACHE_LINE_SIZE,
                          strings_b_size + strings_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
@@ -780,14 +724,13 @@ void collectGarbageCB() {
   req.strings_root_c = vm.strings.root_c;
 
   // Prepare condensing globals B+C
-  //FIXME should these be calls to cb_bst_internal_size() instead?
   size_t globals_b_size = cb_bst_size(thread_cb, vm.globals.root_b);
   size_t globals_c_size = cb_bst_size(thread_cb, vm.globals.root_c);
   printf("DANDEBUG globals_b_size: %zd, globals_c_size: %zd\n",
          globals_b_size, globals_c_size);
   ret = cb_region_create(&thread_cb,
                          &req.globals_new_region,
-                         64 /* FIXME cacheline size */,
+                         CB_CACHE_LINE_SIZE,
                          globals_b_size + globals_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
