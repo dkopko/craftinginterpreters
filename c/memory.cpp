@@ -18,6 +18,7 @@
 
 #define GC_HEAP_GROW_FACTOR 2
 
+static int gciteration = 0;
 int gc_phase = GC_PHASE_NORMAL_EXEC;
 
 
@@ -646,14 +647,12 @@ void freezeARegions() {
 }
 
 void collectGarbageCB() {
-  static int gccount = 0;
   struct gc_request req;
   struct gc_response resp;
   int ret;
 
-  (void)gccount;
 #ifdef DEBUG_TRACE_GC
-  printf("-- BEGIN CB GC %d\n", gccount);
+  printf("-- BEGIN CB GC %d\n", gciteration);
 #endif
 
   memset(&req, 0, sizeof(req));
@@ -828,7 +827,7 @@ void collectGarbageCB() {
   gc_phase = GC_PHASE_NORMAL_EXEC;
 
 #ifdef DEBUG_TRACE_GC
-  printf("-- END CB GC %d\n", gccount++);
+  printf("-- END CB GC %d\n", gciteration);
 #endif
 }
 
@@ -854,7 +853,7 @@ void printStateOfWorld(const char *desc) {
 
   (void)ret;
 
-  printf("===== BEGIN STATE OF WORLD %s =====\n", desc);
+  printf("===== BEGIN STATE OF WORLD %s (gc: %d) =====\n", desc, gciteration);
 
   printf("----- begin objtable -----\n");
   ret = cb_bst_traverse(thread_cb,
@@ -897,7 +896,7 @@ void printStateOfWorld(const char *desc) {
   }
   printf("----- end vm.openUpvalues -----\n");
 
-  printf("===== END STATE OF WORLD %s =====\n", desc);
+  printf("===== END STATE OF WORLD %s (gc: %d) =====\n", desc, gciteration);
 }
 
 void collectGarbage() {
@@ -971,6 +970,7 @@ void collectGarbage() {
   printf("-- gc collected %ld bytes (from %ld to %ld) next at %ld, nestlevel:%d\n",
          before - vm.bytesAllocated, before, vm.bytesAllocated,
          vm.nextGC, --gcnestlevel);
+  ++gciteration;
 #endif
 }
 
