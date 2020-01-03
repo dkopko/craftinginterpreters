@@ -889,11 +889,11 @@ void printStateOfWorld(const char *desc) {
   printf("----- end vm.triframes -----\n");
 
   printf("----- begin vm.openUpvalues -----\n");
-  {
-    OID<ObjUpvalue> it = vm.openUpvalues;
-    printObject(it.id(), it.co(), (const Obj *)it.clip());
+  for (OID<ObjUpvalue> upvalue = vm.openUpvalues;
+       !upvalue.is_nil();
+       upvalue = upvalue.clip()->next) {
+    printObject(upvalue.id(), upvalue.co(), (const Obj *)upvalue.clip());
     printf("\n");
-    it = it.clip()->next;
   }
   printf("----- end vm.openUpvalues -----\n");
 
