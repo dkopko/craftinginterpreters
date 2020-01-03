@@ -12,7 +12,8 @@ extern __thread cb_offset_t       thread_cutoff_offset;
 extern __thread struct ObjTable   thread_objtable;
 extern __thread cb_offset_t       thread_darkset_bst;
 
-#define CB_NULL ((cb_offset_t)0)  //FIXME
+#define CB_CACHE_LINE_SIZE 64
+#define CB_NULL ((cb_offset_t)0)
 
 template<typename T>
 struct CBO
@@ -77,7 +78,7 @@ cb_offset_t objtable_lookup_C(ObjTable *obj_table, ObjID obj_id);
 void objtable_invalidate(ObjTable *obj_table, ObjID obj_id);
 
 
-#define CB_NULL_OID ((ObjID) { 0 })  //FIXME
+#define CB_NULL_OID ((ObjID) { 0 })
 
 cb_offset_t resolveAsMutableLayer(ObjID objid);
 
@@ -86,14 +87,14 @@ struct OID
 {
   ObjID objid_;
 
-  OID() : objid_(CB_NULL_OID) { } //FIXME factor out constant
+  OID() : objid_(CB_NULL_OID) { }
 
   OID(ObjID objid) : objid_(objid) { }
 
   OID(OID<T> const &rhs) : objid_(rhs.objid_) { }
 
   bool is_nil() const {
-    return (objid_.id == 0); //FIXME factor out constant
+    return (objid_.id == CB_NULL_OID.id);
   }
 
   //Underlying id
@@ -158,7 +159,6 @@ struct OID
   }
 
   //Remote dereference
-  //FIXME
   //T* rp(struct cb *remote_cb) {
   //  return static_cast<T*>(cb_at(remote_cb, offset_));
   //}

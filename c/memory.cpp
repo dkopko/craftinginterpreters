@@ -5,6 +5,7 @@
 #include <cb_bst.h>
 #include <cb_region.h>
 
+#include "cb_integration.h"
 #include "common.h"
 #include "compiler.h"
 #include "memory.h"
@@ -713,7 +714,7 @@ void collectGarbageCB() {
   memset(&req, 0, sizeof(req));
   memset(&resp, 0, sizeof(resp));
 
-  //FIXME prepare request contents
+  //Prepare request contents
   req.orig_cb = thread_cb;
 
   // Prepare condensing objtable B+C
@@ -723,7 +724,7 @@ void collectGarbageCB() {
          objtable_b_size, objtable_c_size);
   ret = cb_region_create(&thread_cb,
                          &req.objtable_new_region,
-                         64 /* FIXME cacheline size */,
+                         CB_CACHE_LINE_SIZE,
                          objtable_b_size + objtable_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
@@ -735,7 +736,7 @@ void collectGarbageCB() {
   printf("DANDEBUG tristack_b_plus_c_size: %zd\n", tristack_b_plus_c_size);
   ret = cb_region_create(&thread_cb,
                          &req.tristack_new_region,
-                         64 /* FIXME cacheline size */,
+                         CB_CACHE_LINE_SIZE,
                          tristack_b_plus_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
@@ -751,7 +752,7 @@ void collectGarbageCB() {
   printf("DANDEBUG triframes_b_plus_c_size: %zd\n", triframes_b_plus_c_size);
   ret = cb_region_create(&thread_cb,
                          &req.triframes_new_region,
-                         64 /* FIXME cacheline size */,
+                         CB_CACHE_LINE_SIZE,
                          triframes_b_plus_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);

@@ -102,7 +102,7 @@ int main(int argc, const char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  /* Make one allocation to preserve "CB_NULL", for now FIXME*/
+  /* Make one allocation to preserve CB_NULL == (cb_offset_t)0. */
   {
     cb_offset_t new_offset;
     printf("DANDEBUG before null allocation\n");

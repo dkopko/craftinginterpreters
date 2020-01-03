@@ -137,9 +137,9 @@ typedef struct sUpvalue {
   // point to this.
   Value closed;
 
-  // Open upvalues are stored in a linked list. This points to the next
-  // one in that list.
-  OID<struct sUpvalue> next;  //CBINT FIXME How will this linked list work under collection?
+  // Open upvalues are stored in a linked list. This points (via an OID lookup
+  // through the objtable) to the next one in that list.
+  OID<struct sUpvalue> next;
 } ObjUpvalue;
 
 typedef struct {
