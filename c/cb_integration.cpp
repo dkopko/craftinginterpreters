@@ -822,13 +822,17 @@ copy_objtable_b(const struct cb_term *key_term,
 
   //Skip those ObjIDs which have been invalidated.  (CB_NULL serves as a
   // tombstone in such cases).
-  if (offset == CB_NULL)
+  if (offset == CB_NULL) {
+    printf("DANDEBUG copy_objtable_b() skipping invalidated object #%ju.\n", (uintmax_t)obj_id.id);
     return 0;
+  }
 
   //Skip those ObjIDs which are not marked dark (and are therefore unreachable
   // from the roots of the VM state).
-  if (!objectIsDark(obj_id))
+  if (!objectIsDark(obj_id)) {
+    printf("DANDEBUG copy_objtable_b() skipping white object #%ju.\n", (uintmax_t)obj_id.id);
     return 0;
+  }
 
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
 
@@ -872,10 +876,15 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   bool needs_external_size_adjustment = false;
   int ret;
 
+  //Region C should never contain invalidated entries.
+  assert(cEntryOffset != CB_NULL);
+
   //Skip those ObjIDs which are not marked dark (and are therefore unreachable
   // from the roots of the VM state).
-  if (!objectIsDark(objOID))
+  if (!objectIsDark(objOID)) {
+    printf("DANDEBUG copy_objtable_c_not_in_b() skipping white object #%ju.\n", (uintmax_t)objOID.id().id);
     return 0;
+  }
 
   c0 = cb_region_cursor(cl->dest_region);
 
