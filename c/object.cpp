@@ -102,12 +102,14 @@ OID<ObjClosure> newClosure(OID<ObjFunction> function) {
   // Allocate the upvalue array first so it doesn't cause the closure
   // to get collected.
   CBO<OID<ObjUpvalue> > upvaluesCBO = ALLOCATE(OID<ObjUpvalue>, function.clip()->upvalueCount);
+  pin_new_lower_bound = upvaluesCBO.co();  //Begin tandem allocation set.
   OID<ObjUpvalue>* upvalues = upvaluesCBO.mlp();
   for (int i = 0; i < function.clip()->upvalueCount; i++) {
     upvalues[i] = CB_NULL_OID;
   }
 
   OID<ObjClosure> closureOID = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+  pin_new_lower_bound = CB_NULL;  //End tandem allocation set.
   ObjClosure* closure = closureOID.mlip();
   closure->function = function;
   closure->upvalues = upvaluesCBO;
@@ -207,20 +209,24 @@ OID<ObjString> rawAllocateString(const char* chars, int length) {
   uint32_t hash = hashString(chars, length);
 
   CBO<char> heapCharsCBO = ALLOCATE(char, length + 1);
+  pin_new_lower_bound = heapCharsCBO.co();  //Begin tandem allocation set.
   char* heapChars = heapCharsCBO.mlp();
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
 
   OID<ObjString> stringOID = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+  pin_new_lower_bound = CB_NULL;  //End tandem allocation set.
   ObjString* string = stringOID.mlip();
   string->length = length;
   string->chars = heapCharsCBO;
   string->hash = hash;
 
-  printf("DANDEBUG rawAllocateString() created new string#%ju@%ju\"%s\"\n",
+  printf("DANDEBUG rawAllocateString() created new string#%ju@%ju\"%.*s\"@%ju\n",
          (uintmax_t)stringOID.id().id,
          (uintmax_t)stringOID.co(),
-         heapChars);
+         length,
+         heapChars,
+         (uintmax_t)heapCharsCBO.co());
 
   return stringOID;
 }

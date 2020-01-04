@@ -12,6 +12,7 @@ enum {
 };
 
 extern int gc_phase;
+extern cb_offset_t pin_new_lower_bound;
 
 
 // This is only ever used on non-Obj allocations.
