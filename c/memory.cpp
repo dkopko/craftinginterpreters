@@ -572,7 +572,7 @@ cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset) {
   return cloneCBO.mo();
 }
 
-void freezeARegions() {
+void freezeARegions(cb_offset_t new_lower_bound) {
   int ret;
 
   // === Begin Freeze A regions ===
@@ -582,6 +582,7 @@ void freezeARegions() {
   thread_objtable.root_b = thread_objtable.root_a;
   ret = objtable_layer_init(&(thread_objtable.root_a));
   assert(ret == 0);
+  assert(thread_objtable.root_a >= new_lower_bound);
 
   // Tristack
   assert(vm.tristack.cbo == CB_NULL);
@@ -596,6 +597,7 @@ void freezeARegions() {
                            cb_alignof(Value),
                            sizeof(Value) * STACK_MAX);
   vm.tristack.abi = vm.tristack.stackDepth;
+  assert(vm.tristack.abo >= new_lower_bound);
 
   // Triframes
   assert(vm.triframes.cbo == CB_NULL);
@@ -610,8 +612,7 @@ void freezeARegions() {
                            cb_alignof(CallFrame),
                            sizeof(CallFrame) * FRAMES_MAX);
   vm.triframes.abi = vm.triframes.frameCount;
-
-  gc_phase = GC_PHASE_ACTIVE_GC;
+  assert(vm.triframes.abo >= new_lower_bound);
 
   // Strings
   assert(cb_bst_num_entries(thread_cb, vm.strings.root_c) == 0);
@@ -627,6 +628,7 @@ void freezeARegions() {
                     &clox_no_external_size,
                     &clox_no_external_size);
   assert(ret == 0);
+  assert(vm.strings.root_a >= new_lower_bound);
 
   // Globals
   assert(cb_bst_num_entries(thread_cb, vm.globals.root_c) == 0);
@@ -642,11 +644,10 @@ void freezeARegions() {
                     &clox_no_external_size,
                     &clox_no_external_size);
   assert(ret == 0);
-  // === End Freeze A regions ===
-
+  assert(vm.globals.root_a >= new_lower_bound);
 }
 
-void collectGarbageCB() {
+void collectGarbageCB(cb_offset_t new_lower_bound) {
   struct gc_request req;
   struct gc_response resp;
   int ret;
@@ -672,6 +673,7 @@ void collectGarbageCB() {
                          objtable_b_size + objtable_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
+  assert(cb_region_start(&(req.objtable_new_region)) >= new_lower_bound);
   req.objtable_root_b = thread_objtable.root_b;
   req.objtable_root_c = thread_objtable.root_c;
 
@@ -684,6 +686,7 @@ void collectGarbageCB() {
                          tristack_b_plus_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
+  assert(cb_region_start(&(req.tristack_new_region)) >= new_lower_bound);
   req.tristack_abi        = vm.tristack.abi;
   req.tristack_bbo        = vm.tristack.bbo;
   req.tristack_bbi        = vm.tristack.bbi;
@@ -700,6 +703,7 @@ void collectGarbageCB() {
                          triframes_b_plus_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
+  assert(cb_region_start(&(req.triframes_new_region)) >= new_lower_bound);
   req.triframes_abi        = vm.triframes.abi;
   req.triframes_bbo        = vm.triframes.bbo;
   req.triframes_bbi        = vm.triframes.bbi;
@@ -719,6 +723,7 @@ void collectGarbageCB() {
                          strings_b_size + strings_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
+  assert(cb_region_start(&(req.strings_new_region)) >= new_lower_bound);
   req.strings_root_b = vm.strings.root_b;
   req.strings_root_c = vm.strings.root_c;
 
@@ -733,6 +738,7 @@ void collectGarbageCB() {
                          globals_b_size + globals_c_size,
                          CB_REGION_FINAL);
   assert(ret == 0);
+  assert(cb_region_start(&(req.globals_new_region)) >= new_lower_bound);
   req.globals_root_b = vm.globals.root_b;
   req.globals_root_c = vm.globals.root_c;
 
@@ -746,12 +752,12 @@ void collectGarbageCB() {
 
 
   //Integrate condensed objtable.
-  cb_offset_t old_objtable_root_c = thread_objtable.root_c;
-  ret = objtable_layer_init(&(thread_objtable.root_c));
-  assert(ret == 0);
-  printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)old_objtable_root_c, (uintmax_t)thread_objtable.root_c);
+  printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)CB_BST_SENTINEL);
   printf("DANDEBUG objtable B %ju -> %ju\n", (uintmax_t)thread_objtable.root_b, (uintmax_t)resp.objtable_new_root_b);
+  thread_objtable.root_c = CB_BST_SENTINEL;
   thread_objtable.root_b = resp.objtable_new_root_b;
+  assert(thread_objtable.root_b >= new_lower_bound);
+  assert(thread_objtable.root_a >= new_lower_bound);
 
   //Integrate condensed tristack.
   //printf("BEFORE CONDENSING TRISTACK\n");
@@ -763,6 +769,9 @@ void collectGarbageCB() {
   vm.tristack.bbi = resp.tristack_new_bbi;
   //printf("AFTER CONDENSING TRISTACK\n");
   //tristack_print(&(vm.tristack));
+  //assert(vm.tristack.cbo >= new_lower_bound);
+  assert(vm.tristack.bbo >= new_lower_bound);
+  assert(vm.tristack.abo >= new_lower_bound);
 
   //Integrate condensed triframes.
   printf("DANDEBUG before integrating triframes  abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
@@ -777,6 +786,9 @@ void collectGarbageCB() {
   vm.triframes.cbi = 0;
   vm.triframes.bbo = resp.triframes_new_bbo;
   vm.triframes.bbi = resp.triframes_new_bbi;
+  //assert(vm.triframes.cbo >= new_lower_bound);
+  assert(vm.triframes.bbo >= new_lower_bound);
+  assert(vm.triframes.abo >= new_lower_bound);
   printf("DANDEBUG after integrating triframes  abo: %ju, abi: %ju, bbo: %ju, bbi: %ju, cbo: %ju, cbi: %ju\n",
       (uintmax_t)vm.triframes.abo,
       (uintmax_t)vm.triframes.abi,
@@ -796,30 +808,16 @@ void collectGarbageCB() {
   triframes_print(&(vm.triframes));
 
   //Integrate condensed strings.
-  ret = cb_bst_init(&thread_cb,
-                    &thread_region,
-                    &(vm.strings.root_c),
-                    &clox_value_deep_comparator,
-                    &clox_value_deep_comparator,
-                    &clox_value_render,
-                    &clox_value_render,
-                    &clox_no_external_size,
-                    &clox_no_external_size);
-  assert(ret == 0);
+  vm.strings.root_c = CB_BST_SENTINEL;
   vm.strings.root_b = resp.strings_new_root_b;
+  assert(vm.strings.root_b >= new_lower_bound);
+  assert(vm.strings.root_a >= new_lower_bound);
 
   //Integrate condensed globals.
-  ret = cb_bst_init(&thread_cb,
-                    &thread_region,
-                    &(vm.globals.root_c),
-                    &clox_value_deep_comparator,
-                    &clox_value_deep_comparator,
-                    &clox_value_render,
-                    &clox_value_render,
-                    &clox_no_external_size,
-                    &clox_no_external_size);
-  assert(ret == 0);
+  vm.globals.root_c = CB_BST_SENTINEL;
   vm.globals.root_b = resp.globals_new_root_b;
+  assert(vm.globals.root_b >= new_lower_bound);
+  assert(vm.globals.root_a >= new_lower_bound);
 
   if (vm.currentFrame)
     vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);
@@ -855,7 +853,10 @@ void printStateOfWorld(const char *desc) {
 
   printf("===== BEGIN STATE OF WORLD %s (gc: %d) =====\n", desc, gciteration);
 
-  printf("----- begin objtable -----\n");
+  printf("----- begin objtable (a:%ju, b:%ju, c:%ju)-----\n",
+         thread_objtable.root_a,
+         thread_objtable.root_b,
+         thread_objtable.root_c);
   ret = cb_bst_traverse(thread_cb,
                         thread_objtable.root_a,
                         &printObjtableTraversal,
@@ -902,15 +903,19 @@ void printStateOfWorld(const char *desc) {
 void collectGarbage() {
   static int gcnestlevel = 0;
 
+  cb_offset_t new_lower_bound = cb_region_cursor(&thread_region);
+
   (void)gcnestlevel;
 
 #ifdef DEBUG_TRACE_GC
-  printf("-- gc begin nestlevel:%d\n", gcnestlevel++);
+  printf("-- gc begin nestlevel:%d, NEW_LOWER_BOUND:%ju\n", gcnestlevel++, (uintmax_t)new_lower_bound);
   size_t before = vm.bytesAllocated;
   printStateOfWorld("pre-gc");
 #endif
 
-  freezeARegions();
+  gc_phase = GC_PHASE_ACTIVE_GC;
+
+  freezeARegions(new_lower_bound);
 
   // Mark the stack roots.
   for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
@@ -943,7 +948,7 @@ void collectGarbage() {
     grayObjectLeaves(object);
   }
 
-  collectGarbageCB();
+  collectGarbageCB(new_lower_bound);
 
   // Collect the white objects.
   OID<Obj>* object = &vm.objects;
