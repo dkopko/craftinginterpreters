@@ -213,11 +213,8 @@ objtable_init(ObjTable *obj_table)
 
   ret = objtable_layer_init(&(obj_table->root_a));
   assert(ret == 0);
-  ret = objtable_layer_init(&(obj_table->root_b));
-  assert(ret == 0);
-  ret = objtable_layer_init(&(obj_table->root_c));
-  assert(ret == 0);
-
+  obj_table->root_b = CB_BST_SENTINEL;
+  obj_table->root_c = CB_BST_SENTINEL;
   obj_table->next_obj_id.id  = 1;
 }
 
