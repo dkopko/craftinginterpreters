@@ -82,6 +82,7 @@ clox_Obj_external_size(const struct cb *cb,
       return sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
 
     default:
+      printf("Unrecognized type: '%c'\n", (char)obj->type);
       assert(obj->type == OBJ_BOUND_METHOD
              || obj->type == OBJ_CLASS
              || obj->type == OBJ_CLOSURE
@@ -943,13 +944,19 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
       return 0;
     }
   } else {
-    //Nothing in B masks the presently-traversed entry in C, just insert it.
+    //Nothing in B masks the presently-traversed entry in C, just insert
+    //a clone of it.
+    cb_offset_t clone_offset = cloneObject(objOID.id(), cEntryOffset);
+    cb_term clone_value_term;
+
+    cb_term_set_u64(&clone_value_term, clone_offset);
+
     ret = cb_bst_insert(&(cl->dest_cb),
                         cl->dest_region,
                         cl->new_root_b,
                         cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
                         key_term,
-                        value_term);
+                        &clone_value_term);
     assert(ret == 0);
   }
 
