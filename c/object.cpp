@@ -176,11 +176,12 @@ static OID<ObjString> allocateString(CBO<char> adoptedChars, int length,
   push(stringValue);
 //< Garbage Collection not-yet
 //> Hash Tables allocate-store-string
-  printf("DANDEBUG interned string#%ju@%ju\"%.*s\"\n",
+  printf("DANDEBUG interned string#%ju@%ju\"%.*s\"@%ju\n",
          (uintmax_t)stringOID.id().id,
-         (uintmax_t)adoptedChars.co(),
+         (uintmax_t)stringOID.co(),
          length,
-         adoptedChars.clp());
+         adoptedChars.clp(),
+         (uintmax_t)adoptedChars.co());
   tableSet(&vm.strings, stringValue, stringValue);
 //> Garbage Collection not-yet
   pop();
@@ -241,13 +242,14 @@ OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
                                                 hash);
   if (!internedOID.is_nil()) {
     FREE_ARRAY(char, adoptedChars.co(), length + 1);
-    printf("DANDEBUG takeString() interned rawchars@%ju\"%.*s\" to string#%ju@%ju\"%s\"\n",
+    printf("DANDEBUG takeString() interned rawchars@%ju\"%.*s\" to string#%ju@%ju\"%s\"%ju\n",
            (uintmax_t)adoptedChars.co(),
            length,
            adoptedChars.clp(),
            (uintmax_t)internedOID.id().id,
            (uintmax_t)internedOID.co(),
-           internedOID.clip()->chars.clp());
+           internedOID.clip()->chars.clp(),
+           (uintmax_t)internedOID.clip()->chars.co());
     return internedOID;
   }
 
@@ -378,10 +380,11 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
       break;
 
     case OBJ_STRING:
-      printf("string#%ju@%ju\"%s\"",
+      printf("string#%ju@%ju\"%s\"@%ju",
              (uintmax_t)id.id,
              (uintmax_t)offset,
-             ((const ObjString *)obj)->chars.clp());
+             ((const ObjString *)obj)->chars.clp(),
+             (uintmax_t)((const ObjString *)obj)->chars.co());
       break;
 
     case OBJ_UPVALUE:
