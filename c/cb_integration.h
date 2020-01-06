@@ -11,9 +11,23 @@ extern __thread struct cb_region  thread_region;
 extern __thread cb_offset_t       thread_cutoff_offset;
 extern __thread struct ObjTable   thread_objtable;
 extern __thread cb_offset_t       thread_darkset_bst;
+extern __thread cb_offset_t       pinned_lower_bound;
 
 #define CB_CACHE_LINE_SIZE 64
 #define CB_NULL ((cb_offset_t)0)
+
+struct scoped_pin
+{
+  const char  *func_;
+  int          line_;
+  cb_offset_t  prev_pin_offset_;
+  cb_offset_t  curr_pin_offset_;
+
+  scoped_pin(const char *func, int line);
+  ~scoped_pin();
+};
+
+#define PIN_SCOPE scoped_pin _sp(__PRETTY_FUNCTION__, __LINE__)
 
 template<typename T>
 struct CBO

@@ -21,13 +21,6 @@
 static int gciteration = 0;
 int gc_phase = GC_PHASE_NORMAL_EXEC;
 
-//NOTE: For tandem allocations not yet having a presence in the VM state, we
-// need to temporarily hold any new_lower_bound until the tandem allocations
-// are completed, such that the latter allocations amongst the tandem set of
-// allocations don't accidentally clobber the earlier ones if a GC were to be
-// provoked.  'pin_new_lower_bound' is used for this reason.
-cb_offset_t pin_new_lower_bound;
-
 
 size_t
 alloc_size_get(const char *mem) {
@@ -916,8 +909,8 @@ void collectGarbage() {
 
   cb_offset_t new_lower_bound = cb_region_cursor(&thread_region);
 
-  if (pin_new_lower_bound != CB_NULL && pin_new_lower_bound < new_lower_bound)
-    new_lower_bound = pin_new_lower_bound;
+  if (pinned_lower_bound != CB_NULL && cb_offset_cmp(pinned_lower_bound, new_lower_bound) == -1)
+    new_lower_bound = pinned_lower_bound;
 
   (void)gcnestlevel;
 

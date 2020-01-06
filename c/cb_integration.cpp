@@ -16,6 +16,30 @@ __thread cb_offset_t       thread_cutoff_offset = (cb_offset_t)0ULL;
 __thread struct ObjTable   thread_objtable;
 __thread cb_offset_t       thread_darkset_bst   = CB_BST_SENTINEL;
 
+//NOTE: For tandem allocations not yet having a presence in the VM state, we
+// need to temporarily hold any new_lower_bound until the tandem allocations
+// are completed, such that the latter allocations amongst the tandem set of
+// allocations don't accidentally clobber the earlier ones if a GC were to be
+// provoked.  'pin_new_lower_bound' is used for this reason.
+__thread cb_offset_t       pinned_lower_bound   = CB_NULL;
+
+scoped_pin::scoped_pin(const char *func, int line) {
+  func_ = func;
+  line_ = line;
+  prev_pin_offset_ = pinned_lower_bound;
+  curr_pin_offset_ = cb_region_cursor(&thread_region);
+
+  printf("DANDEBUG BEGIN PIN @ %ju (%s:%d)\n", (uintmax_t)curr_pin_offset_, func_, line_);
+  assert(pinned_lower_bound == CB_NULL || cb_offset_cmp(prev_pin_offset_, curr_pin_offset_) == -1 || cb_offset_cmp(prev_pin_offset_, curr_pin_offset_) == 0);
+  if (pinned_lower_bound == CB_NULL)
+    pinned_lower_bound = curr_pin_offset_;
+}
+scoped_pin::~scoped_pin() {
+  printf("DANDEBUG END PIN @ %ju (%s:%d)\n", (uintmax_t)curr_pin_offset_, func_, line_);
+  assert(cb_offset_cmp(pinned_lower_bound, curr_pin_offset_) == -1 || cb_offset_cmp(pinned_lower_bound, curr_pin_offset_) == 0);
+  pinned_lower_bound = prev_pin_offset_;
+}
+
 size_t
 clox_no_external_size(const struct cb      *cb,
                       const struct cb_term *term)
