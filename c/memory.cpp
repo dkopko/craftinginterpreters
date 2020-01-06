@@ -859,10 +859,13 @@ void printStateOfWorld(const char *desc) {
 
   printf("===== BEGIN STATE OF WORLD %s (gc: %d) =====\n", desc, gciteration);
 
-  printf("----- begin objtable (a:%ju, b:%ju, c:%ju)-----\n",
+  printf("----- begin objtable (a:%ju, asz:%zu, b:%ju, bsz:%zu, c:%ju, csz:%zu)-----\n",
          thread_objtable.root_a,
+         (size_t)cb_bst_size(thread_cb, thread_objtable.root_a),
          thread_objtable.root_b,
-         thread_objtable.root_c);
+         (size_t)cb_bst_size(thread_cb, thread_objtable.root_b),
+         thread_objtable.root_c,
+         (size_t)cb_bst_size(thread_cb, thread_objtable.root_b));
   ret = cb_bst_traverse(thread_cb,
                         thread_objtable.root_a,
                         &printObjtableTraversal,
