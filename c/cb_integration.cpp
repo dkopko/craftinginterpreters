@@ -1194,6 +1194,18 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     assert(ret == 0);
   }
 
+  // Keep a view of the pre-collection objtable setup.
+  ObjTable old_objtable;
+  old_objtable.root_a = CB_BST_SENTINEL;
+  old_objtable.root_b = req->objtable_root_b;
+  old_objtable.root_c = req->objtable_root_c;
+
+  // Keep a view of the post-collection objtable setup.
+  ObjTable new_objtable;
+  new_objtable.root_a = resp->objtable_new_root_b;
+  new_objtable.root_b = CB_BST_SENTINEL;
+  new_objtable.root_c = CB_BST_SENTINEL;
+
   //Condense tristack
   {
     cb_offset_t   new_bbo              = cb_region_start(&(req->tristack_new_region));
@@ -1233,19 +1245,33 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
 
     //Copy C section
     while (i < req->triframes_frameCount && i < req->triframes_bbi) {
-      CallFrame *src = &(old_c_frames[i - req->triframes_cbi]);
+      CallFrame *src  = &(old_c_frames[i - req->triframes_cbi]);
+      CallFrame *dest = &(new_condensed_frames[i]);
       //printf("Copying C frame: ");
       //printCallFrame(src);
-      new_condensed_frames[i] = *src;
+      *dest = *src;
+
+      //The CallFrame::ip field is a raw pointer and must be adjusted due to
+      //the chunk's code array's relocation.
+      size_t old_ip_relloc = src->ip - src->closure.clip_alt(&old_objtable)->function.clip_alt(&old_objtable)->chunk.code.clp();
+      dest->ip = &(dest->closure.clip_alt(&new_objtable)->function.clip_alt(&new_objtable)->chunk.code.clp()[old_ip_relloc]);
+
       ++i;
     }
 
     //Copy B section
     while (i < req->triframes_frameCount && i < req->triframes_abi) {
-      CallFrame *src = &(old_b_frames[i - req->triframes_bbi]);
+      CallFrame *src  = &(old_b_frames[i - req->triframes_bbi]);
+      CallFrame *dest = &(new_condensed_frames[i]);
       //printf("Copying B frame: ");
       //printCallFrame(src);
-      new_condensed_frames[i] = *src;
+      *dest = *src;
+
+      //The CallFrame::ip field is a raw pointer and must be adjusted due to
+      //the chunk's code array's relocation.
+      size_t old_ip_relloc = src->ip - src->closure.clip_alt(&old_objtable)->function.clip_alt(&old_objtable)->chunk.code.clp();
+      dest->ip = &(dest->closure.clip_alt(&new_objtable)->function.clip_alt(&new_objtable)->chunk.code.clp()[old_ip_relloc]);
+
       ++i;
     }
 

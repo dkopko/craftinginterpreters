@@ -121,6 +121,10 @@ struct OID
     return objtable_lookup(&thread_objtable, objid_);
   }
 
+  cb_offset_t co_alt(ObjTable *alt_objtable) const {
+    return objtable_lookup(alt_objtable, objid_);
+  }
+
   //Underlying offset, if this ObjID exists in A region mapping. CB_NULL otherwise.
   cb_offset_t co_A() const {
     return objtable_lookup_A(&thread_objtable, objid_);
@@ -144,6 +148,11 @@ struct OID
   //Local dereference
   const T* clip() const {
     return static_cast<const T*>(cb_at(thread_cb, co()));
+  }
+
+  //Alternate dereference
+  const T* clip_alt(ObjTable *alt_objtable) const {
+    return static_cast<const T*>(cb_at(thread_cb, co_alt(alt_objtable)));
   }
 
   //Local dereference, region A only
