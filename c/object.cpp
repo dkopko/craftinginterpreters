@@ -148,6 +148,7 @@ OID<ObjInstance> newInstance(OID<ObjClass> klass) {
 //> Calls and Functions not-yet
 
 OID<ObjNative> newNative(NativeFn function) {
+  PIN_SCOPE;
   OID<ObjNative> nativeOID = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
   ObjNative* native = nativeOID.mlip();
   native->function = function;
@@ -162,6 +163,7 @@ static ObjString* allocateXString(char* chars, int length) {
 //> Hash Tables allocate-string
 static OID<ObjString> allocateString(CBO<char> adoptedChars, int length,
                                      uint32_t hash) {
+  PIN_SCOPE;
 //< Hash Tables allocate-string
   OID<ObjString> stringOID = ALLOCATE_OBJ(ObjString, OBJ_STRING);
   ObjString* string = stringOID.mlip();
@@ -264,6 +266,7 @@ OID<ObjString> takeString(CBO<char> /*char[]*/ adoptedChars, int length) {
 
 //< take-string
 OID<ObjString> copyString(const char* chars, int length) {
+  PIN_SCOPE;
 //> Hash Tables copy-string-hash
   uint32_t hash = hashString(chars, length);
 //> copy-string-intern

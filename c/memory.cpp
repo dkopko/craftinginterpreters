@@ -367,6 +367,7 @@ static void freeObject(OID<Obj> object) {
 }
 
 cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
+  PIN_SCOPE;
   CBO<Obj> srcCBO = object_offset;
   CBO<Obj> destCBO;
 

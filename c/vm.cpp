@@ -341,6 +341,7 @@ static void runtimeError(const char* format, ...) {
 //> Calls and Functions not-yet
 
 static void defineNative(const char* name, NativeFn function) {
+  PIN_SCOPE;
   OID<ObjString> nameOID = copyString(name, (int)strlen(name));
   Value nameVal = OBJ_VAL(nameOID.id());
   push(nameVal);  //Keep garbage collector happy. CBINT FIXME not needed
@@ -885,6 +886,7 @@ static bool isFalsey(Value value) {
 //< Types of Values is-falsey
 //> Strings concatenate
 static void concatenate() {
+  PIN_SCOPE;
 /* Strings concatenate < Garbage Collection not-yet
   ObjString* b = AS_STRING(pop());
   ObjString* a = AS_STRING(pop());
