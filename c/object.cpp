@@ -397,7 +397,8 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
       break;
 
     default:
-      printf("#?BADOBJ?#");
+      printf("#?BADOBJ?-type'%c'#", obj->type);
+      abort();
       break;
   }
 }
