@@ -35,10 +35,13 @@ extern int gc_phase;
     ((capacity) < 8 ? 8 : (capacity) * 2)
 
 #define GROW_ARRAY(previous, type, oldCount, count) \
-    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false, false)
+    logged_grow_array(&thread_cb, &thread_region, #type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false, false)
 
 #define GROW_ARRAY_NOGC(previous, type, oldCount, count) \
-    logged_grow_array(#type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false, true)
+    logged_grow_array(&thread_cb, &thread_region, #type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false, true)
+
+#define GROW_ARRAY_NOGC_WITHIN(cb, region, previous, type, oldCount, count) \
+    logged_grow_array(cb, region, #type, previous, sizeof(type), (oldCount), (count), cb_alignof(type), false, true)
 
 #define FREE_ARRAY(type, previous, oldCount) \
     logged_free_array(#type, previous, sizeof(type), (oldCount), cb_alignof(type), false)
@@ -83,9 +86,11 @@ logged_free(const char *typeName, cb_offset_t previous, size_t typeSize, size_t 
 }
 
 extern inline cb_offset_t
-logged_grow_array(const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t count, size_t alignment, bool isObject, bool suppress_gc)
+logged_grow_array(struct cb **cb, struct cb_region *region, const char *typeName, cb_offset_t previous, size_t typeSize, size_t oldCount, size_t count, size_t alignment, bool isObject, bool suppress_gc)
 {
-  cb_offset_t retval = reallocate(previous, typeSize * oldCount, typeSize * count, alignment, isObject, suppress_gc);
+  cb_offset_t retval = reallocate_within(cb, region, previous, typeSize * oldCount, typeSize * count, alignment, isObject, suppress_gc);
+
+  //FIXME add cb and region details to logging?
 
 #ifdef DEBUG_TRACE_GC
   if (count > oldCount) {
