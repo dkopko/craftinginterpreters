@@ -383,7 +383,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
   switch (srcCBO.clp()->type) {
     case OBJ_BOUND_METHOD: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true, true);
-      ObjBoundMethod       *dest = (ObjBoundMethod *)destCBO.mlp();        //FIXME needs within
+      ObjBoundMethod       *dest = (ObjBoundMethod *)destCBO.mrp(*cb);
       const ObjBoundMethod *src  = (const ObjBoundMethod *)srcCBO.clp();
 
       dest->obj      = src->obj;
@@ -395,7 +395,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
     case OBJ_CLASS: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true, true);
-      ObjClass       *dest = (ObjClass *)destCBO.mlp();  //FIXME needs within
+      ObjClass       *dest = (ObjClass *)destCBO.mrp(*cb);
       const ObjClass *src  = (const ObjClass *)srcCBO.clp();
 
       dest->obj         = src->obj;
@@ -409,7 +409,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
     case OBJ_CLOSURE: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true, true);
-      ObjClosure *dest      = (ObjClosure *)destCBO.mlp();  //FIXME needs within
+      ObjClosure *dest      = (ObjClosure *)destCBO.mrp(*cb);
       const ObjClosure *src = (const ObjClosure *)srcCBO.clp();
 
       dest->obj          = src->obj;
@@ -417,7 +417,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
       dest->upvalues     = GROW_ARRAY_NOGC(CB_NULL, OID<ObjUpvalue>, 0, src->upvalueCount);  //FIXME needs within
       {
         const OID<ObjUpvalue> *srcUpvalues = src->upvalues.clp();
-        OID<ObjUpvalue> *destUpvalues = dest->upvalues.mlp();  //FIXME needs within
+        OID<ObjUpvalue> *destUpvalues = dest->upvalues.mrp(*cb);
 
         for (unsigned int i = 0, e = src->upvalueCount; i < e; ++i) {
           //printf("DANDEBUG copying upvalue (srcUpvalues:%p, srcUpvalues[%d].id(): %ju, srcUpvalues[%d].clip():%p\n",
@@ -434,7 +434,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
     case OBJ_FUNCTION: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true, true);
-      ObjFunction       *dest = (ObjFunction *)destCBO.mlp();  //FIXME needs within
+      ObjFunction       *dest = (ObjFunction *)destCBO.mrp(*cb);
       const ObjFunction *src  = (const ObjFunction *)srcCBO.clp();
 
       dest->obj          = src->obj;
@@ -443,13 +443,13 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
       dest->chunk.count    = src->chunk.count;
       dest->chunk.capacity = src->chunk.capacity;
       dest->chunk.code = GROW_ARRAY_NOGC(CB_NULL, uint8_t, 0, src->chunk.capacity);  //FIXME needs within
-      memcpy(dest->chunk.code.mlp(), src->chunk.code.clp(), src->chunk.capacity * sizeof(uint8_t));
+      memcpy(dest->chunk.code.mrp(*cb), src->chunk.code.clp(), src->chunk.capacity * sizeof(uint8_t));
       dest->chunk.lines = GROW_ARRAY_NOGC(CB_NULL, int, 0, src->chunk.capacity);  //FIXME needs within
-      memcpy(dest->chunk.lines.mlp(), src->chunk.lines.clp(), src->chunk.capacity * sizeof(int));
+      memcpy(dest->chunk.lines.mrp(*cb), src->chunk.lines.clp(), src->chunk.capacity * sizeof(int));
       dest->chunk.constants.capacity = src->chunk.constants.capacity;
       dest->chunk.constants.count    = src->chunk.constants.count;
       dest->chunk.constants.values   = GROW_ARRAY_NOGC(CB_NULL, Value, 0, src->chunk.constants.capacity); //FIXME needs within
-      memcpy(dest->chunk.constants.values.mlp(), src->chunk.constants.values.clp(), src->chunk.constants.capacity * sizeof(Value));
+      memcpy(dest->chunk.constants.values.mrp(*cb), src->chunk.constants.values.clp(), src->chunk.constants.capacity * sizeof(Value));
       dest->name         = src->name;
 
       break;
@@ -457,7 +457,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
     case OBJ_INSTANCE: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true, true);
-      ObjInstance       *dest = (ObjInstance *)destCBO.mlp();  //FIXME needs within
+      ObjInstance       *dest = (ObjInstance *)destCBO.mrp(*cb);
       const ObjInstance *src  = (const ObjInstance *)srcCBO.clp();
 
       dest->obj        = src->obj;
@@ -470,7 +470,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
     case OBJ_NATIVE: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true, true);
-      ObjNative       *dest = (ObjNative *)destCBO.mlp();  //FIXME needs within
+      ObjNative       *dest = (ObjNative *)destCBO.mrp(*cb);
       const ObjNative *src  = (const ObjNative *)srcCBO.clp();
 
       dest->obj      = src->obj;
@@ -481,14 +481,14 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
     case OBJ_STRING: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true, true);
-      ObjString       *dest = (ObjString *)destCBO.mlp();  //FIXME needs within
+      ObjString       *dest = (ObjString *)destCBO.mrp(*cb);
       const ObjString *src  = (const ObjString *)srcCBO.clp();
 
       dest->obj    = src->obj;
       dest->length = src->length;
       dest->chars  = GROW_ARRAY_NOGC(CB_NULL, char, 0, src->length + 1);  //FIXME needs within
-      memcpy(dest->chars.mlp(), src->chars.clp(), src->length * sizeof(char));  //FIXME needs within for the mlp()
-      dest->chars.mlp()[src->length] = '\0';  //FIXME needs within for the mlp()
+      memcpy(dest->chars.mrp(*cb), src->chars.clp(), src->length * sizeof(char));
+      dest->chars.mrp(*cb)[src->length] = '\0';
       dest->hash   = src->hash;
 
       break;
@@ -496,7 +496,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
     case OBJ_UPVALUE: {
       destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true, true);
-      ObjUpvalue       *dest = (ObjUpvalue *)destCBO.mlp();  //FIXME needs within
+      ObjUpvalue       *dest = (ObjUpvalue *)destCBO.mrp(*cb);
       const ObjUpvalue *src  = (const ObjUpvalue *)srcCBO.clp();
 
       dest->obj             = src->obj;
