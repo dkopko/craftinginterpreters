@@ -44,6 +44,9 @@ extern int gc_phase;
     logged_free_array(#type, previous, sizeof(type), (oldCount), cb_alignof(type), false)
 
 
+cb_offset_t reallocate_within(struct cb **cb, struct cb_region *region, cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc);
+
+//Implicitly uses thread_cb and thread_region
 cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc);
 
 

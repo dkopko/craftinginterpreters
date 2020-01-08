@@ -65,7 +65,7 @@ clobber_mem(void *p, size_t len) {
 #endif
 }
 
-cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc) {
+cb_offset_t reallocate_within(struct cb **cb, struct cb_region *region, cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc) {
   vm.bytesAllocated += newSize - oldSize;
 
   if (!suppress_gc) {
@@ -85,7 +85,7 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     //Check that old values are as expected, given that this function
     //historically has expected to be given the old size and alignments
     //cannot change over reallocate()s.
-    char *mem = (char *)cb_at(thread_cb, previous);
+    char *mem = (char *)cb_at(*cb, previous);
     assert(alloc_size_get(mem) == oldSize);
     assert(alloc_alignment_get(mem) == alignment);
     assert(alloc_is_object_get(mem) == isObject);
@@ -94,10 +94,10 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
 #endif
 
   if (newSize == 0) {
-    clobber_mem(cb_at(thread_cb, previous), oldSize);
+    clobber_mem(cb_at(*cb, previous), oldSize);
     return CB_NULL;
   } else if (newSize < oldSize) {
-    clobber_mem(((char *)cb_at(thread_cb, previous)) + newSize, oldSize - newSize);
+    clobber_mem(((char *)cb_at(*cb, previous)) + newSize, oldSize - newSize);
     return previous;
   } else {
     size_t header_size = sizeof(size_t)   /* size field */
@@ -107,8 +107,8 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     cb_offset_t new_offset;
     int ret;
 
-    ret = cb_region_memalign(&thread_cb,
-                             &thread_region,
+    ret = cb_region_memalign(cb,
+                             region,
                              &new_offset,
                              alignment,
                              needed_contiguous_size);
@@ -117,7 +117,7 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     }
     new_offset = cb_offset_aligned_gte(new_offset + header_size, alignment);
 
-    char *mem = (char *)cb_at(thread_cb, new_offset);
+    char *mem = (char *)cb_at(*cb, new_offset);
     alloc_size_set(mem, newSize);
     alloc_alignment_set(mem, alignment);
     alloc_is_object_set(mem, isObject);
@@ -128,13 +128,17 @@ cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, siz
     // leave the ObjID the same, this may gloss over errors elsewhere, so we
     // force it to change for the sake of provoking any such errors.
     if (previous != CB_NULL) {
-      char *prevMem = (char *)cb_at(thread_cb, previous);
+      char *prevMem = (char *)cb_at(*cb, previous);
       memcpy(mem, prevMem, oldSize);
       clobber_mem(prevMem, oldSize);
     }
 
     return new_offset;
   }
+}
+
+cb_offset_t reallocate(cb_offset_t previous, size_t oldSize, size_t newSize, size_t alignment, bool isObject, bool suppress_gc) {
+  return reallocate_within(&thread_cb, &thread_region, previous, oldSize, newSize, alignment, isObject, suppress_gc);
 }
 
 bool objectIsDark(const OID<Obj> objectOID) {
