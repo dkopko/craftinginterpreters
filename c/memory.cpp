@@ -576,6 +576,8 @@ cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset) {
 void freezeARegions(cb_offset_t new_lower_bound) {
   int ret;
 
+  (void)ret;
+
   // Objtable
   assert(cb_bst_num_entries(thread_cb, thread_objtable.root_c) == 0);
   thread_objtable.root_c = thread_objtable.root_b;
