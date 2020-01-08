@@ -89,7 +89,7 @@ OID<ObjClass> newClass(OID<ObjString> name, OID<ObjClass> superclass) {
   klass->superclass = superclass;
 //< Superclasses not-yet
 //> Methods and Initializers not-yet
-  ret = methods_layer_init(&(klass->methods_bst));
+  ret = methods_layer_init(&thread_cb, &thread_region, &(klass->methods_bst));
   assert(ret == 0);
   (void)ret;
 //< Methods and Initializers not-yet

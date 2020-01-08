@@ -403,7 +403,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
       dest->superclass  = src->superclass;
       //NOTE: We expect lookup of methods to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      methods_layer_init(&(dest->methods_bst));  //FIXME needs within
+      methods_layer_init(cb, region, &(dest->methods_bst));
       break;
     }
 
