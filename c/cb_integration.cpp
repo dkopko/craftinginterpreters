@@ -824,7 +824,7 @@ struct copy_objtable_closure
   struct cb        *src_cb;
   cb_offset_t       old_root_b;
   cb_offset_t       old_root_c;
-  struct cb        *dest_cb;
+  struct cb        *dest_cb; //FIXME use **
   struct cb_region *dest_region;
   cb_offset_t      *new_root_b;
 };
@@ -863,7 +863,7 @@ copy_objtable_b(const struct cb_term *key_term,
 
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
 
-  clone_offset = cloneObject(obj_id, offset);
+  clone_offset = cloneObject(&(cl->dest_cb), cl->dest_region, obj_id, offset);
   cb_term_set_u64(&clone_value_term, clone_offset);
 
   ret = cb_bst_insert(&(cl->dest_cb),
@@ -972,7 +972,7 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   } else {
     //Nothing in B masks the presently-traversed entry in C, just insert
     //a clone of it.
-    cb_offset_t clone_offset = cloneObject(objOID.id(), cEntryOffset);
+    cb_offset_t clone_offset = cloneObject(&(cl->dest_cb), cl->dest_region, objOID.id(), cEntryOffset);
     cb_term clone_value_term;
 
     cb_term_set_u64(&clone_value_term, clone_offset);

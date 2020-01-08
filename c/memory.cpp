@@ -532,7 +532,7 @@ copy_entry_to_bst(const struct cb_term *key_term,
   return 0;
 }
 
-cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset) {
+cb_offset_t cloneObject(struct cb **cb, struct cb_region *region, ObjID id, cb_offset_t object_offset) {
   assert(gc_phase == GC_PHASE_CONSOLIDATE);
 
 
