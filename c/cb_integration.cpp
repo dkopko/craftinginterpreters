@@ -212,11 +212,11 @@ methods_layer_init(struct cb **cb, struct cb_region *region, cb_offset_t *bst_ro
 }
 
 int
-fields_layer_init(cb_offset_t *bst_root) {
+fields_layer_init(struct cb **cb, struct cb_region *region, cb_offset_t *bst_root) {
   int ret;
 
-  ret = cb_bst_init(&thread_cb,
-                    &thread_region,
+  ret = cb_bst_init(cb,
+                    region,
                     bst_root,
                     &clox_value_shallow_comparator,
                     &clox_value_shallow_comparator,

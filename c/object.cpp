@@ -138,7 +138,7 @@ OID<ObjInstance> newInstance(OID<ObjClass> klass) {
   OID<ObjInstance> instanceOID = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   ObjInstance* instance = instanceOID.mlip();
   instance->klass = klass;
-  ret = fields_layer_init(&(instance->fields_bst));
+  ret = fields_layer_init(&thread_cb, &thread_region, &(instance->fields_bst));
   assert(ret == 0);
   (void)ret;
 

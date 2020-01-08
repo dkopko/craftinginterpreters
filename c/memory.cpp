@@ -464,7 +464,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
       dest->klass      = src->klass;
       //NOTE: We expect lookup of fields to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      fields_layer_init(&(dest->fields_bst));  //FIXME needs within
+      fields_layer_init(cb, region, &(dest->fields_bst));
       break;
     }
 
