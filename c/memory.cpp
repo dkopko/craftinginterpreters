@@ -414,7 +414,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
       dest->obj          = src->obj;
       dest->function     = src->function;
-      dest->upvalues     = GROW_ARRAY_NOGC(CB_NULL, OID<ObjUpvalue>, 0, src->upvalueCount);  //FIXME needs within
+      dest->upvalues     = GROW_ARRAY_NOGC_WITHIN(cb, region, CB_NULL, OID<ObjUpvalue>, 0, src->upvalueCount);
       {
         const OID<ObjUpvalue> *srcUpvalues = src->upvalues.crp(*cb);
         OID<ObjUpvalue> *destUpvalues = dest->upvalues.mrp(*cb);
@@ -442,13 +442,13 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
       dest->upvalueCount = src->upvalueCount;
       dest->chunk.count    = src->chunk.count;
       dest->chunk.capacity = src->chunk.capacity;
-      dest->chunk.code = GROW_ARRAY_NOGC(CB_NULL, uint8_t, 0, src->chunk.capacity);  //FIXME needs within
+      dest->chunk.code = GROW_ARRAY_NOGC_WITHIN(cb, region, CB_NULL, uint8_t, 0, src->chunk.capacity);
       memcpy(dest->chunk.code.mrp(*cb), src->chunk.code.crp(*cb), src->chunk.capacity * sizeof(uint8_t));
-      dest->chunk.lines = GROW_ARRAY_NOGC(CB_NULL, int, 0, src->chunk.capacity);  //FIXME needs within
+      dest->chunk.lines = GROW_ARRAY_NOGC_WITHIN(cb, region, CB_NULL, int, 0, src->chunk.capacity);
       memcpy(dest->chunk.lines.mrp(*cb), src->chunk.lines.crp(*cb), src->chunk.capacity * sizeof(int));
       dest->chunk.constants.capacity = src->chunk.constants.capacity;
       dest->chunk.constants.count    = src->chunk.constants.count;
-      dest->chunk.constants.values   = GROW_ARRAY_NOGC(CB_NULL, Value, 0, src->chunk.constants.capacity); //FIXME needs within
+      dest->chunk.constants.values   = GROW_ARRAY_NOGC_WITHIN(cb, region, CB_NULL, Value, 0, src->chunk.constants.capacity);
       memcpy(dest->chunk.constants.values.mrp(*cb), src->chunk.constants.values.crp(*cb), src->chunk.constants.capacity * sizeof(Value));
       dest->name         = src->name;
 
@@ -486,7 +486,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
       dest->obj    = src->obj;
       dest->length = src->length;
-      dest->chars  = GROW_ARRAY_NOGC(CB_NULL, char, 0, src->length + 1);  //FIXME needs within
+      dest->chars  = GROW_ARRAY_NOGC_WITHIN(cb, region, CB_NULL, char, 0, src->length + 1);
       memcpy(dest->chars.mrp(*cb), src->chars.crp(*cb), src->length * sizeof(char));
       dest->chars.mrp(*cb)[src->length] = '\0';
       dest->hash   = src->hash;
