@@ -661,6 +661,8 @@ void collectGarbageCB(cb_offset_t new_lower_bound) {
   memset(&req, 0, sizeof(req));
   memset(&resp, 0, sizeof(resp));
 
+  gc_phase = GC_PHASE_PREPARE_REQUEST;
+
   //Prepare request contents
   req.orig_cb = thread_cb;
 
@@ -745,6 +747,7 @@ void collectGarbageCB(cb_offset_t new_lower_bound) {
   req.globals_root_c = vm.globals.root_c;
 
 
+  gc_phase = GC_PHASE_CONSOLIDATE;
   //Do the Garbage Collection / Condensing.
   ret = gc_perform(&req, &resp);
   if (ret != 0) {
@@ -753,6 +756,7 @@ void collectGarbageCB(cb_offset_t new_lower_bound) {
   assert(ret == 0);
 
 
+  gc_phase = GC_PHASE_INTEGRATE_RESULT;
   //Integrate condensed objtable.
   printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)CB_BST_SENTINEL);
   printf("DANDEBUG objtable B %ju -> %ju\n", (uintmax_t)thread_objtable.root_b, (uintmax_t)resp.objtable_new_root_b);
@@ -823,8 +827,6 @@ void collectGarbageCB(cb_offset_t new_lower_bound) {
 
   if (vm.currentFrame)
     vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);
-
-  gc_phase = GC_PHASE_NORMAL_EXEC;
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC %d\n", gciteration);
@@ -923,35 +925,36 @@ void collectGarbage() {
   printStateOfWorld("pre-gc");
 #endif
 
-  gc_phase = GC_PHASE_ACTIVE_GC;
-
+  gc_phase = GC_PHASE_FREEZE_A_REGIONS;
   freezeARegions(new_lower_bound);
 
-  // Mark the stack roots.
+  gc_phase = GC_PHASE_MARK_STACK_ROOTS;
   for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
     grayValue(*tristack_at(&(vm.tristack), i));
   }
 
+  gc_phase = GC_PHASE_MARK_FRAMES_ROOTS;
   for (unsigned int i = 0; i < vm.triframes.frameCount; i++) {
     grayObject(triframes_at(&(vm.triframes), i)->closure.id());
   }
 
-  // Mark the open upvalues.
+  gc_phase = GC_PHASE_MARK_OPEN_UPVALUES;
   for (OID<ObjUpvalue> upvalue = vm.openUpvalues;
        !upvalue.is_nil();
        upvalue = upvalue.clip()->next) {
     grayObject(upvalue.id());
   }
 
-  // Mark the global roots.
   //NOTE: vm.strings is omitted here because it only holds weak references.
   // These entries will be removed during consolidation if they were not
   // grayed as reachable from the root set.
+  gc_phase = GC_PHASE_MARK_GLOBAL_ROOTS;
   grayTable(&vm.globals);
   grayCompilerRoots();
   grayObject(vm.initString.id());
 
   // Traverse the references.
+  gc_phase = GC_PHASE_MARK_ALL_LEAVES;
   while (vm.grayCount > 0) {
     // Pop an item from the gray stack.
     OID<Obj> object = vm.grayStack.clp()[--vm.grayCount];
@@ -961,6 +964,7 @@ void collectGarbage() {
   collectGarbageCB(new_lower_bound);
 
   // Collect the white objects.
+  gc_phase = GC_PHASE_FREE_WHITE_SET;
   // Take off white objects from the front of the vm.objects list.
   while (!vm.objects.is_nil() && !objectIsDark(vm.objects)) {
     OID<Obj> unreached = vm.objects;
@@ -988,10 +992,13 @@ void collectGarbage() {
     }
   }
 
+  gc_phase = GC_PHASE_CLEAR_DARK_SET;
   clearDarkObjectSet();
 
   // Adjust the heap size based on live memory.
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;
+
+  gc_phase = GC_PHASE_NORMAL_EXEC;
 
 #ifdef DEBUG_TRACE_GC
   printStateOfWorld("post-gc");
