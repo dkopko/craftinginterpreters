@@ -63,8 +63,14 @@ struct CBO
   T* mlp() {
     return static_cast<T*>(cb_at(thread_cb, offset_));
   }
+
   //Remote dereference
   const T* crp(struct cb *remote_cb) const {
+    return static_cast<T*>(cb_at(remote_cb, offset_));
+  }
+
+  //Remote dereference
+  T* mrp(struct cb *remote_cb) const {
     return static_cast<T*>(cb_at(remote_cb, offset_));
   }
 };
