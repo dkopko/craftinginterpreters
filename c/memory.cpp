@@ -370,7 +370,8 @@ static void freeObject(OID<Obj> object) {
   objtable_invalidate(&thread_objtable, object.id());
 }
 
-cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
+cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, ObjID id, cb_offset_t object_offset) {
+  //FIXME we do not need to suppress gc for cases when this is used via mlip() (I think).
   PIN_SCOPE;
   CBO<Obj> srcCBO = object_offset;
   CBO<Obj> destCBO;
@@ -381,8 +382,8 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
 
   switch (srcCBO.clp()->type) {
     case OBJ_BOUND_METHOD: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true, true);
-      ObjBoundMethod       *dest = (ObjBoundMethod *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true, true);
+      ObjBoundMethod       *dest = (ObjBoundMethod *)destCBO.mlp();        //FIXME needs within
       const ObjBoundMethod *src  = (const ObjBoundMethod *)srcCBO.clp();
 
       dest->obj      = src->obj;
@@ -393,8 +394,8 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_CLASS: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true, true);
-      ObjClass       *dest = (ObjClass *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true, true);
+      ObjClass       *dest = (ObjClass *)destCBO.mlp();  //FIXME needs within
       const ObjClass *src  = (const ObjClass *)srcCBO.clp();
 
       dest->obj         = src->obj;
@@ -402,21 +403,21 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
       dest->superclass  = src->superclass;
       //NOTE: We expect lookup of methods to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      methods_layer_init(&(dest->methods_bst));
+      methods_layer_init(&(dest->methods_bst));  //FIXME needs within
       break;
     }
 
     case OBJ_CLOSURE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true, true);
-      ObjClosure *dest      = (ObjClosure *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true, true);
+      ObjClosure *dest      = (ObjClosure *)destCBO.mlp();  //FIXME needs within
       const ObjClosure *src = (const ObjClosure *)srcCBO.clp();
 
       dest->obj          = src->obj;
       dest->function     = src->function;
-      dest->upvalues     = GROW_ARRAY_NOGC(CB_NULL, OID<ObjUpvalue>, 0, src->upvalueCount);
+      dest->upvalues     = GROW_ARRAY_NOGC(CB_NULL, OID<ObjUpvalue>, 0, src->upvalueCount);  //FIXME needs within
       {
         const OID<ObjUpvalue> *srcUpvalues = src->upvalues.clp();
-        OID<ObjUpvalue> *destUpvalues = dest->upvalues.mlp();
+        OID<ObjUpvalue> *destUpvalues = dest->upvalues.mlp();  //FIXME needs within
 
         for (unsigned int i = 0, e = src->upvalueCount; i < e; ++i) {
           //printf("DANDEBUG copying upvalue (srcUpvalues:%p, srcUpvalues[%d].id(): %ju, srcUpvalues[%d].clip():%p\n",
@@ -432,8 +433,8 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_FUNCTION: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true, true);
-      ObjFunction       *dest = (ObjFunction *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true, true);
+      ObjFunction       *dest = (ObjFunction *)destCBO.mlp();  //FIXME needs within
       const ObjFunction *src  = (const ObjFunction *)srcCBO.clp();
 
       dest->obj          = src->obj;
@@ -441,13 +442,13 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
       dest->upvalueCount = src->upvalueCount;
       dest->chunk.count    = src->chunk.count;
       dest->chunk.capacity = src->chunk.capacity;
-      dest->chunk.code = GROW_ARRAY_NOGC(CB_NULL, uint8_t, 0, src->chunk.capacity);
+      dest->chunk.code = GROW_ARRAY_NOGC(CB_NULL, uint8_t, 0, src->chunk.capacity);  //FIXME needs within
       memcpy(dest->chunk.code.mlp(), src->chunk.code.clp(), src->chunk.capacity * sizeof(uint8_t));
-      dest->chunk.lines = GROW_ARRAY_NOGC(CB_NULL, int, 0, src->chunk.capacity);
+      dest->chunk.lines = GROW_ARRAY_NOGC(CB_NULL, int, 0, src->chunk.capacity);  //FIXME needs within
       memcpy(dest->chunk.lines.mlp(), src->chunk.lines.clp(), src->chunk.capacity * sizeof(int));
       dest->chunk.constants.capacity = src->chunk.constants.capacity;
       dest->chunk.constants.count    = src->chunk.constants.count;
-      dest->chunk.constants.values   = GROW_ARRAY_NOGC(CB_NULL, Value, 0, src->chunk.constants.capacity);
+      dest->chunk.constants.values   = GROW_ARRAY_NOGC(CB_NULL, Value, 0, src->chunk.constants.capacity); //FIXME needs within
       memcpy(dest->chunk.constants.values.mlp(), src->chunk.constants.values.clp(), src->chunk.constants.capacity * sizeof(Value));
       dest->name         = src->name;
 
@@ -455,21 +456,21 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_INSTANCE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true, true);
-      ObjInstance       *dest = (ObjInstance *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true, true);
+      ObjInstance       *dest = (ObjInstance *)destCBO.mlp();  //FIXME needs within
       const ObjInstance *src  = (const ObjInstance *)srcCBO.clp();
 
       dest->obj        = src->obj;
       dest->klass      = src->klass;
       //NOTE: We expect lookup of fields to first check this new, mutable,
       //  A-region ObjClass, before looking at older versions in B and C.
-      fields_layer_init(&(dest->fields_bst));
+      fields_layer_init(&(dest->fields_bst));  //FIXME needs within
       break;
     }
 
     case OBJ_NATIVE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true, true);
-      ObjNative       *dest = (ObjNative *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true, true);
+      ObjNative       *dest = (ObjNative *)destCBO.mlp();  //FIXME needs within
       const ObjNative *src  = (const ObjNative *)srcCBO.clp();
 
       dest->obj      = src->obj;
@@ -479,23 +480,23 @@ cb_offset_t deriveMutableObjectLayer(ObjID id, cb_offset_t object_offset) {
     }
 
     case OBJ_STRING: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true, true);
-      ObjString       *dest = (ObjString *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true, true);
+      ObjString       *dest = (ObjString *)destCBO.mlp();  //FIXME needs within
       const ObjString *src  = (const ObjString *)srcCBO.clp();
 
       dest->obj    = src->obj;
       dest->length = src->length;
-      dest->chars  = GROW_ARRAY_NOGC(CB_NULL, char, 0, src->length + 1);
-      memcpy(dest->chars.mlp(), src->chars.clp(), src->length * sizeof(char));
-      dest->chars.mlp()[src->length] = '\0';
+      dest->chars  = GROW_ARRAY_NOGC(CB_NULL, char, 0, src->length + 1);  //FIXME needs within
+      memcpy(dest->chars.mlp(), src->chars.clp(), src->length * sizeof(char));  //FIXME needs within for the mlp()
+      dest->chars.mlp()[src->length] = '\0';  //FIXME needs within for the mlp()
       dest->hash   = src->hash;
 
       break;
     }
 
     case OBJ_UPVALUE: {
-      destCBO = reallocate(CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true, true);
-      ObjUpvalue       *dest = (ObjUpvalue *)destCBO.mlp();
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true, true);
+      ObjUpvalue       *dest = (ObjUpvalue *)destCBO.mlp();  //FIXME needs within
       const ObjUpvalue *src  = (const ObjUpvalue *)srcCBO.clp();
 
       dest->obj             = src->obj;
@@ -536,7 +537,7 @@ cb_offset_t cloneObject(ObjID id, cb_offset_t object_offset) {
 
 
   CBO<Obj> srcCBO = object_offset;
-  CBO<Obj> cloneCBO = deriveMutableObjectLayer(id, object_offset);
+  CBO<Obj> cloneCBO = deriveMutableObjectLayer(&thread_cb, &thread_region, id, object_offset);
   int ret;
 
   (void)ret;

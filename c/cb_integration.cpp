@@ -386,7 +386,7 @@ resolveAsMutableLayer(ObjID objid)
   o = objtable_lookup_B(&thread_objtable, objid);
   if (o != CB_NULL) {
     //printf("#%ju@%ju found in objtable B\n", (uintmax_t)objid.id, (uintmax_t)o);
-    cb_offset_t layer_o = deriveMutableObjectLayer(objid, o);
+    cb_offset_t layer_o = deriveMutableObjectLayer(&thread_cb, &thread_region, objid, o);
     assert(cb_offset_cmp(layer_o, thread_cutoff_offset) > 0);
     objtable_add_at(&thread_objtable, objid, layer_o);
     //printf("#%ju@%ju is new mutable layer in objtable A\n", (uintmax_t)objid_.id, layer_o);
@@ -398,7 +398,7 @@ resolveAsMutableLayer(ObjID objid)
   o = objtable_lookup_C(&thread_objtable, objid);
   assert(o != CB_NULL);
   //printf("#%ju@%ju found in objtable C\n", (uintmax_t)objid.id, (uintmax_t)o);
-  cb_offset_t layer_o = deriveMutableObjectLayer(objid, o);
+  cb_offset_t layer_o = deriveMutableObjectLayer(&thread_cb, &thread_region, objid, o);
   assert(cb_offset_cmp(layer_o, thread_cutoff_offset) > 0);
   objtable_add_at(&thread_objtable, objid, layer_o);
   //printf("#%ju@%ju is new mutable layer in objtable A\n", (uintmax_t)objid_.id, layer_o);
