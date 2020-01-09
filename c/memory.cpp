@@ -590,7 +590,7 @@ void freezeARegions(cb_offset_t new_lower_bound) {
   assert(cb_bst_num_entries(thread_cb, thread_objtable.root_c) == 0);
   thread_objtable.root_c = thread_objtable.root_b;
   thread_objtable.root_b = thread_objtable.root_a;
-  ret = objtable_layer_init(&(thread_objtable.root_a));
+  ret = objtable_layer_init(&thread_cb, &thread_region, &(thread_objtable.root_a));
   assert(ret == 0);
   assert(thread_objtable.root_a >= new_lower_bound);
 

@@ -84,7 +84,7 @@ typedef struct ObjTable {
   ObjID next_obj_id;
 } ObjTable;
 
-int objtable_layer_init(cb_offset_t *bst_root);
+int objtable_layer_init(struct cb **cb, struct cb_region *region, cb_offset_t *bst_root);
 int methods_layer_init(struct cb **cb, struct cb_region *region, cb_offset_t *bst_root);
 int fields_layer_init(struct cb **cb, struct cb_region *region, cb_offset_t *bst_root);
 

@@ -183,11 +183,11 @@ clox_objtable_value_render(cb_offset_t           *dest_offset,
 }
 
 int
-objtable_layer_init(cb_offset_t *bst_root) {
+objtable_layer_init(struct cb **cb, struct cb_region *region, cb_offset_t *bst_root) {
   int ret;
 
-  ret = cb_bst_init(&thread_cb,
-                    &thread_region,
+  ret = cb_bst_init(cb,
+                    region,
                     bst_root,
                     &cb_term_cmp,                         //keys are uint64_t IDs and need only shallow comparison
                     &cb_term_cmp,                         //values are uint64_t's (cb_offset_t's) and need only shallow comparison
@@ -243,7 +243,7 @@ objtable_init(ObjTable *obj_table)
 
   (void)ret;
 
-  ret = objtable_layer_init(&(obj_table->root_a));
+  ret = objtable_layer_init(&thread_cb, &thread_region, &(obj_table->root_a));
   assert(ret == 0);
   obj_table->root_b = CB_BST_SENTINEL;
   obj_table->root_c = CB_BST_SENTINEL;
@@ -1172,15 +1172,15 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
   {
     struct copy_objtable_closure closure;
 
+    ret = objtable_layer_init(&(req->orig_cb), &(req->objtable_new_region), &(resp->objtable_new_root_b));  //FIXME should pass in the right cb and region.
+    assert(ret == 0);
+
     closure.src_cb      = req->orig_cb;
     closure.old_root_b  = req->objtable_root_b;
     closure.old_root_c  = req->objtable_root_c;
     closure.dest_cb     = req->orig_cb;
     closure.dest_region = &(req->objtable_new_region);
     closure.new_root_b  = &(resp->objtable_new_root_b);
-
-    ret = objtable_layer_init(&(resp->objtable_new_root_b));
-    assert(ret == 0);
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->objtable_root_b,
