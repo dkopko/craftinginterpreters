@@ -834,6 +834,7 @@ struct copy_objtable_closure
   struct cb        *dest_cb; //FIXME use **
   struct cb_region *dest_region;
   cb_offset_t      *new_root_b;
+  size_t            last_s;
 };
 
 static int
@@ -881,10 +882,16 @@ copy_objtable_b(const struct cb_term *key_term,
                       &clone_value_term);
   assert(ret == 0);
   cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  printf("copy_objtable_b(): +%ju bytes  #%ju -> @%ju\n",
+  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
+  printf("copy_objtable_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju\n",
          (uintmax_t)(c1 - c0),
+         (uintmax_t)(s1 - cl->last_s),
          (uintmax_t)obj_id.id,
          (uintmax_t)clone_offset);
+
+  // Actual bytes used must be <= reported bytes.
+  assert(c1 - c0 <= s1 - cl->last_s);
+  cl->last_s = s1;
 
   (void)ret;
   return 0;
@@ -907,6 +914,7 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   cb_offset_t cEntryOffset = (cb_offset_t)cb_term_get_u64(value_term);
   struct cb_term temp_term;
   cb_offset_t c0, c1;
+  size_t s1;
   bool needs_external_size_adjustment = false;
   int ret;
 
@@ -1001,11 +1009,17 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   if (needs_external_size_adjustment)
     cb_bst_external_size_adjust(cl->dest_cb, *(cl->new_root_b), (ssize_t)(c1 - c0));
 
-  printf("copy_objtable_c_not_in_b(): +%ju bytes #%ju -> @%ju%s\n",
+  s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
+
+  printf("copy_objtable_c_not_in_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju%s\n",
          (uintmax_t)(c1 - c0),
+         (uintmax_t)(s1 - cl->last_s),
          (uintmax_t)objOID.id().id,
          (uintmax_t)cEntryOffset,
          (needs_external_size_adjustment ? " ADJUSTMENT" : ""));
+
+  assert(c1 - c0 <= s1 - cl->last_s);
+  cl->last_s = s1;
 
   (void)ret;
   return 0;
@@ -1181,6 +1195,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     closure.dest_cb     = req->orig_cb;
     closure.dest_region = &(req->objtable_new_region);
     closure.new_root_b  = &(resp->objtable_new_root_b);
+    closure.last_s      = cb_bst_size(closure.dest_cb, resp->objtable_new_root_b);
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->objtable_root_b,
