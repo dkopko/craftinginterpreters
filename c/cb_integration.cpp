@@ -51,7 +51,6 @@ static size_t
 clox_Obj_external_size(const struct cb *cb,
                        Obj *obj)
 {
-
   //NOTE: This must be a quick O(1) calculation to maintain performance; it is
   // inappropriate for this to recursively calculate size information.
   //NOTE: The objtable's present external size will be maintained on insertions
@@ -65,18 +64,21 @@ clox_Obj_external_size(const struct cb *cb,
 
   switch (obj->type) {
     case OBJ_BOUND_METHOD:
-      return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1;
+      return sizeof(ObjBoundMethod) + cb_alignof(ObjBoundMethod) - 1
+        + alloc_header_size;
 
     case OBJ_CLASS: {
       ObjClass *clazz = (ObjClass *)obj;
       return sizeof(ObjClass) + cb_alignof(ObjClass) - 1
-        + cb_bst_size(cb, clazz->methods_bst);
+        + cb_bst_size(cb, clazz->methods_bst)
+        + alloc_header_size;
     }
 
     case OBJ_CLOSURE: {
       ObjClosure *closure = (ObjClosure *)obj;
       return sizeof(ObjClosure) + cb_alignof(ObjClosure) - 1
-        + (closure->upvalueCount * sizeof(OID<ObjUpvalue>)) + cb_alignof(OID<ObjUpvalue>) - 1;
+        + (closure->upvalueCount * sizeof(OID<ObjUpvalue>)) + cb_alignof(OID<ObjUpvalue>) - 1
+        + (2 * alloc_header_size);
     }
 
     case OBJ_FUNCTION: {
@@ -84,26 +86,31 @@ clox_Obj_external_size(const struct cb *cb,
       return sizeof(ObjFunction) + cb_alignof(ObjFunction) - 1
              + function->chunk.capacity * sizeof(uint8_t) + cb_alignof(uint8_t) - 1         //code
              + function->chunk.capacity * sizeof(int) + cb_alignof(int) - 1                 //lines
-             + function->chunk.constants.capacity * sizeof(Value) + cb_alignof(Value) - 1;  //constants.values
+             + function->chunk.constants.capacity * sizeof(Value) + cb_alignof(Value) - 1  //constants.values
+             + (4 * alloc_header_size);
     }
 
     case OBJ_INSTANCE: {
       ObjInstance *instance = (ObjInstance *)obj;
       return sizeof(ObjInstance) + cb_alignof(ObjInstance) - 1
-             + cb_bst_size(cb, instance->fields_bst);
+             + cb_bst_size(cb, instance->fields_bst)
+             + alloc_header_size;
     }
 
     case OBJ_NATIVE:
-      return sizeof(ObjNative) + cb_alignof(ObjNative) - 1;
+      return sizeof(ObjNative) + cb_alignof(ObjNative) - 1
+        + alloc_header_size;
 
     case OBJ_STRING: {
       ObjString *str = (ObjString *)obj;
-      return sizeof(ObjString) + cb_alignof(ObjString) - 1
-        + str->length * sizeof(char);
+      return (sizeof(ObjString) + cb_alignof(ObjString) - 1
+        + str->length * sizeof(char))
+        + (2 * alloc_header_size);
     }
 
     case OBJ_UPVALUE:
-      return sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1;
+      return sizeof(ObjUpvalue) + cb_alignof(ObjUpvalue) - 1
+        + alloc_header_size;
 
     default:
       printf("Unrecognized type: '%c'\n", (char)obj->type);

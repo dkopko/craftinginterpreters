@@ -5,6 +5,7 @@
 #include "cb_integration.h"
 #include "object.h"
 
+static const size_t alloc_header_size = sizeof(size_t) + sizeof(size_t) + sizeof(bool);
 
 enum {
   GC_PHASE_NORMAL_EXEC,
