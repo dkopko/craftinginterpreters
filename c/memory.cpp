@@ -511,20 +511,27 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
   return destCBO.mo();
 }
 
+struct copy_entry_closure
+{
+  struct cb        **dest_cb;
+  struct cb_region  *dest_region;
+  cb_offset_t       *dest_bst;
+};
+
 static int
 copy_entry_to_bst(const struct cb_term *key_term,
                   const struct cb_term *value_term,
                   void                 *closure)
 {
-  cb_offset_t *dest_bst = (cb_offset_t *)closure;
+  struct copy_entry_closure *cl = (struct copy_entry_closure *)closure;
   int ret;
 
   (void)ret;
 
-  ret = cb_bst_insert(&thread_cb,
-                      &thread_region,
-                      dest_bst,
-                      cb_region_start(&thread_region),  //NOTE: full contents are mutable
+  ret = cb_bst_insert(cl->dest_cb,
+                      cl->dest_region,
+                      cl->dest_bst,
+                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
                       key_term,
                       value_term);
   assert(ret == 0);
@@ -537,7 +544,7 @@ cb_offset_t cloneObject(struct cb **cb, struct cb_region *region, ObjID id, cb_o
 
 
   CBO<Obj> srcCBO = object_offset;
-  CBO<Obj> cloneCBO = deriveMutableObjectLayer(&thread_cb, &thread_region, id, object_offset);
+  CBO<Obj> cloneCBO = deriveMutableObjectLayer(cb, region, id, object_offset);
   int ret;
 
   (void)ret;
@@ -551,25 +558,27 @@ cb_offset_t cloneObject(struct cb **cb, struct cb_region *region, ObjID id, cb_o
   // contents must be copied in separately here.
   switch (srcCBO.clp()->type) {
     case OBJ_CLASS: {
-      ObjClass *srcClass = (ObjClass *)srcCBO.clp();
-      ObjClass *destClass = (ObjClass *)cloneCBO.clp();
+      ObjClass *srcClass = (ObjClass *)srcCBO.crp(*cb);
+      ObjClass *destClass = (ObjClass *)cloneCBO.crp(*cb);
+      struct copy_entry_closure cl = { .dest_cb = cb, .dest_region = region, .dest_bst = &(destClass->methods_bst) };
 
-      ret = cb_bst_traverse(thread_cb,
+      ret = cb_bst_traverse(*cb,
                             srcClass->methods_bst,
                             copy_entry_to_bst,
-                            &(destClass->methods_bst));
+                            &cl);
       assert(ret == 0);
     }
     break;
 
     case OBJ_INSTANCE: {
-      ObjInstance *srcInstance = (ObjInstance *)srcCBO.clp();
-      ObjInstance *destInstance = (ObjInstance *)cloneCBO.clp();
+      ObjInstance *srcInstance = (ObjInstance *)srcCBO.crp(*cb);
+      ObjInstance *destInstance = (ObjInstance *)cloneCBO.crp(*cb);
+      struct copy_entry_closure cl = { .dest_cb = cb, .dest_region = region, .dest_bst = &(destInstance->fields_bst) };
 
-      ret = cb_bst_traverse(thread_cb,
+      ret = cb_bst_traverse(*cb,
                             srcInstance->fields_bst,
                             copy_entry_to_bst,
-                            &(destInstance->fields_bst));
+                            &cl);
       assert(ret == 0);
     }
     break;
