@@ -7,23 +7,6 @@
 
 static const size_t alloc_header_size = sizeof(size_t) + sizeof(size_t) + sizeof(bool);
 
-enum {
-  GC_PHASE_NORMAL_EXEC,
-  GC_PHASE_FREEZE_A_REGIONS,
-  GC_PHASE_MARK_STACK_ROOTS,
-  GC_PHASE_MARK_FRAMES_ROOTS,
-  GC_PHASE_MARK_OPEN_UPVALUES,
-  GC_PHASE_MARK_GLOBAL_ROOTS,
-  GC_PHASE_MARK_ALL_LEAVES,
-  GC_PHASE_PREPARE_REQUEST,
-  GC_PHASE_CONSOLIDATE,
-  GC_PHASE_INTEGRATE_RESULT,
-  GC_PHASE_FREE_WHITE_SET,
-  GC_PHASE_CLEAR_DARK_SET
-};
-
-extern int gc_phase;
-
 // This is only ever used on non-Obj allocations.
 #define ALLOCATE(type, count) \
     logged_allocate(#type, sizeof(type), (count), cb_alignof(type), false)

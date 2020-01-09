@@ -23,6 +23,9 @@ __thread cb_offset_t       thread_darkset_bst   = CB_BST_SENTINEL;
 // provoked.  'pin_new_lower_bound' is used for this reason.
 __thread cb_offset_t       pinned_lower_bound   = CB_NULL;
 
+int gc_phase = GC_PHASE_NORMAL_EXEC;
+
+
 scoped_pin::scoped_pin(const char *func, int line) {
   func_ = func;
   line_ = line;

@@ -1,6 +1,8 @@
 #ifndef clox_cb_integration_h
 #define clox_cb_integration_h
 
+#include <assert.h>
+
 #include <cb.h>
 #include <cb_print.h>
 #include <cb_region.h>
@@ -13,8 +15,26 @@ extern __thread struct ObjTable   thread_objtable;
 extern __thread cb_offset_t       thread_darkset_bst;
 extern __thread cb_offset_t       pinned_lower_bound;
 
+extern int gc_phase;
+
 #define CB_CACHE_LINE_SIZE 64
 #define CB_NULL ((cb_offset_t)0)
+
+enum {
+  GC_PHASE_NORMAL_EXEC,
+  GC_PHASE_FREEZE_A_REGIONS,
+  GC_PHASE_MARK_STACK_ROOTS,
+  GC_PHASE_MARK_FRAMES_ROOTS,
+  GC_PHASE_MARK_OPEN_UPVALUES,
+  GC_PHASE_MARK_GLOBAL_ROOTS,
+  GC_PHASE_MARK_ALL_LEAVES,
+  GC_PHASE_PREPARE_REQUEST,
+  GC_PHASE_CONSOLIDATE,
+  GC_PHASE_INTEGRATE_RESULT,
+  GC_PHASE_FREE_WHITE_SET,
+  GC_PHASE_CLEAR_DARK_SET
+};
+
 
 struct scoped_pin
 {
@@ -184,6 +204,7 @@ struct OID
 
   //Local mutable dereference
   T* mlip() {
+    assert(gc_phase == GC_PHASE_NORMAL_EXEC);
     return static_cast<T*>(cb_at(thread_cb, resolveAsMutableLayer(objid_)));
   }
 
