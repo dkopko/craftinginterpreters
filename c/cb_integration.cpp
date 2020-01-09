@@ -104,7 +104,7 @@ clox_Obj_external_size(const struct cb *cb,
     case OBJ_STRING: {
       ObjString *str = (ObjString *)obj;
       return (sizeof(ObjString) + cb_alignof(ObjString) - 1
-        + str->length * sizeof(char))
+        + (str->length + 1) * sizeof(char))
         + (2 * alloc_header_size);
     }
 
