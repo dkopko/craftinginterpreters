@@ -15,10 +15,16 @@ extern __thread struct ObjTable   thread_objtable;
 extern __thread cb_offset_t       thread_darkset_bst;
 extern __thread cb_offset_t       pinned_lower_bound;
 
+extern int exec_phase;
 extern int gc_phase;
 
 #define CB_CACHE_LINE_SIZE 64
 #define CB_NULL ((cb_offset_t)0)
+
+enum {
+  EXEC_PHASE_COMPILE,
+  EXEC_PHASE_INTERPRET
+};
 
 enum {
   GC_PHASE_NORMAL_EXEC,

@@ -1398,6 +1398,7 @@ InterpretResult interpret(const char* source) {
   return INTERPRET_OK;
 */
 //> Calls and Functions not-yet
+  exec_phase = EXEC_PHASE_COMPILE;
   OID<ObjFunction> function = compile(source);
   if (function.is_nil()) return INTERPRET_COMPILE_ERROR;
 
@@ -1426,6 +1427,7 @@ InterpretResult interpret(const char* source) {
 //< Scanning on Demand vm-interpret-c
 //> Compiling Expressions interpret-chunk
   
+  exec_phase = EXEC_PHASE_INTERPRET;
   InterpretResult result = run();
 /* Compiling Expressions interpret-chunk < Calls and Functions not-yet
 
