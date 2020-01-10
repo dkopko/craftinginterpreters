@@ -161,11 +161,13 @@ static void objectSetDark(OID<Obj> objectOID) {
   ret = cb_bst_insert(&gc_thread_cb,
                       &gc_thread_region,
                       &gc_thread_darkset_bst,
-                      thread_cutoff_offset,
+                      0,
                       &key_term,
                       &value_term);
   assert(ret == 0);
   (void)ret;
+
+  //FIXME validate growth here
 }
 
 static void clearDarkObjectSet(void) {
@@ -191,12 +193,14 @@ void grayObject(const OID<Obj> objectOID) {
     cb_offset_t oldGrayStackOffset = vm.grayStack.co();
     vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
 
-    vm.grayStack = reallocate(oldGrayStackOffset,
-                              sizeof(OID<Obj>) * oldGrayCapacity,
-                              sizeof(OID<Obj>) * vm.grayCapacity,
-                              cb_alignof(OID<Obj>),
-                              false,
-                              true);
+    vm.grayStack = reallocate_within(&gc_thread_cb,
+                                     &gc_thread_region,
+                                     oldGrayStackOffset,
+                                     sizeof(OID<Obj>) * oldGrayCapacity,
+                                     sizeof(OID<Obj>) * vm.grayCapacity,
+                                     cb_alignof(OID<Obj>),
+                                     false,
+                                     true);
 
 #ifdef DEBUG_TRACE_GC
     printf("@%ju OID<Obj>[%zd] array allocated (%zd bytes) (resized from @%ju OID<Obj>[%zd] array (%zd bytes))\n",
@@ -210,7 +214,7 @@ void grayObject(const OID<Obj> objectOID) {
 
   }
 
-  vm.grayStack.mlp()[vm.grayCount++] = objectOID;
+  vm.grayStack.mrp(gc_thread_cb)[vm.grayCount++] = objectOID;
 }
 
 void grayValue(Value value) {
@@ -986,6 +990,9 @@ void collectGarbage() {
       assert(ret == CB_SUCCESS);
       exit(EXIT_FAILURE);  //FIXME _exit()?
   }
+  vm.grayCount = 0;
+  vm.grayCapacity = 0;
+  vm.grayStack = CB_NULL;
   clearDarkObjectSet();
 
   //NOTE: The compilation often hold objects in stack-based (the C language
@@ -1039,7 +1046,7 @@ void collectGarbage() {
   gc_phase = GC_PHASE_MARK_ALL_LEAVES;
   while (vm.grayCount > 0) {
     // Pop an item from the gray stack.
-    OID<Obj> object = vm.grayStack.clp()[--vm.grayCount];
+    OID<Obj> object = vm.grayStack.crp(gc_thread_cb)[--vm.grayCount];
     grayObjectLeaves(object);
   }
 
@@ -1098,12 +1105,14 @@ void freeObjects() {
 
   cb_offset_t oldGrayStackOffset = vm.grayStack.co();
   int oldGrayCapacity = vm.grayCapacity;
-  vm.grayStack = reallocate(oldGrayStackOffset,
-                            sizeof(OID<Obj>) * oldGrayCapacity,
-                            0,
-                            cb_alignof(OID<Obj>),
-                            false,
-                            true);
+  vm.grayStack = reallocate_within(&gc_thread_cb,
+                                   &gc_thread_region,
+                                   oldGrayStackOffset,
+                                   sizeof(OID<Obj>) * oldGrayCapacity,
+                                   0,
+                                   cb_alignof(OID<Obj>),
+                                   false,
+                                   true);
 
 #ifdef DEBUG_TRACE_GC
     printf("@%ju OID<Obj>[%zd] (grayStack) array freed (%zd bytes)\n",
