@@ -451,7 +451,7 @@ static bool call(OID<ObjClosure> closure, int argCount) {
 */
 //> Closures not-yet
   frame->closure = closure;
-  frame->ip = closure.clip()->function.clip()->chunk.code.clp();  //FIXME CBINT be careful around frame->ip + mutable copying of chunks + function returns.
+  frame->ip = closure.clip()->function.clip()->chunk.code.clp();
 //< Closures not-yet
 
   // +1 to include either the called function or the receiver.

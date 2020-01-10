@@ -259,8 +259,6 @@ grayTable(Table* table)
   // table are marked as "still in use". Everything recursively reachable from
   // the keys and values will also be marked.
 
-  //CBINT FIXME Under the new GC paradigm, this could probably be optimized with epochs.
-
   int ret;
 
   ret = cb_bst_traverse(thread_cb,

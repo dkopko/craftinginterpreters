@@ -744,41 +744,6 @@ merge_c_class_methods(const struct cb_term *key_term,
   return 0;
 }
 
-//FIXME remove this unused function
-static int
-merge_b_class_methods(const struct cb_term *key_term,
-                      const struct cb_term *value_term,
-                      void                 *closure)
-{
-  struct merge_class_methods_closure *cl = (struct merge_class_methods_closure *)closure;
-  //Value keyValue = numToValue(cb_term_get_dbl(key_term));
-  Value valueValue = numToValue(cb_term_get_dbl(value_term));
-  int ret;
-
-  (void)ret;
-
-  if (valueValue.val == TOMBSTONE_VAL.val)
-    return 0;
-
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
-
-  ret = cb_bst_insert(&(cl->dest_cb),
-                      cl->dest_region,
-                      cl->dest_methods_bst,
-                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
-                      key_term,
-                      value_term);
-  assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->dest_methods_bst);
-
-  // Actual bytes used must be <= reported bytes.
-  assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
-
-  return 0;
-}
-
 struct merge_instance_fields_closure
 {
   struct cb         *src_cb;
@@ -831,48 +796,12 @@ merge_c_instance_fields(const struct cb_term *key_term,
   return 0;
 }
 
-
-//FIXME remove this unused function
-static int
-merge_b_instance_fields(const struct cb_term *key_term,
-                        const struct cb_term *value_term,
-                        void                 *closure)
-{
-  struct merge_instance_fields_closure *cl = (struct merge_instance_fields_closure *)closure;
-  //Value keyValue = numToValue(cb_term_get_dbl(key_term));
-  Value valueValue = numToValue(cb_term_get_dbl(value_term));
-  int ret;
-
-  (void)ret;
-
-  if (valueValue.val == TOMBSTONE_VAL.val)
-    return 0;
-
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
-
-  ret = cb_bst_insert(&(cl->dest_cb),
-                      cl->dest_region,
-                      cl->dest_fields_bst,
-                      cb_region_start(cl->dest_region),  //NOTE: full contents are mutable
-                      key_term,
-                      value_term);
-  assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->dest_fields_bst);
-
-  // Actual bytes used must be <= reported bytes.
-  assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
-
-  return 0;
-}
-
 struct copy_objtable_closure
 {
   struct cb        *src_cb;
   cb_offset_t       old_root_b;
   cb_offset_t       old_root_c;
-  struct cb        *dest_cb; //FIXME use **
+  struct cb        *dest_cb;
   struct cb_region *dest_region;
   cb_offset_t      *new_root_b;
   size_t            last_s;
@@ -1256,7 +1185,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
   {
     struct copy_objtable_closure closure;
 
-    ret = objtable_layer_init(&(req->orig_cb), &(req->objtable_new_region), &(resp->objtable_new_root_b));  //FIXME should pass in the right cb and region.
+    ret = objtable_layer_init(&(req->orig_cb), &(req->objtable_new_region), &(resp->objtable_new_root_b));
     assert(ret == 0);
 
     closure.src_cb      = req->orig_cb;
