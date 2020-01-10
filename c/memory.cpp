@@ -370,10 +370,10 @@ static void freeObject(OID<Obj> object) {
 }
 
 cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, ObjID id, cb_offset_t object_offset) {
-  //FIXME we do not need to suppress gc for cases when this is used via mlip() (I think).
   PIN_SCOPE;
   CBO<Obj> srcCBO = object_offset;
   CBO<Obj> destCBO;
+  bool suppress_gc = (gc_phase != GC_PHASE_NORMAL_EXEC);  //prevent cycles
 
   printf("#%ju@%ju deriveMutableObjectLayer() ", (uintmax_t)id.id, object_offset);
   printObject(id, object_offset, srcCBO.crp(*cb));
@@ -381,7 +381,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
 
   switch (srcCBO.crp(*cb)->type) {
     case OBJ_BOUND_METHOD: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjBoundMethod), cb_alignof(ObjBoundMethod), true, suppress_gc);
       ObjBoundMethod       *dest = (ObjBoundMethod *)destCBO.mrp(*cb);
       const ObjBoundMethod *src  = (const ObjBoundMethod *)srcCBO.crp(*cb);
 
@@ -393,7 +393,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
     }
 
     case OBJ_CLASS: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClass), cb_alignof(ObjClass), true, suppress_gc);
       ObjClass       *dest = (ObjClass *)destCBO.mrp(*cb);
       const ObjClass *src  = (const ObjClass *)srcCBO.crp(*cb);
 
@@ -407,7 +407,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
     }
 
     case OBJ_CLOSURE: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjClosure), cb_alignof(ObjClosure), true, suppress_gc);
       ObjClosure *dest      = (ObjClosure *)destCBO.mrp(*cb);
       const ObjClosure *src = (const ObjClosure *)srcCBO.crp(*cb);
 
@@ -432,7 +432,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
     }
 
     case OBJ_FUNCTION: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjFunction), cb_alignof(ObjFunction), true, suppress_gc);
       ObjFunction       *dest = (ObjFunction *)destCBO.mrp(*cb);
       const ObjFunction *src  = (const ObjFunction *)srcCBO.crp(*cb);
 
@@ -455,7 +455,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
     }
 
     case OBJ_INSTANCE: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjInstance), cb_alignof(ObjInstance), true, suppress_gc);
       ObjInstance       *dest = (ObjInstance *)destCBO.mrp(*cb);
       const ObjInstance *src  = (const ObjInstance *)srcCBO.crp(*cb);
 
@@ -468,7 +468,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
     }
 
     case OBJ_NATIVE: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjNative), cb_alignof(ObjNative), true, suppress_gc);
       ObjNative       *dest = (ObjNative *)destCBO.mrp(*cb);
       const ObjNative *src  = (const ObjNative *)srcCBO.crp(*cb);
 
@@ -479,7 +479,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
     }
 
     case OBJ_STRING: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjString), cb_alignof(ObjString), true, suppress_gc);
       ObjString       *dest = (ObjString *)destCBO.mrp(*cb);
       const ObjString *src  = (const ObjString *)srcCBO.crp(*cb);
 
@@ -494,7 +494,7 @@ cb_offset_t deriveMutableObjectLayer(struct cb **cb, struct cb_region *region, O
     }
 
     case OBJ_UPVALUE: {
-      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true, true);
+      destCBO = reallocate_within(cb, region, CB_NULL, 0, sizeof(ObjUpvalue), cb_alignof(ObjUpvalue), true, suppress_gc);
       ObjUpvalue       *dest = (ObjUpvalue *)destCBO.mrp(*cb);
       const ObjUpvalue *src  = (const ObjUpvalue *)srcCBO.crp(*cb);
 
