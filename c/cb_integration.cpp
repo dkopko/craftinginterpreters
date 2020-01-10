@@ -385,7 +385,7 @@ resolveAsMutableLayer(ObjID objid)
 {
   cb_offset_t o;
 
-  assert(gc_phase == GC_PHASE_NORMAL_EXEC);
+  assert(gc_phase == GC_PHASE_NORMAL_EXEC || gc_phase == GC_PHASE_FREE_WHITE_SET);
 
   o = objtable_lookup_A(&thread_objtable, objid);
   if (o != CB_NULL) {
