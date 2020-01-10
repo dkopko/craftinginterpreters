@@ -865,6 +865,23 @@ printObjtableTraversal(const struct cb_term *key_term,
   return 0;
 }
 
+static int
+grayObjtableTraversal(const struct cb_term *key_term,
+                      const struct cb_term *value_term,
+                      void                 *closure)
+{
+  const char *desc = (const char *)closure;
+  ObjID objID = { .id = cb_term_get_u64(key_term) };
+
+  printf("%s graying #%ju\n",
+         desc,
+         (uintmax_t)objID.id);
+
+  grayObject(objID);
+
+  return 0;
+}
+
 void printStateOfWorld(const char *desc) {
   int ret;
 
@@ -942,6 +959,28 @@ void collectGarbage() {
 
   gc_phase = GC_PHASE_FREEZE_A_REGIONS;
   freezeARegions(new_lower_bound);
+
+  //NOTE: The compilation often hold objects in stack-based (the C language
+  // stack, not the vm.stack) temporaries which are invisble to the garbage
+  // collector.  Finding all code paths where multiple allocations happen and
+  // ensuring that the earlier allocations wind up temporarily on the vm.stack
+  // so as not to be freed by the garbage collector is difficult.  This
+  // alternative is to just consider all objtable objects as reachable until
+  // we get out of the compilation phase.  The root_a layer is empty, so not
+  // traversed here.
+  if (exec_phase == EXEC_PHASE_COMPILE) {
+    int ret;
+
+    ret = cb_bst_traverse(thread_cb,
+                          thread_objtable.root_b,
+                          &grayObjtableTraversal,
+                          (void*)"B");
+    assert(ret == 0);
+    ret = cb_bst_traverse(thread_cb,
+                          thread_objtable.root_c,
+                          &grayObjtableTraversal,
+                          (void*)"C");
+  }
 
   gc_phase = GC_PHASE_MARK_STACK_ROOTS;
   for (unsigned int i = 0; i < vm.tristack.stackDepth; ++i) {
