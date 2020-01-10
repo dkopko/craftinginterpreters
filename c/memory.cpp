@@ -145,8 +145,8 @@ bool objectIsDark(const OID<Obj> objectOID) {
 
   cb_term_set_u64(&key_term, objectOID.id().id);
 
-  return cb_bst_contains_key(thread_cb,
-                             thread_darkset_bst,
+  return cb_bst_contains_key(gc_thread_cb,
+                             gc_thread_darkset_bst,
                              &key_term);
 }
 
@@ -158,9 +158,9 @@ static void objectSetDark(OID<Obj> objectOID) {
   cb_term_set_u64(&key_term, objectOID.id().id);
   cb_term_set_u64(&value_term, objectOID.id().id);
 
-  ret = cb_bst_insert(&thread_cb,  //FIXME CBINT gc_thread_cb
-                      &thread_region, //FIXME CBINT gc_thread_region
-                      &thread_darkset_bst,  //FIXME CBINT gc_thread_darkset_bst
+  ret = cb_bst_insert(&gc_thread_cb,
+                      &gc_thread_region,
+                      &gc_thread_darkset_bst,
                       thread_cutoff_offset,
                       &key_term,
                       &value_term);
@@ -169,7 +169,7 @@ static void objectSetDark(OID<Obj> objectOID) {
 }
 
 static void clearDarkObjectSet(void) {
-  thread_darkset_bst = CB_BST_SENTINEL;
+  gc_thread_darkset_bst = CB_BST_SENTINEL;
 }
 
 void grayObject(const OID<Obj> objectOID) {
@@ -955,6 +955,9 @@ void printStateOfWorld(const char *desc) {
 
 void collectGarbage() {
   static int gcnestlevel = 0;
+  int ret;
+
+  (void)ret;
 
   cb_offset_t new_lower_bound = cb_region_cursor(&thread_region);
 
@@ -971,6 +974,19 @@ void collectGarbage() {
 
   gc_phase = GC_PHASE_FREEZE_A_REGIONS;
   freezeARegions(new_lower_bound);
+
+  gc_phase = GC_PHASE_RESET_GC_STATE;
+  cb_rewind_to(gc_thread_cb, 0);
+  printf("DANDEBUG before GC region allocation\n");
+  ret = cb_region_create(&gc_thread_cb, &gc_thread_region, 1, 1024, 0);
+  printf("DANDEBUG after GC region allocation\n");
+  if (ret != CB_SUCCESS)
+  {
+      fprintf(stderr, "Could not create GC region.\n");
+      assert(ret == CB_SUCCESS);
+      exit(EXIT_FAILURE);  //FIXME _exit()?
+  }
+  clearDarkObjectSet();
 
   //NOTE: The compilation often hold objects in stack-based (the C language
   // stack, not the vm.stack) temporaries which are invisble to the garbage
@@ -1057,9 +1073,6 @@ void collectGarbage() {
       }
     }
   }
-
-  gc_phase = GC_PHASE_CLEAR_DARK_SET;
-  clearDarkObjectSet();
 
   // Adjust the heap size based on live memory.
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;

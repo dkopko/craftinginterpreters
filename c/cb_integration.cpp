@@ -14,7 +14,6 @@ __thread struct cb        *thread_cb            = NULL;
 __thread struct cb_region  thread_region;
 __thread cb_offset_t       thread_cutoff_offset = (cb_offset_t)0ULL;
 __thread struct ObjTable   thread_objtable;
-__thread cb_offset_t       thread_darkset_bst   = CB_BST_SENTINEL;
 
 //NOTE: For tandem allocations not yet having a presence in the VM state, we
 // need to temporarily hold any new_lower_bound until the tandem allocations
@@ -22,6 +21,12 @@ __thread cb_offset_t       thread_darkset_bst   = CB_BST_SENTINEL;
 // allocations don't accidentally clobber the earlier ones if a GC were to be
 // provoked.  'pin_new_lower_bound' is used for this reason.
 __thread cb_offset_t       pinned_lower_bound   = CB_NULL;
+
+
+__thread struct cb        *gc_thread_cb            = NULL;
+__thread struct cb_region  gc_thread_region;
+__thread cb_offset_t       gc_thread_darkset_bst   = CB_BST_SENTINEL;
+
 
 int exec_phase = EXEC_PHASE_COMPILE;
 int gc_phase = GC_PHASE_NORMAL_EXEC;
@@ -663,15 +668,6 @@ clox_on_cb_resize(const struct cb *old_cb, struct cb *new_cb)
   abort();
 }
 
-
-struct gc_state
-{
-  struct cb   *scratch_cb;
-  cb_offset_t  visited_set_root;
-  cb_offset_t  to_be_visited_root;
-};
-static struct gc_state gc_state;
-
 int
 gc_init(void)
 {
@@ -681,14 +677,12 @@ gc_init(void)
   cb_params.mmap_flags &= ~MAP_ANONYMOUS;
   cb_params.on_resize = &clox_on_cb_resize;
   strncpy(cb_params.filename_prefix, "gc", sizeof(cb_params.filename_prefix));
-  gc_state.scratch_cb = cb_create(&cb_params, sizeof(cb_params));
-  if (!gc_state.scratch_cb) {
+  gc_thread_cb = cb_create(&cb_params, sizeof(cb_params));
+  if (!gc_thread_cb) {
     fprintf(stderr, "Could not create GC's scratch continuous buffer. \n");
     return -1;
   }
 
-  gc_state.visited_set_root = CB_BST_SENTINEL;
-  gc_state.to_be_visited_root = CB_BST_SENTINEL;
   return 0;
 }
 

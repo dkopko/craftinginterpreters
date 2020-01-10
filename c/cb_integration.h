@@ -8,12 +8,17 @@
 #include <cb_region.h>
 #include <cb_term.h>
 
+// VM thread state.
 extern __thread struct cb        *thread_cb;
 extern __thread struct cb_region  thread_region;
 extern __thread cb_offset_t       thread_cutoff_offset;
 extern __thread struct ObjTable   thread_objtable;
-extern __thread cb_offset_t       thread_darkset_bst;
 extern __thread cb_offset_t       pinned_lower_bound;
+
+// GC thread state.
+extern __thread struct cb        *gc_thread_cb;
+extern __thread struct cb_region  gc_thread_region;
+extern __thread cb_offset_t       gc_thread_darkset_bst;
 
 extern int exec_phase;
 extern int gc_phase;
@@ -29,6 +34,7 @@ enum {
 enum {
   GC_PHASE_NORMAL_EXEC,
   GC_PHASE_FREEZE_A_REGIONS,
+  GC_PHASE_RESET_GC_STATE,
   GC_PHASE_MARK_STACK_ROOTS,
   GC_PHASE_MARK_FRAMES_ROOTS,
   GC_PHASE_MARK_OPEN_UPVALUES,
@@ -37,8 +43,7 @@ enum {
   GC_PHASE_PREPARE_REQUEST,
   GC_PHASE_CONSOLIDATE,
   GC_PHASE_INTEGRATE_RESULT,
-  GC_PHASE_FREE_WHITE_SET,
-  GC_PHASE_CLEAR_DARK_SET
+  GC_PHASE_FREE_WHITE_SET
 };
 
 
