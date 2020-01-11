@@ -72,8 +72,16 @@ int addConstant(OID<Obj> f, Value value) {
   if (chunk->constants.capacity < chunk->constants.count + 1) {
     int oldCapacity = chunk->constants.capacity;
     chunk->constants.capacity = GROW_CAPACITY(oldCapacity);
-    chunk->constants.values = GROW_ARRAY(chunk->constants.values.co(), Value,
+    CBO<Value> vals = GROW_ARRAY(chunk->constants.values.co(), Value,
                                oldCapacity, chunk->constants.capacity);
+
+    //Rederive chunk, in case intervening GC caused it to become read-only.
+    fun = (ObjFunction *)f.mlip();
+    chunk = &(fun->chunk);
+
+    //FIXME this GROW_ARRAY allocation may invalidate fun and chunk.  They will need to be rederived.
+    chunk->constants.values = vals;
+
 
     //NOTE: Because this constants extension is done to an chunk already present
     // in the objtable (it is held by an ObjFunction, which is held in the
@@ -84,9 +92,6 @@ int addConstant(OID<Obj> f, Value value) {
                                 (chunk->constants.capacity - oldCapacity) * sizeof(Value));
   }
 
-  //Rederive chunk, in case intervening GC caused it to become read-only.
-  fun = (ObjFunction *)f.mlip();
-  chunk = &(fun->chunk);
 
   chunk->constants.values.mlp()[chunk->constants.count] = value;
   chunk->constants.count++;
