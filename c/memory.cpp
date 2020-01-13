@@ -167,7 +167,11 @@ static void objectSetDark(OID<Obj> objectOID) {
   assert(ret == 0);
   (void)ret;
 
-  //FIXME validate growth here
+  //NOTE: We cannot validate growth vs. estimated max growth in this function
+  // because we are not allocating into a static region whose size is known
+  // ahead of time.  As such, regions may be being created dynamically to
+  // fulfill the insertion, and region cursor positions can therefore differ
+  // by large amounts unrelated to actual bst insertion allocations.
 }
 
 static void clearDarkObjectSet(void) {
@@ -1080,6 +1084,28 @@ void collectGarbage() {
       }
     }
   }
+
+  //Clobber old contents.
+  //FIXME doing the clobber breaks things.
+  if (false) {
+    printf("DANDEBUG clobbering range [%ju,%ju) of ring (size: %ju, start: %ju, end: %ju)\n",
+        (uintmax_t)cb_start(thread_cb),
+        (uintmax_t)new_lower_bound,
+        (uintmax_t)cb_ring_size(thread_cb),
+        (uintmax_t)cb_start(thread_cb),
+        (uintmax_t)cb_cursor(thread_cb));
+    size_t clobber_len = new_lower_bound - cb_start(thread_cb);
+    if (clobber_len > 0)
+      cb_memset(thread_cb, cb_start(thread_cb), '@', clobber_len);
+  } else {
+    printf("DANDEBUG WOULD clobber range [%ju,%ju) of ring (size: %ju, start: %ju, end: %ju)\n",
+        (uintmax_t)cb_start(thread_cb),
+        (uintmax_t)new_lower_bound,
+        (uintmax_t)cb_ring_size(thread_cb),
+        (uintmax_t)cb_start(thread_cb),
+        (uintmax_t)cb_cursor(thread_cb));
+  }
+  cb_start_advance(thread_cb, new_lower_bound - cb_start(thread_cb));
 
   // Adjust the heap size based on live memory.
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;
