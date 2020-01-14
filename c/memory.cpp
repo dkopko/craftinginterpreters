@@ -790,6 +790,34 @@ void collectGarbageCB(cb_offset_t new_lower_bound) {
   }
   assert(ret == 0);
 
+  // Collect the white objects.
+  gc_phase = GC_PHASE_FREE_WHITE_SET;
+  // Take off white objects from the front of the vm.objects list.
+  while (!vm.objects.is_nil() && !objectIsDark(vm.objects)) {
+    OID<Obj> unreached = vm.objects;
+    vm.objects = vm.objects.clip()->next;
+    freeObject(unreached);
+  }
+  if (!vm.objects.is_nil() && !vm.objects.clip()->next.is_nil()) {
+    // We have a least two objects, which means we can use dual prev and curr
+    // iterators. Also, we know the first item in the remaining list must be
+    // darkened (or else the previous loop would have consumed it), so we begin
+    // with 'prev' on the first item and 'curr' on the second.
+    OID<Obj> prev = vm.objects;
+    OID<Obj> curr = vm.objects.clip()->next;
+
+    while (!curr.is_nil()) {
+      if (objectIsDark(curr)) {
+        prev = curr;
+        curr = curr.clip()->next;
+      } else {
+        OID<Obj> unreached = curr;
+        curr = curr.clip()->next;
+        prev.mlip()->next = curr;
+        freeObject(unreached);
+      }
+    }
+  }
 
   gc_phase = GC_PHASE_INTEGRATE_RESULT;
   //Integrate condensed objtable.
@@ -1056,34 +1084,6 @@ void collectGarbage() {
 
   collectGarbageCB(new_lower_bound);
 
-  // Collect the white objects.
-  gc_phase = GC_PHASE_FREE_WHITE_SET;
-  // Take off white objects from the front of the vm.objects list.
-  while (!vm.objects.is_nil() && !objectIsDark(vm.objects)) {
-    OID<Obj> unreached = vm.objects;
-    vm.objects = vm.objects.clip()->next;
-    freeObject(unreached);
-  }
-  if (!vm.objects.is_nil() && !vm.objects.clip()->next.is_nil()) {
-    // We have a least two objects, which means we can use dual prev and curr
-    // iterators. Also, we know the first item in the remaining list must be
-    // darkened (or else the previous loop would have consumed it), so we begin
-    // with 'prev' on the first item and 'curr' on the second.
-    OID<Obj> prev = vm.objects;
-    OID<Obj> curr = vm.objects.clip()->next;
-
-    while (!curr.is_nil()) {
-      if (objectIsDark(curr)) {
-        prev = curr;
-        curr = curr.clip()->next;
-      } else {
-        OID<Obj> unreached = curr;
-        curr = curr.clip()->next;
-        prev.mlip()->next = curr;
-        freeObject(unreached);
-      }
-    }
-  }
 
   //Clobber old contents.
   //FIXME doing the clobber breaks things.
