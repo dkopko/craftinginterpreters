@@ -30,20 +30,26 @@ void freeChunk(OID<Obj> f) {
   chunk->constants.values = CB_NULL;
   chunk->constants.capacity = 0;
   chunk->constants.count = 0;
-  initChunk(f);
 }
 
 void writeChunk(OID<Obj> f, uint8_t byte, int line) {
-  ObjFunction *fun = (ObjFunction *)f.mlip();
-  Chunk *chunk = &(fun->chunk);
+  PIN_SCOPE;
+  const ObjFunction *cfun = (const ObjFunction *)f.clip();
+  const Chunk *cchunk = &(cfun->chunk);
 
-  if (chunk->capacity < chunk->count + 1) {
-    int oldCapacity = chunk->capacity;
-    chunk->capacity = GROW_CAPACITY(oldCapacity);
-    chunk->code = GROW_ARRAY(chunk->code.co(), uint8_t,
-        oldCapacity, chunk->capacity);
-    chunk->lines = GROW_ARRAY(chunk->lines.co(), int,
-        oldCapacity, chunk->capacity);
+  int newCapacity = cchunk->capacity;
+  CBO<uint8_t> newCode;
+  CBO<int > newLines;
+  bool hasNewArrays = false;
+
+  if (cchunk->capacity < cchunk->count + 1) {
+    int oldCapacity = cchunk->capacity;
+    newCapacity = GROW_CAPACITY(oldCapacity);
+    newCode = GROW_ARRAY(cchunk->code.co(), uint8_t,
+        oldCapacity, newCapacity);
+    newLines = GROW_ARRAY(cchunk->lines.co(), int,
+        oldCapacity, newCapacity);
+    hasNewArrays = true;
 
     //NOTE: Because this chunk extension is done to an chunk already present
     // in the objtable (it is held by an ObjFunction, which is held in the
@@ -51,29 +57,41 @@ void writeChunk(OID<Obj> f, uint8_t byte, int line) {
     // mutation of external size.
     cb_bst_external_size_adjust(thread_cb,
                                 thread_objtable.root_a,
-                                (chunk->capacity - oldCapacity) * (sizeof(uint8_t) + sizeof(int)));
+                                (newCapacity - oldCapacity) * (sizeof(uint8_t) + sizeof(int)));
   }
 
-  //Rederive chunk, in case intervening GC caused it to become read-only.
-  fun = (ObjFunction *)f.mlip();
-  chunk = &(fun->chunk);
+  ObjFunction *mfun = (ObjFunction *)f.mlip();
+  Chunk *mchunk = &(mfun->chunk);
 
-  chunk->code.mlp()[chunk->count] = byte;
-  chunk->lines.mlp()[chunk->count] = line;
-  chunk->count++;
+  mchunk->capacity = newCapacity;
+  if (hasNewArrays) {
+    mchunk->code = newCode;
+    mchunk->lines = newLines;
+  }
+  mchunk->code.mlp()[mchunk->count] = byte;
+  mchunk->lines.mlp()[mchunk->count] = line;
+  mchunk->count++;
 }
 
+//FIXME the following code shouldn't work??  The "correct" formulation isn't
+// working though.  The issue: there are 3 allocations here, which can have
+// bad interactions due to GC at each allocation.  Yet taking a const * of
+// the function initially and only making a mutable copy at the end is not
+// working.
 int addConstant(OID<Obj> f, Value value) {
+  PIN_SCOPE;
   ObjFunction *fun = (ObjFunction *)f.mlip();
   Chunk *chunk = &(fun->chunk);
 
   push(value);  //Protect value from GC
 
+  int newCapacity = chunk->constants.capacity;
   if (chunk->constants.capacity < chunk->constants.count + 1) {
     int oldCapacity = chunk->constants.capacity;
-    chunk->constants.capacity = GROW_CAPACITY(oldCapacity);
+    newCapacity = GROW_CAPACITY(oldCapacity);
+    chunk->constants.capacity = newCapacity;
     CBO<Value> vals = GROW_ARRAY(chunk->constants.values.co(), Value,
-                               oldCapacity, chunk->constants.capacity);
+                               oldCapacity, newCapacity);
 
     //Rederive chunk, in case intervening GC caused it to become read-only.
     fun = (ObjFunction *)f.mlip();
@@ -89,7 +107,7 @@ int addConstant(OID<Obj> f, Value value) {
     // mutation of external size.
     cb_bst_external_size_adjust(thread_cb,
                                 thread_objtable.root_a,
-                                (chunk->constants.capacity - oldCapacity) * sizeof(Value));
+                                (newCapacity - oldCapacity) * sizeof(Value));
   }
 
 
@@ -97,6 +115,13 @@ int addConstant(OID<Obj> f, Value value) {
   chunk->constants.count++;
 
   pop();
+
+  for (int i = 0; i < chunk->constants.count; ++i) {
+    printf("DANDEBUG constants: %d:", i);
+    printValue(chunk->constants.values.mlp()[i]);
+    printf(" ");
+  }
+  printf("\n");
 
   return chunk->constants.count - 1;
 }
