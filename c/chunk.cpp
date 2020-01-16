@@ -30,6 +30,7 @@ void freeChunk(OID<Obj> f) {
   chunk->constants.values = CB_NULL;
   chunk->constants.capacity = 0;
   chunk->constants.count = 0;
+  initChunk(f);
 }
 
 void writeChunk(OID<Obj> f, uint8_t byte, int line) {
@@ -73,33 +74,23 @@ void writeChunk(OID<Obj> f, uint8_t byte, int line) {
   mchunk->count++;
 }
 
-//FIXME the following code shouldn't work??  The "correct" formulation isn't
-// working though.  The issue: there are 3 allocations here, which can have
-// bad interactions due to GC at each allocation.  Yet taking a const * of
-// the function initially and only making a mutable copy at the end is not
-// working.
 int addConstant(OID<Obj> f, Value value) {
   PIN_SCOPE;
-  ObjFunction *fun = (ObjFunction *)f.mlip();
-  Chunk *chunk = &(fun->chunk);
+  const ObjFunction *cfun = (const ObjFunction *)f.clip();
+  const Chunk *cchunk = &(cfun->chunk);
 
   push(value);  //Protect value from GC
 
-  int newCapacity = chunk->constants.capacity;
-  if (chunk->constants.capacity < chunk->constants.count + 1) {
-    int oldCapacity = chunk->constants.capacity;
+  int newCapacity = cchunk->constants.capacity;
+  CBO<Value> newValues = cchunk->constants.values;
+  bool hasNewArray = false;
+
+  if (cchunk->constants.capacity < cchunk->constants.count + 1) {
+    int oldCapacity = cchunk->constants.capacity;
     newCapacity = GROW_CAPACITY(oldCapacity);
-    chunk->constants.capacity = newCapacity;
-    CBO<Value> vals = GROW_ARRAY(chunk->constants.values.co(), Value,
-                               oldCapacity, newCapacity);
-
-    //Rederive chunk, in case intervening GC caused it to become read-only.
-    fun = (ObjFunction *)f.mlip();
-    chunk = &(fun->chunk);
-
-    //FIXME this GROW_ARRAY allocation may invalidate fun and chunk.  They will need to be rederived.
-    chunk->constants.values = vals;
-
+    newValues = GROW_ARRAY(cchunk->constants.values.co(), Value,
+                           oldCapacity, newCapacity);
+    hasNewArray = true;
 
     //NOTE: Because this constants extension is done to an chunk already present
     // in the objtable (it is held by an ObjFunction, which is held in the
@@ -110,19 +101,17 @@ int addConstant(OID<Obj> f, Value value) {
                                 (newCapacity - oldCapacity) * sizeof(Value));
   }
 
+  ObjFunction *mfun = (ObjFunction *)f.mlip();
+  Chunk *mchunk = &(mfun->chunk);
 
-  chunk->constants.values.mlp()[chunk->constants.count] = value;
-  chunk->constants.count++;
+  mchunk->constants.capacity = newCapacity;
+  if (hasNewArray)
+    mchunk->constants.values = newValues;
+  mchunk->constants.values.mlp()[mchunk->constants.count] = value;
+  mchunk->constants.count++;
 
   pop();
 
-  for (int i = 0; i < chunk->constants.count; ++i) {
-    printf("DANDEBUG constants: %d:", i);
-    printValue(chunk->constants.values.mlp()[i]);
-    printf(" ");
-  }
-  printf("\n");
-
-  return chunk->constants.count - 1;
+  return mchunk->constants.count - 1;
 }
 
