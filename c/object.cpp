@@ -405,6 +405,14 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
 
 void printObjectValue(Value value) {
   OID<Obj> tmp = AS_OBJ_ID(value);
+  //examine all outputs, weird external size subtractions exist.
+  if (tmp.co() == CB_NULL) {
+    printf("Could not find id #%ju! (in A:%ju, in B:%ju, in C:%ju)\n",
+        (uintmax_t)tmp.id().id,
+        (uintmax_t)tmp.co_A(),
+        (uintmax_t)tmp.co_B(),
+        (uintmax_t)tmp.co_C());
+  }
   printObject(tmp.id(), tmp.co(), tmp.clip());
 }
 //< print-object
