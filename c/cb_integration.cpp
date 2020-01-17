@@ -1250,6 +1250,16 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     resp->tristack_new_bbi = req->tristack_cbi;
   }
 
+  // Keep a view of the post-collection tristack setup.
+  TriStack new_tristack;
+  new_tristack.abo = resp->tristack_new_bbo;
+  new_tristack.abi = resp->tristack_new_bbi;
+  new_tristack.bbo = 0;
+  new_tristack.bbi = 0;
+  new_tristack.cbo = 0;
+  new_tristack.cbi = 0;
+  assert(new_tristack.abi == 0);
+
   //Condense triframes
   {
     cb_offset_t   new_bbo              = cb_region_start(&(req->triframes_new_region));
@@ -1273,6 +1283,10 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
       size_t old_ip_relloc = src->ip - src->closure.clip_alt(&old_objtable)->function.clip_alt(&old_objtable)->chunk.code.clp();
       dest->ip = &(dest->closure.clip_alt(&new_objtable)->function.clip_alt(&new_objtable)->chunk.code.clp()[old_ip_relloc]);
 
+      //The CallFrame::slots field is  a raw pointer and must be adjusted due
+      //to the tristack's relocation
+      dest->slots = tristack_at(&new_tristack, dest->slotsIndex);
+
       ++i;
     }
 
@@ -1288,6 +1302,10 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
       //the chunk's code array's relocation.
       size_t old_ip_relloc = src->ip - src->closure.clip_alt(&old_objtable)->function.clip_alt(&old_objtable)->chunk.code.clp();
       dest->ip = &(dest->closure.clip_alt(&new_objtable)->function.clip_alt(&new_objtable)->chunk.code.clp()[old_ip_relloc]);
+
+      //The CallFrame::slots field is  a raw pointer and must be adjusted due
+      //to the tristack's relocation
+      dest->slots = tristack_at(&new_tristack, dest->slotsIndex);
 
       ++i;
     }
