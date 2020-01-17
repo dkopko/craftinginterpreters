@@ -839,10 +839,12 @@ static void closeUpvalues(unsigned int lastStackIndex) {
          vm.openUpvalues.clip()->valueStackIndex >= (int)lastStackIndex) {
     OID<ObjUpvalue> upvalue = vm.openUpvalues;
 
-    // Move the value into the upvalue itself and point the upvalue to
-    // it.
-    upvalue.mlip()->closed = *tristack_at(&(vm.tristack), upvalue.clip()->valueStackIndex);
-    upvalue.mlip()->valueStackIndex = -1;
+    // Move the value into the upvalue itself.
+    Value v = *tristack_at(&(vm.tristack), upvalue.clip()->valueStackIndex);
+
+    ObjUpvalue *mupvalue = upvalue.mlip();
+    mupvalue->closed = v;
+    mupvalue->valueStackIndex = -1;
 
     // Pop it off the open upvalue list.
     vm.openUpvalues = upvalue.clip()->next;
