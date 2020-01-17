@@ -1388,40 +1388,43 @@ static InterpretResult run() {
 //> interpret
 //> Scanning on Demand vm-interpret-c
 InterpretResult interpret(const char* source) {
-/* Scanning on Demand omit < Compiling Expressions interpret-chunk
-  // Hack to avoid unused function error. run() is not used in the
-  // scanning chapter.
-  if (false) run();
-*/
-/* Scanning on Demand vm-interpret-c < Compiling Expressions interpret-chunk
-  compile(source);
-  return INTERPRET_OK;
-*/
-//> Calls and Functions not-yet
-  exec_phase = EXEC_PHASE_COMPILE;
-  OID<ObjFunction> function = compile(source);
-  if (function.is_nil()) return INTERPRET_COMPILE_ERROR;
+  {
+    PIN_SCOPE;
+  /* Scanning on Demand omit < Compiling Expressions interpret-chunk
+    // Hack to avoid unused function error. run() is not used in the
+    // scanning chapter.
+    if (false) run();
+  */
+  /* Scanning on Demand vm-interpret-c < Compiling Expressions interpret-chunk
+    compile(source);
+    return INTERPRET_OK;
+  */
+  //> Calls and Functions not-yet
+    exec_phase = EXEC_PHASE_COMPILE;
+    OID<ObjFunction> function = compile(source);
+    if (function.is_nil()) return INTERPRET_COMPILE_ERROR;
 
-//< Calls and Functions not-yet
-/* Calls and Functions not-yet < Closures not-yet
-  callValue(OBJ_VAL(function), 0);
-*/
-//> Garbage Collection not-yet
-  push(OBJ_VAL(function.id()));
-//< Garbage Collection not-yet
-//> Closures not-yet
-  OID<ObjClosure> closure = newClosure(function);
-//< Closures not-yet
-//> Garbage Collection not-yet
-  pop();
-//< Garbage Collection not-yet
-//> Closures not-yet
+  //< Calls and Functions not-yet
+  /* Calls and Functions not-yet < Closures not-yet
+    callValue(OBJ_VAL(function), 0);
+  */
+  //> Garbage Collection not-yet
+    push(OBJ_VAL(function.id()));
+  //< Garbage Collection not-yet
+  //> Closures not-yet
+    OID<ObjClosure> closure = newClosure(function);
+  //< Closures not-yet
+  //> Garbage Collection not-yet
+    pop();
+  //< Garbage Collection not-yet
+  //> Closures not-yet
 
-  //BUGFIX: without this, upstream code derived frames[0]->slots outside of stack.
-  //  This was harmless, but trips our careful assertions.
-  push(OBJ_VAL(closure.id()));
+    //BUGFIX: without this, upstream code derived frames[0]->slots outside of stack.
+    //  This was harmless, but trips our careful assertions.
+    push(OBJ_VAL(closure.id()));
 
-  callValue(OBJ_VAL(closure.id()), 0);
+    callValue(OBJ_VAL(closure.id()), 0);
+  }
 
 //< Closures not-yet
 //< Scanning on Demand vm-interpret-c
