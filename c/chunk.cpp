@@ -8,29 +8,38 @@
 #include "vm.h"
 
 void initChunk(OID<Obj> f) {
-  ObjFunction *fun = (ObjFunction *)f.mlip();
-  Chunk *chunk = &(fun->chunk);
+  ObjFunction *mfun = (ObjFunction *)f.mlip();
+  Chunk *mchunk = &(mfun->chunk);
 
-  chunk->count = 0;
-  chunk->capacity = 0;
-  chunk->code = CB_NULL;
-  chunk->lines = CB_NULL;
-  chunk->constants.values = CB_NULL;
-  chunk->constants.capacity = 0;
-  chunk->constants.count = 0;
+  mchunk->count = 0;
+  mchunk->capacity = 0;
+  mchunk->code = CB_NULL;
+  mchunk->lines = CB_NULL;
+  mchunk->constants.values = CB_NULL;
+  mchunk->constants.capacity = 0;
+  mchunk->constants.count = 0;
 }
 
 void freeChunk(OID<Obj> f) {
-  ObjFunction *fun = (ObjFunction *)f.mlip();
-  Chunk *chunk = &(fun->chunk);
+  PIN_SCOPE;
 
-  FREE_ARRAY(uint8_t, chunk->code.co(), chunk->capacity);
-  FREE_ARRAY(int, chunk->lines.co(), chunk->capacity);
-  FREE_ARRAY(Value, chunk->constants.values.co(), chunk->constants.capacity);
-  chunk->constants.values = CB_NULL;
-  chunk->constants.capacity = 0;
-  chunk->constants.count = 0;
-  initChunk(f);
+  ObjFunction *cfun = (ObjFunction *)f.clip();
+  Chunk *cchunk = &(cfun->chunk);
+
+  FREE_ARRAY(uint8_t, cchunk->code.co(), cchunk->capacity);
+  FREE_ARRAY(int, cchunk->lines.co(), cchunk->capacity);
+  FREE_ARRAY(Value, cchunk->constants.values.co(), cchunk->constants.capacity);
+
+  ObjFunction *mfun = (ObjFunction *)f.mlip();
+  Chunk *mchunk = &(mfun->chunk);
+
+  mchunk->count = 0;
+  mchunk->capacity = 0;
+  mchunk->code = CB_NULL;
+  mchunk->lines = CB_NULL;
+  mchunk->constants.values = CB_NULL;
+  mchunk->constants.capacity = 0;
+  mchunk->constants.count = 0;
 }
 
 void writeChunk(OID<Obj> f, uint8_t byte, int line) {
