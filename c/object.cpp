@@ -350,6 +350,12 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
                (uintmax_t)clo->function.id().id,
                (uintmax_t)clo->function.co());
       }
+      printf("{upvalues:");
+      for (int i = 0; i < clo->upvalueCount; ++i) {
+        printf("[%d]:#%ju", i, (uintmax_t)clo->upvalues.clp()[i].id().id);
+        if (i < clo->upvalueCount - 1) printf(",");
+      }
+      printf("}");
       break;
     }
 
@@ -390,11 +396,19 @@ void printObject(ObjID id, cb_offset_t offset, const Obj *obj) {
              (uintmax_t)((const ObjString *)obj)->chars.co());
       break;
 
-    case OBJ_UPVALUE:
+    case OBJ_UPVALUE: {
+      const ObjUpvalue *upvalue = (const ObjUpvalue *)obj;
       printf("upvalue#%ju@%ju",
              (uintmax_t)id.id,
              (uintmax_t)offset);
+      if (upvalue->valueStackIndex == -1) {
+        printf(":");
+        printValue(upvalue->closed);
+      } else {
+        printf("^%d", upvalue->valueStackIndex);
+      }
       break;
+    }
 
     default:
       printf("#?BADOBJ?-type'%c'#", obj->type);
