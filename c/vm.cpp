@@ -1278,10 +1278,12 @@ static InterpretResult run() {
           if (isLocal) {
             // Make an new upvalue to close over the parent's local
             // variable.
-            closure.mlip()->upvalues.mlp()[i] = captureUpvalue(vm.currentFrame->slotsIndex + index);
+            OID<ObjUpvalue> capturedUpvalue = captureUpvalue(vm.currentFrame->slotsIndex + index);
+            closure.mlip()->upvalues.mlp()[i] = capturedUpvalue;
           } else {
             // Use the same upvalue as the current call frame.
-            closure.mlip()->upvalues.mlp()[i] = vm.currentFrame->closure.mlip()->upvalues.mlp()[index];
+            OID<ObjUpvalue> reusedUpvalue = vm.currentFrame->closure.clip()->upvalues.clp()[index];
+            closure.mlip()->upvalues.mlp()[i] = reusedUpvalue;
           }
         }
 
