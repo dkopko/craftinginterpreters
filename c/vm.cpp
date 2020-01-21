@@ -360,9 +360,6 @@ void initVM() {
 //> call-reset-stack
   resetStack();
 //< call-reset-stack
-//> Strings init-objects-root
-  vm.objects = CB_NULL_OID;
-//< Strings init-objects-root
 //> Garbage Collection not-yet
   vm.bytesAllocated = 0;
   vm.nextGC = 1024 * 1024;
@@ -400,9 +397,6 @@ void freeVM() {
 //> Methods and Initializers not-yet
   vm.initString = CB_NULL_OID;
 //< Methods and Initializers not-yet
-//> Strings call-free-objects
-  freeObjects();
-//< Strings call-free-objects
 }
 
 //> push

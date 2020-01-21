@@ -91,7 +91,7 @@ typedef enum {
 
 struct sObj {
   ObjType type;
-  OID<struct sObj> next;
+  OID<struct sObj> white_next;
 };
 //> Calls and Functions not-yet
 

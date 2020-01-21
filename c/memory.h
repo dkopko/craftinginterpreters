@@ -127,6 +127,5 @@ cb_offset_t cloneObject(struct cb **cb, struct cb_region *region, ObjID id, cb_o
 void grayObject(const OID<Obj> objectOID);
 void grayValue(Value value);
 void collectGarbage();
-void freeObjects();
 
 #endif

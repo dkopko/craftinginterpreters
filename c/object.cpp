@@ -41,10 +41,6 @@ static ObjID allocateObject(size_t size, size_t alignment, ObjType type) {
 
   Obj* object = objectCBO.mlp();
   object->type = type;
-//> add-to-list
-  object->next = vm.objects;
-  vm.objects = objectOID;
-//< add-to-list
 //> Garbage Collection not-yet
 
 #ifdef DEBUG_TRACE_GC

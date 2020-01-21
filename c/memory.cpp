@@ -790,35 +790,6 @@ void collectGarbageCB(cb_offset_t new_lower_bound) {
   }
   assert(ret == 0);
 
-  // Collect the white objects.
-  gc_phase = GC_PHASE_FREE_WHITE_SET;
-  // Take off white objects from the front of the vm.objects list.
-  while (!vm.objects.is_nil() && !objectIsDark(vm.objects)) {
-    OID<Obj> unreached = vm.objects;
-    vm.objects = vm.objects.clip()->next;
-    freeObject(unreached);
-  }
-  if (!vm.objects.is_nil() && !vm.objects.clip()->next.is_nil()) {
-    // We have a least two objects, which means we can use dual prev and curr
-    // iterators. Also, we know the first item in the remaining list must be
-    // darkened (or else the previous loop would have consumed it), so we begin
-    // with 'prev' on the first item and 'curr' on the second.
-    OID<Obj> prev = vm.objects;
-    OID<Obj> curr = vm.objects.clip()->next;
-
-    while (!curr.is_nil()) {
-      if (objectIsDark(curr)) {
-        prev = curr;
-        curr = curr.clip()->next;
-      } else {
-        OID<Obj> unreached = curr;
-        curr = curr.clip()->next;
-        prev.mlip()->next = curr;
-        freeObject(unreached);
-      }
-    }
-  }
-
   gc_phase = GC_PHASE_INTEGRATE_RESULT;
   //Integrate condensed objtable.
   printf("DANDEBUG objtable C %ju -> %ju\n", (uintmax_t)thread_objtable.root_c, (uintmax_t)CB_BST_SENTINEL);
@@ -890,6 +861,16 @@ void collectGarbageCB(cb_offset_t new_lower_bound) {
 
   if (vm.currentFrame)
     vm.currentFrame->slots = tristack_at(&(vm.tristack), vm.currentFrame->slotsIndex);
+
+  // Collect the white objects.
+  gc_phase = GC_PHASE_FREE_WHITE_SET;
+  OID<struct sObj> white_list = resp.white_list;
+  // Take off white objects from the front of the vm.objects list.
+  while (!white_list.is_nil()) {
+    OID<Obj> unreached = white_list;
+    white_list = white_list.clip()->white_next;
+    freeObject(unreached);
+  }
 
 #ifdef DEBUG_TRACE_GC
   printf("-- END CB GC %d\n", gciteration);
@@ -1121,29 +1102,3 @@ void collectGarbage() {
 #endif
 }
 
-void freeObjects() {
-  OID<Obj> object = vm.objects;
-  while (! object.is_nil()) {
-    OID<Obj> next = object.clip()->next;
-    freeObject(object);
-    object = next;
-  }
-
-  cb_offset_t oldGrayStackOffset = vm.grayStack.co();
-  int oldGrayCapacity = vm.grayCapacity;
-  vm.grayStack = reallocate_within(&gc_thread_cb,
-                                   &gc_thread_region,
-                                   oldGrayStackOffset,
-                                   sizeof(OID<Obj>) * oldGrayCapacity,
-                                   0,
-                                   cb_alignof(OID<Obj>),
-                                   false,
-                                   true);
-
-#ifdef DEBUG_TRACE_GC
-    printf("@%ju OID<Obj>[%zd] (grayStack) array freed (%zd bytes)\n",
-           (uintmax_t)oldGrayStackOffset,
-           (size_t)oldGrayCapacity,
-           sizeof(OID<Obj*>) * oldGrayCapacity);
-#endif
-}

@@ -310,6 +310,8 @@ struct gc_response
   cb_offset_t  strings_new_root_b;
 
   cb_offset_t  globals_new_root_b;
+
+  ObjID        white_list;
 };
 
 int gc_init(void);

@@ -96,12 +96,6 @@ typedef struct {
 
   size_t bytesAllocated;
   size_t nextGC;
-//< Garbage Collection not-yet
-//> Strings objects-root
-
-  OID<Obj> objects;  //head of a singly-linked list via OID<> references.
-//< Strings objects-root
-//> Garbage Collection not-yet
   int grayCount;
   int grayCapacity;
   CBO<OID<Obj> >  grayStack;
