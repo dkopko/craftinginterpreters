@@ -1,32 +1,17 @@
 #include <assert.h>
-//> A Virtual Machine vm-c
-//> Types of Values include-stdarg
 #include <stdarg.h>
-//< Types of Values include-stdarg
-//> vm-include-stdio
 #include <stdio.h>
-//> Strings vm-include-string
 #include <string.h>
-//< Strings vm-include-string
-//> Calls and Functions not-yet
 #include <time.h>
-//< Calls and Functions not-yet
 
 #include "cb_bst.h"
 
 #include "cb_integration.h"
-//< vm-include-stdio
 #include "common.h"
-//> Scanning on Demand vm-include-compiler
 #include "compiler.h"
-//< Scanning on Demand vm-include-compiler
-//> vm-include-debug
 #include "debug.h"
-//< vm-include-debug
-//> Strings vm-include-object-memory
 #include "object.h"
 #include "memory.h"
-//< Strings vm-include-object-memory
 #include "vm.h"
 
 static void
@@ -34,14 +19,14 @@ tristack_reset(TriStack *ts) {
   cb_offset_t new_offset;
   int ret;
 
-  printf("DANDEBUG before tristack reset\n");
+  (void)ret;
+
   ret = cb_region_memalign(&thread_cb,
                            &thread_region,
                            &new_offset,
                            cb_alignof(Value),
                            sizeof(Value) * STACK_MAX);
-  printf("DANDEBUG after tristack reset\n");
-  (void)ret;
+  assert(ret == 0);
 
   ts->abo = new_offset;
   ts->abi = 0;
@@ -99,8 +84,8 @@ static Value
 tristack_peek(TriStack *ts, unsigned int down) {
   assert(down < ts->stackDepth);
 
-  unsigned int ei = (ts->stackDepth - 1 - down);  // "element index"
-  return *tristack_at(ts, ei);
+  unsigned int element_index = (ts->stackDepth - 1 - down);
+  return *tristack_at(ts, element_index);
 }
 
 static void
@@ -148,14 +133,14 @@ triframes_reset(TriFrames *tf) {
   cb_offset_t new_offset;
   int ret;
 
-  printf("DANDEBUG before triframes reset\n");
+  (void)ret;
+
   ret = cb_region_memalign(&thread_cb,
                            &thread_region,
                            &new_offset,
                            cb_alignof(CallFrame),
                            sizeof(CallFrame) * FRAMES_MAX);
-  printf("DANDEBUG after triframes reset\n");
-  (void)ret;
+  assert(ret == 0);
 
   tf->abo = new_offset;
   tf->abi = 0;
@@ -293,25 +278,18 @@ triframes_print(TriFrames *tf) {
   printf("\n");
 }
 
-VM vm; // [one]
-//> Calls and Functions not-yet
+VM vm;
 
 static Value clockNative(int argCount, Value* args) {
   return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
 }
-//< Calls and Functions not-yet
-//> reset-stack
+
 static void resetStack() {
   tristack_reset(&(vm.tristack));
-//> Calls and Functions not-yet
   triframes_reset(&(vm.triframes));
-//< Calls and Functions not-yet
-//> Closures not-yet
   vm.openUpvalues = CB_NULL_OID;
-//< Closures not-yet
 }
-//< reset-stack
-//> Types of Values runtime-error
+
 static void runtimeError(const char* format, ...) {
   va_list args;
   va_start(args, format);
@@ -337,98 +315,60 @@ static void runtimeError(const char* format, ...) {
 
   resetStack();
 }
-//< Types of Values runtime-error
-//> Calls and Functions not-yet
 
 static void defineNative(const char* name, NativeFn function) {
   PIN_SCOPE;
+
   OID<ObjString> nameOID = copyString(name, (int)strlen(name));
   Value nameVal = OBJ_VAL(nameOID.id());
-  push(nameVal);  //Keep garbage collector happy. CBINT FIXME not needed
 
   OID<ObjNative> nativeOID = newNative(function);
   Value nativeVal = OBJ_VAL(nativeOID.id());
-  push(nativeVal);  //Keep garbage collector happy.  CBINT FIXME not needed
 
   tableSet(&vm.globals, nameVal, nativeVal);
-  pop();
-  pop();
 }
-//< Calls and Functions not-yet
 
 void initVM() {
-//> call-reset-stack
   resetStack();
-//< call-reset-stack
-//> Garbage Collection not-yet
   vm.bytesAllocated = 0;
   vm.nextGC = 1024 * 1024;
 
   vm.grayCount = 0;
   vm.grayCapacity = 0;
   vm.grayStack = CB_NULL;
-//< Garbage Collection not-yet
-//> Global Variables init-globals
 
   objtable_init(&thread_objtable);
 
   initTable(&vm.globals, &clox_value_shallow_comparator, &clox_value_render);
-//< Global Variables init-globals
-//> Hash Tables init-strings
   initTable(&vm.strings, &clox_value_deep_comparator, &clox_value_render);
-//< Hash Tables init-strings
-//> Methods and Initializers not-yet
 
   vm.initString = copyString("init", 4);
-//< Methods and Initializers not-yet
-//> Calls and Functions not-yet
 
   defineNative("clock", clockNative);
-//< Calls and Functions not-yet
 }
 
 void freeVM() {
-//> Global Variables free-globals
   freeTable(&vm.globals);
-//< Global Variables free-globals
-//> Hash Tables free-strings
   freeTable(&vm.strings);
-//< Hash Tables free-strings
-//> Methods and Initializers not-yet
   vm.initString = CB_NULL_OID;
-//< Methods and Initializers not-yet
 }
 
-//> push
 void push(Value value) {
   tristack_push(&(vm.tristack), value);
 }
-//< push
-//> pop
+
 Value pop() {
   return tristack_pop(&(vm.tristack));
 }
-//< pop
-//> Types of Values peek
+
 static Value peek(int distance) {
   return tristack_peek(&(vm.tristack), distance);
 }
-//< Types of Values peek
-/* Calls and Functions not-yet < Closures not-yet
-
-static bool call(ObjFunction* function, int argCount) {
-  if (argCount != function->arity) {
-    runtimeError("Expected %d arguments but got %d.",
-        function->arity, argCount);
-*/
-//> Calls and Functions not-yet
-//> Closures not-yet
 
 static bool call(OID<ObjClosure> closure, int argCount) {
   if (argCount != closure.clip()->function.clip()->arity) {
     runtimeError("Expected %d arguments but got %d.",
         closure.clip()->function.clip()->arity, argCount);
-//< Closures not-yet
     return false;
   }
 
@@ -439,14 +379,8 @@ static bool call(OID<ObjClosure> closure, int argCount) {
 
   triframes_enterFrame(&(vm.triframes));
   CallFrame* frame = triframes_currentFrame(&(vm.triframes));
-/* Calls and Functions not-yet < Closures not-yet
-  frame->function = function;
-  frame->ip = function->chunk.code;
-*/
-//> Closures not-yet
   frame->closure = closure;
   frame->ip = closure.clip()->function.clip()->chunk.code.clp();
-//< Closures not-yet
 
   // +1 to include either the called function or the receiver.
   frame->slotsCount = argCount + 1;
@@ -650,7 +584,6 @@ static void classMethodsAddAll(OID<ObjClass> subclass, OID<ObjClass> superclass)
 static bool callValue(Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
-//> Methods and Initializers not-yet
       case OBJ_BOUND_METHOD: {
         OID<ObjBoundMethod> bound = AS_BOUND_METHOD_OID(callee);
 
@@ -662,8 +595,6 @@ static bool callValue(Value callee, int argCount) {
         return call(bound.clip()->method, argCount);
       }
 
-//< Methods and Initializers not-yet
-//> Classes and Instances not-yet
       case OBJ_CLASS: {
         OID<ObjClass> klass = AS_CLASS_OID(callee);
 
@@ -672,8 +603,6 @@ static bool callValue(Value callee, int argCount) {
         Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - (argCount + 1));
         assert(loc >= cb_at(thread_cb, vm.tristack.abo));  // Must be in the mutable section A.
         *loc = tmp;
-//> Methods and Initializers not-yet
-        // Call the initializer, if there is one.
         Value initializer;
         if (classMethodGet(klass, OBJ_VAL(vm.initString.id()), &initializer)) {
           return call(AS_CLOSURE_OID(initializer), argCount);
@@ -682,21 +611,12 @@ static bool callValue(Value callee, int argCount) {
           return false;
         }
 
-//< Methods and Initializers not-yet
         return true;
       }
-//< Classes and Instances not-yet
-//> Closures not-yet
 
       case OBJ_CLOSURE:
         return call(AS_CLOSURE_OID(callee), argCount);
 
-//< Closures not-yet
-/* Calls and Functions not-yet < Closures not-yet
-      case OBJ_FUNCTION:
-        return call(AS_FUNCTION(callee), argCount);
-
-*/
       case OBJ_NATIVE: {
         NativeFn native = AS_NATIVE(callee);
         Value* loc = tristack_at(&(vm.tristack), vm.tristack.stackDepth - argCount);
@@ -716,8 +636,6 @@ static bool callValue(Value callee, int argCount) {
   runtimeError("Can only call functions and classes.");
   return false;
 }
-//< Calls and Functions not-yet
-//> Methods and Initializers not-yet
 
 static bool invokeFromClass(OID<ObjClass> klass, OID<ObjString> name,
                             int argCount) {
@@ -765,8 +683,6 @@ static bool bindMethod(OID<ObjClass> klass, OID<ObjString> name) {
   push(OBJ_VAL(bound.id()));
   return true;
 }
-//< Methods and Initializers not-yet
-//> Closures not-yet
 
 // Captures the local variable [local] into an [Upvalue]. If that local
 // is already in an upvalue, the existing one is used. (This is
@@ -844,8 +760,6 @@ static void closeUpvalues(unsigned int lastStackIndex) {
     vm.openUpvalues = upvalue.clip()->next;
   }
 }
-//< Closures not-yet
-//> Methods and Initializers not-yet
 
 static void defineMethod(OID<ObjString> name) {
   Value method = peek(0);
@@ -853,44 +767,26 @@ static void defineMethod(OID<ObjString> name) {
   classMethodSet(klass, OBJ_VAL(name.id()), method);
   pop();
 }
-//< Methods and Initializers not-yet
-/* Classes and Instances not-yet < Superclasses not-yet
-
-static void createClass(ObjString* name) {
-  ObjClass* klass = newClass(name);
-*/
-//> Classes and Instances not-yet
-//> Superclasses not-yet
 
 static void createClass(OID<ObjString> name, OID<ObjClass> superclass) {
   OID<ObjClass> klass = newClass(name, superclass);
-//< Superclasses not-yet
   push(OBJ_VAL(klass.id()));
-//> Superclasses not-yet
 
   // Inherit methods.
   if (!superclass.is_nil()) {
     classMethodsAddAll(klass, superclass);
   }
-//< Superclasses not-yet
 }
-//< Classes and Instances not-yet
-//> Types of Values is-falsey
+
 static bool isFalsey(Value value) {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
-//< Types of Values is-falsey
-//> Strings concatenate
+
 static void concatenate() {
   PIN_SCOPE;
-/* Strings concatenate < Garbage Collection not-yet
-  ObjString* b = AS_STRING(pop());
-  ObjString* a = AS_STRING(pop());
-*/
-//> Garbage Collection not-yet
+
   OID<ObjString> b = AS_STRING_OID(peek(0));
   OID<ObjString> a = AS_STRING_OID(peek(1));
-//< Garbage Collection not-yet
 
   int length = a.clip()->length + b.clip()->length;
   CBO<char> /*char[]*/ chars = ALLOCATE(char, length + 1);
@@ -899,14 +795,11 @@ static void concatenate() {
   chars.mlp()[length] = '\0';
 
   OID<ObjString> result = takeString(chars, length);
-//> Garbage Collection not-yet
   pop();
   pop();
-//< Garbage Collection not-yet
   push(OBJ_VAL(result.id()));
 }
-//< Strings concatenate
-//> run
+
 static InterpretResult run() {
   vm.currentFrame = triframes_currentFrame(&(vm.triframes));
 
@@ -917,7 +810,6 @@ static InterpretResult run() {
     (vm.currentFrame->closure.clip()->function.clip()->chunk.constants.values.clp()[READ_BYTE()])
 #define READ_STRING() AS_STRING_OID(READ_CONSTANT())
 
-//> Types of Values binary-op
 #define BINARY_OP(valueType, op) \
     do { \
       if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
@@ -929,7 +821,6 @@ static InterpretResult run() {
       double a = AS_NUMBER(pop()); \
       push(valueType(a op b)); \
     } while (false)
-//< Types of Values binary-op
 
   for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -949,52 +840,28 @@ static InterpretResult run() {
 
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
-//> op-constant
       case OP_CONSTANT: {
         Value constant = READ_CONSTANT();
-/* A Virtual Machine op-constant < A Virtual Machine push-constant
-        printValue(constant);
-        printf("\n");
-*/
-//> push-constant
         push(constant);
-//< push-constant
         break;
       }
-//< op-constant
-//> Types of Values interpret-literals
       case OP_NIL: push(NIL_VAL); break;
       case OP_TRUE: push(BOOL_VAL(true)); break;
       case OP_FALSE: push(BOOL_VAL(false)); break;
-//< Types of Values interpret-literals
-//> Global Variables interpret-pop
+
       case OP_POP: pop(); break;
-//< Global Variables interpret-pop
-//> Local Variables not-yet
 
       case OP_GET_LOCAL: {
         uint8_t slot = READ_BYTE();
-/* Local Variables not-yet < Calls and Functions not-yet
-        push(vm.stack[slot]);
-*/
-//> Calls and Functions not-yet
         push(vm.currentFrame->slots[slot]);
-//< Calls and Functions not-yet
         break;
       }
 
       case OP_SET_LOCAL: {
         uint8_t slot = READ_BYTE();
-/* Local Variables not-yet < Calls and Functions not-yet
-        vm.stack[slot] = peek(0);
-*/
-//> Calls and Functions not-yet
         vm.currentFrame->slots[slot] = peek(0);
-//< Calls and Functions not-yet
         break;
       }
-//< Local Variables not-yet
-//> Global Variables interpret-get-global
 
       case OP_GET_GLOBAL: {
         OID<ObjString> name = READ_STRING();
@@ -1006,8 +873,6 @@ static InterpretResult run() {
         push(value);
         break;
       }
-//< Global Variables interpret-get-global
-//> Global Variables interpret-define-global
 
       case OP_DEFINE_GLOBAL: {
         OID<ObjString> name = READ_STRING();
@@ -1015,8 +880,6 @@ static InterpretResult run() {
         pop();
         break;
       }
-//< Global Variables interpret-define-global
-//> Global Variables interpret-set-global
 
       case OP_SET_GLOBAL: {
         OID<ObjString> name = READ_STRING();
@@ -1026,8 +889,6 @@ static InterpretResult run() {
         }
         break;
       }
-//< Global Variables interpret-set-global
-//> Closures not-yet
 
       case OP_GET_UPVALUE: {
         uint8_t slot = READ_BYTE();
@@ -1050,8 +911,6 @@ static InterpretResult run() {
         }
         break;
       }
-//< Closures not-yet
-//> Classes and Instances not-yet
 
       case OP_GET_PROPERTY: {
         if (!IS_INSTANCE(peek(0))) {
@@ -1068,16 +927,10 @@ static InterpretResult run() {
           break;
         }
 
-/* Classes and Instances not-yet < Methods and Initializers not-yet
-        runtimeError("Undefined property '%s'.", name->chars);
-        return INTERPRET_RUNTIME_ERROR;
-*/
-//> Methods and Initializers not-yet
         if (!bindMethod(instance.clip()->klass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
-//< Methods and Initializers not-yet
       }
 
       case OP_SET_PROPERTY: {
@@ -1093,8 +946,6 @@ static InterpretResult run() {
         push(value);
         break;
       }
-//< Classes and Instances not-yet
-//> Superclasses not-yet
 
       case OP_GET_SUPER: {
         OID<ObjString> name = READ_STRING();
@@ -1104,8 +955,6 @@ static InterpretResult run() {
         }
         break;
       }
-//< Superclasses not-yet
-//> Types of Values interpret-equal
 
       case OP_EQUAL: {
         Value b = pop();
@@ -1113,25 +962,10 @@ static InterpretResult run() {
         push(BOOL_VAL(valuesEqual(a, b)));
         break;
       }
-        
-//< Types of Values interpret-equal
-//> Types of Values interpret-comparison
+
       case OP_GREATER:  BINARY_OP(BOOL_VAL, >); break;
       case OP_LESS:     BINARY_OP(BOOL_VAL, <); break;
-//< Types of Values interpret-comparison
-/* A Virtual Machine op-binary < Types of Values op-arithmetic
-      case OP_ADD:      BINARY_OP(+); break;
-      case OP_SUBTRACT: BINARY_OP(-); break;
-      case OP_MULTIPLY: BINARY_OP(*); break;
-      case OP_DIVIDE:   BINARY_OP(/); break;
-*/
-/* A Virtual Machine op-negate < Types of Values op-negate
-      case OP_NEGATE:   push(-pop()); break;
-*/
-/* Types of Values op-arithmetic < Strings add-strings
-      case OP_ADD:      BINARY_OP(NUMBER_VAL, +); break;
-*/
-//> Strings add-strings
+
       case OP_ADD: {
         if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
           concatenate();
@@ -1145,18 +979,15 @@ static InterpretResult run() {
         }
         break;
       }
-//< Strings add-strings
-//> Types of Values op-arithmetic
+
       case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
       case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
       case OP_DIVIDE:   BINARY_OP(NUMBER_VAL, /); break;
-//< Types of Values op-arithmetic
-//> Types of Values op-not
+
       case OP_NOT:
         push(BOOL_VAL(isFalsey(pop())));
         break;
-//< Types of Values op-not
-//> Types of Values op-negate
+
       case OP_NEGATE:
         if (!IS_NUMBER(peek(0))) {
           runtimeError("Operand must be a number.");
@@ -1165,17 +996,12 @@ static InterpretResult run() {
 
         push(NUMBER_VAL(-AS_NUMBER(pop())));
         break;
-//< Types of Values op-negate
-//> Global Variables interpret-print
 
-      case OP_PRINT: {
+      case OP_PRINT:
         printValue(pop());
         printf("\n");
         break;
-      }
 
-//< Global Variables interpret-print
-//> Jumping Forward and Back not-yet
       case OP_JUMP: {
         uint16_t offset = READ_SHORT();
         vm.currentFrame->ip += offset;
@@ -1193,8 +1019,6 @@ static InterpretResult run() {
         vm.currentFrame->ip -= offset;
         break;
       }
-//< Jumping Forward and Back not-yet
-//> Calls and Functions not-yet
 
       case OP_CALL_0:
       case OP_CALL_1:
@@ -1213,8 +1037,6 @@ static InterpretResult run() {
         vm.currentFrame = triframes_currentFrame(&(vm.triframes));
         break;
       }
-//< Calls and Functions not-yet
-//> Methods and Initializers not-yet
 
       case OP_INVOKE_0:
       case OP_INVOKE_1:
@@ -1233,8 +1055,6 @@ static InterpretResult run() {
         vm.currentFrame = triframes_currentFrame(&(vm.triframes));
         break;
       }
-//< Methods and Initializers not-yet
-//> Superclasses not-yet
 
       case OP_SUPER_0:
       case OP_SUPER_1:
@@ -1254,8 +1074,6 @@ static InterpretResult run() {
         vm.currentFrame = triframes_currentFrame(&(vm.triframes));
         break;
       }
-//< Superclasses not-yet
-//> Closures not-yet
 
       case OP_CLOSURE: {
         OID<ObjFunction> function = AS_FUNCTION_OID(READ_CONSTANT());
@@ -1290,7 +1108,6 @@ static InterpretResult run() {
         break;
       }
 
-//< Closures not-yet
       case OP_RETURN: {
         Value result = pop();
         unsigned int oldFrameSlotsIndex = vm.currentFrame->slotsIndex;
@@ -1333,20 +1150,11 @@ static InterpretResult run() {
         push(result);
 
         break;
-//< Calls and Functions not-yet
       }
-//> Classes and Instances not-yet
 
       case OP_CLASS:
-/* Classes and Instances not-yet < Superclasses not-yet
-        createClass(READ_STRING());
-*/
-//> Superclasses not-yet
         createClass(READ_STRING(), CB_NULL_OID);
-//< Superclasses not-yet
         break;
-//< Classes and Instances not-yet
-//> Superclasses not-yet
 
       case OP_SUBCLASS: {
         Value superclass = peek(0);
@@ -1358,64 +1166,29 @@ static InterpretResult run() {
         createClass(READ_STRING(), AS_CLASS_OID(superclass));
         break;
       }
-//< Superclasses not-yet
-//> Methods and Initializers not-yet
 
       case OP_METHOD:
         defineMethod(READ_STRING());
         break;
-//< Methods and Initializers not-yet
     }
   }
 
 #undef READ_BYTE
-//> Jumping Forward and Back not-yet
 #undef READ_SHORT
-//< Jumping Forward and Back not-yet
-//> undef-read-constant
 #undef READ_CONSTANT
-//< undef-read-constant
-//> Global Variables undef-read-string
 #undef READ_STRING
-//< Global Variables undef-read-string
-//> undef-binary-op
 #undef BINARY_OP
-//< undef-binary-op
 }
-//< run
-//> interpret
-//> Scanning on Demand vm-interpret-c
+
 InterpretResult interpret(const char* source) {
   {
     PIN_SCOPE;
-  /* Scanning on Demand omit < Compiling Expressions interpret-chunk
-    // Hack to avoid unused function error. run() is not used in the
-    // scanning chapter.
-    if (false) run();
-  */
-  /* Scanning on Demand vm-interpret-c < Compiling Expressions interpret-chunk
-    compile(source);
-    return INTERPRET_OK;
-  */
-  //> Calls and Functions not-yet
+
     exec_phase = EXEC_PHASE_COMPILE;
     OID<ObjFunction> function = compile(source);
     if (function.is_nil()) return INTERPRET_COMPILE_ERROR;
 
-  //< Calls and Functions not-yet
-  /* Calls and Functions not-yet < Closures not-yet
-    callValue(OBJ_VAL(function), 0);
-  */
-  //> Garbage Collection not-yet
-    push(OBJ_VAL(function.id()));
-  //< Garbage Collection not-yet
-  //> Closures not-yet
     OID<ObjClosure> closure = newClosure(function);
-  //< Closures not-yet
-  //> Garbage Collection not-yet
-    pop();
-  //< Garbage Collection not-yet
-  //> Closures not-yet
 
     //BUGFIX: without this, upstream code derived frames[0]->slots outside of stack.
     //  This was harmless, but trips our careful assertions.
@@ -1424,17 +1197,7 @@ InterpretResult interpret(const char* source) {
     callValue(OBJ_VAL(closure.id()), 0);
   }
 
-//< Closures not-yet
-//< Scanning on Demand vm-interpret-c
-//> Compiling Expressions interpret-chunk
-  
   exec_phase = EXEC_PHASE_INTERPRET;
   InterpretResult result = run();
-/* Compiling Expressions interpret-chunk < Calls and Functions not-yet
-
-  freeChunk(&chunk);
-*/
   return result;
-//< Compiling Expressions interpret-chunk
 }
-//< interpret
