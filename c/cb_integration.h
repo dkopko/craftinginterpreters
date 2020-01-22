@@ -30,6 +30,12 @@ extern int gc_phase;
 #define ALREADY_WHITE(OFFSET) !!((OFFSET) & ALREADY_WHITE_FLAG)
 #define PURE_OFFSET(OFFSET) ((OFFSET) & ~ALREADY_WHITE_FLAG)
 
+#if NDEBUG
+#define DEBUG_ONLY(x)
+#else
+#define DEBUG_ONLY(x) x
+#endif
+
 enum {
   EXEC_PHASE_COMPILE,
   EXEC_PHASE_INTERPRET

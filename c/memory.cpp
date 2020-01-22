@@ -523,7 +523,7 @@ struct copy_entry_closure
   struct cb        **dest_cb;
   struct cb_region  *dest_region;
   cb_offset_t       *dest_bst;
-  size_t             last_s;
+  DEBUG_ONLY(size_t  last_s);
 };
 
 static int
@@ -532,13 +532,11 @@ copy_entry_to_bst(const struct cb_term *key_term,
                   void                 *closure)
 {
   struct copy_entry_closure *cl = (struct copy_entry_closure *)closure;
-  cb_offset_t c0, c1;
-  size_t s1;
   int ret;
 
   (void)ret;
 
-  c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
 
   ret = cb_bst_insert(cl->dest_cb,
                       cl->dest_region,
@@ -548,12 +546,12 @@ copy_entry_to_bst(const struct cb_term *key_term,
                       value_term);
 
   assert(ret == 0);
-  c1 = cb_region_cursor(cl->dest_region);
-  s1 = cb_bst_size(*(cl->dest_cb), *cl->dest_bst);
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(*(cl->dest_cb), *cl->dest_bst));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
   return 0;
 }
@@ -578,7 +576,12 @@ cb_offset_t cloneObject(struct cb **cb, struct cb_region *region, ObjID id, cb_o
     case OBJ_CLASS: {
       ObjClass *srcClass = (ObjClass *)srcCBO.crp(*cb);
       ObjClass *destClass = (ObjClass *)cloneCBO.crp(*cb);
-      struct copy_entry_closure cl = { .dest_cb = cb, .dest_region = region, .dest_bst = &(destClass->methods_bst), .last_s = cb_bst_size(*cb, destClass->methods_bst) };
+      struct copy_entry_closure cl = {
+        .dest_cb = cb,
+        .dest_region = region,
+        .dest_bst = &(destClass->methods_bst),
+        DEBUG_ONLY(cl.last_s = cb_bst_size(*cb, destClass->methods_bst))
+      };
 
       ret = cb_bst_traverse(*cb,
                             srcClass->methods_bst,
@@ -591,8 +594,12 @@ cb_offset_t cloneObject(struct cb **cb, struct cb_region *region, ObjID id, cb_o
     case OBJ_INSTANCE: {
       ObjInstance *srcInstance = (ObjInstance *)srcCBO.crp(*cb);
       ObjInstance *destInstance = (ObjInstance *)cloneCBO.crp(*cb);
-      struct copy_entry_closure cl = { .dest_cb = cb, .dest_region = region, .dest_bst = &(destInstance->fields_bst), .last_s = cb_bst_size(*cb, destInstance->fields_bst) };
-
+      struct copy_entry_closure cl = {
+        .dest_cb = cb,
+        .dest_region = region,
+        .dest_bst = &(destInstance->fields_bst),
+        DEBUG_ONLY(cl.last_s = cb_bst_size(*cb, destInstance->fields_bst))
+      };
       ret = cb_bst_traverse(*cb,
                             srcInstance->fields_bst,
                             copy_entry_to_bst,
@@ -1019,6 +1026,8 @@ void collectGarbage() {
   if (exec_phase == EXEC_PHASE_COMPILE) {
     int ret;
 
+    (void) ret;
+
     ret = cb_bst_traverse(thread_cb,
                           thread_objtable.root_b,
                           &grayObjtableTraversal,
@@ -1028,6 +1037,7 @@ void collectGarbage() {
                           thread_objtable.root_c,
                           &grayObjtableTraversal,
                           (void*)"C");
+    assert(ret == 0);
   }
 
   gc_phase = GC_PHASE_MARK_STACK_ROOTS;

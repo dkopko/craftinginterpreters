@@ -693,7 +693,7 @@ struct merge_class_methods_closure
   struct cb         *dest_cb;
   struct cb_region  *dest_region;
   cb_offset_t       *dest_methods_bst;
-  size_t             last_s;
+  DEBUG_ONLY(size_t  last_s);
 };
 
 static int
@@ -719,7 +719,7 @@ merge_c_class_methods(const struct cb_term *key_term,
   if (cb_bst_lookup(cl->src_cb, cl->b_class_methods_bst, key_term, &temp_term) == 0)
     return 0;
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
 
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
@@ -728,12 +728,12 @@ merge_c_class_methods(const struct cb_term *key_term,
                       key_term,
                       value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->dest_methods_bst);
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(cl->dest_cb, *cl->dest_methods_bst));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
   return 0;
 }
@@ -745,7 +745,7 @@ struct merge_instance_fields_closure
   struct cb         *dest_cb;
   struct cb_region  *dest_region;
   cb_offset_t       *dest_fields_bst;
-  size_t             last_s;
+  DEBUG_ONLY(size_t  last_s);
 };
 
 static int
@@ -771,7 +771,7 @@ merge_c_instance_fields(const struct cb_term *key_term,
   if (cb_bst_lookup(cl->src_cb, cl->b_instance_fields_bst, key_term, &temp_term) == 0)
     return 0;
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
 
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
@@ -780,12 +780,12 @@ merge_c_instance_fields(const struct cb_term *key_term,
                       key_term,
                       value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->dest_fields_bst);
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(cl->dest_cb, *cl->dest_fields_bst));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
   return 0;
 }
@@ -798,7 +798,7 @@ struct copy_objtable_closure
   struct cb        *dest_cb;
   struct cb_region *dest_region;
   cb_offset_t      *new_root_b;
-  size_t            last_s;
+  DEBUG_ONLY(size_t last_s);
   ObjID             white_list;
 };
 
@@ -837,7 +837,7 @@ copy_objtable_b(const struct cb_term *key_term,
     newly_white = true;
   }
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
 
   clone_offset = cloneObject(&(cl->dest_cb), cl->dest_region, obj_id, offset);
   cb_term_set_u64(&clone_value_term, clone_offset | (newly_white ? ALREADY_WHITE_FLAG : 0));
@@ -855,18 +855,19 @@ copy_objtable_b(const struct cb_term *key_term,
                       key_term,
                       &clone_value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
-  printf("copy_objtable_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju %s\n",
+
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b));
+  DEBUG_ONLY(printf("copy_objtable_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju %s\n",
          (uintmax_t)(c1 - c0),
          (uintmax_t)(s1 - cl->last_s),
          (uintmax_t)obj_id.id,
          (uintmax_t)clone_offset,
-         (newly_white ? "NEWLYWHITE" : ""));
+         (newly_white ? "NEWLYWHITE" : "")));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
   (void)ret;
   return 0;
@@ -890,8 +891,6 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   bool already_white = ALREADY_WHITE((cb_offset_t)cb_term_get_u64(value_term));
   bool newly_white = false;
   struct cb_term temp_term;
-  cb_offset_t c0, c1;
-  size_t s1;
   bool needs_external_size_adjustment = false;
   int ret;
 
@@ -910,7 +909,7 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
     }
   }
 
-  c0 = cb_region_cursor(cl->dest_region);
+  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
 
   // If an entry exists in both B and C, B's entry should mask C's EXCEPT when
   // the B entry and C entry can be merged (which is when they are both ObjClass
@@ -932,9 +931,8 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
       subclosure.dest_cb             = cl->dest_cb;
       subclosure.dest_region         = cl->dest_region;
       subclosure.dest_methods_bst    = &(classB->methods_bst);
-      subclosure.last_s              = cb_bst_size(subclosure.dest_cb, classB->methods_bst);
+      DEBUG_ONLY(subclosure.last_s   = cb_bst_size(subclosure.dest_cb, classB->methods_bst));
 
-      c0 = cb_region_cursor(cl->dest_region);
       ret = cb_bst_traverse(cl->src_cb,
                             classC->methods_bst,
                             merge_c_class_methods,
@@ -954,7 +952,7 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
       subclosure.dest_cb               = cl->dest_cb;
       subclosure.dest_region           = cl->dest_region;
       subclosure.dest_fields_bst       = &(instanceB->fields_bst);
-      subclosure.last_s                = cb_bst_size(subclosure.dest_cb, instanceB->fields_bst);
+      DEBUG_ONLY(subclosure.last_s     = cb_bst_size(subclosure.dest_cb, instanceB->fields_bst));
 
       ret = cb_bst_traverse(cl->src_cb,
                             instanceC->fields_bst,
@@ -991,26 +989,26 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
     assert(ret == 0);
   }
 
-  c1 = cb_region_cursor(cl->dest_region);
+  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
 
   //NOTE: When we have expanded the size of the ObjClass or ObjInstance which
   // had already existed as inserted in new_root_b, we have to adjust
   // new_root_b's notion of its external size.
   if (needs_external_size_adjustment)
-    cb_bst_external_size_adjust(cl->dest_cb, *(cl->new_root_b), (ssize_t)(c1 - c0));
+    cb_bst_external_size_adjust(cl->dest_cb, *(cl->new_root_b), (ssize_t)(c1 - c0));  //FIXME is this the correct derivation??
 
-  s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
+  DEBUG_ONLY(size_t s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b));
 
-  printf("copy_objtable_c_not_in_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju%s\n",
+  DEBUG_ONLY(printf("copy_objtable_c_not_in_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju%s\n",
          (uintmax_t)(c1 - c0),
          (uintmax_t)(s1 - cl->last_s),
          (uintmax_t)objOID.id().id,
          (uintmax_t)cEntryOffset,
-         (needs_external_size_adjustment ? " ADJUSTMENT" : ""));
+         (needs_external_size_adjustment ? " ADJUSTMENT" : "")));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
   (void)ret;
   return 0;
@@ -1025,7 +1023,7 @@ struct copy_strings_closure
   struct cb        *dest_cb;
   struct cb_region *dest_region;
   cb_offset_t      *new_root_b;
-  size_t            last_s;
+  DEBUG_ONLY(size_t last_s);
 };
 
 static int
@@ -1046,7 +1044,7 @@ copy_strings_b(const struct cb_term *key_term,
     return 0;
   }
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_b,
@@ -1054,15 +1052,15 @@ copy_strings_b(const struct cb_term *key_term,
                       key_term,
                       value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
-  printf("STRINGSINSERT1 +%ju bytes (growth:+%ju)\n",
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b));
+  DEBUG_ONLY(printf("STRINGSINSERT1 +%ju bytes (growth:+%ju)\n",
          (uintmax_t)(c1 - c0),
-         (uintmax_t)(s1 - cl->last_s));
+         (uintmax_t)(s1 - cl->last_s)));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
   (void)ret;
   return 0;
@@ -1078,6 +1076,8 @@ copy_strings_c_not_in_b(const struct cb_term *key_term,
   struct cb_term temp_term;
   int ret;
 
+  (void)ret;
+
   //Skip those ObjIDs which are not marked dark (and are therefore unreachable
   // from the roots of the VM state).
   if (!objectIsDark(AS_OBJ_ID(keyValue))) {
@@ -1092,7 +1092,7 @@ copy_strings_c_not_in_b(const struct cb_term *key_term,
   if (cb_bst_lookup(cl->src_cb, cl->old_root_b, key_term, &temp_term) == 0)
       return 0;
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_b,
@@ -1100,17 +1100,16 @@ copy_strings_c_not_in_b(const struct cb_term *key_term,
                       key_term,
                       value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
-  printf("STRINGSINSERT2 +%ju bytes (growth:+%ju\n",
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b));
+  DEBUG_ONLY(printf("STRINGSINSERT2 +%ju bytes (growth:+%ju\n",
          (uintmax_t)(c1 - c0),
-         (uintmax_t)(s1 - cl->last_s));
+         (uintmax_t)(s1 - cl->last_s)));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
-  (void)ret;
   return 0;
 }
 
@@ -1123,7 +1122,7 @@ struct copy_globals_closure
   struct cb        *dest_cb;
   struct cb_region *dest_region;
   cb_offset_t      *new_root_b;
-  size_t            last_s;
+  DEBUG_ONLY(size_t last_s);
 };
 
 static int
@@ -1134,7 +1133,7 @@ copy_globals_b(const struct cb_term *key_term,
   struct copy_globals_closure *cl = (struct copy_globals_closure *)closure;
   int ret;
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_b,
@@ -1142,15 +1141,15 @@ copy_globals_b(const struct cb_term *key_term,
                       key_term,
                       value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
-  printf("GLOBALSINSERT1 +%ju bytes (growth:+%ju)\n",
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b));
+  DEBUG_ONLY(printf("GLOBALSINSERT1 +%ju bytes (growth:+%ju)\n",
          (uintmax_t)(c1 - c0),
-         (uintmax_t)(s1 - cl->last_s));
+         (uintmax_t)(s1 - cl->last_s)));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
   (void)ret;
   return 0;
@@ -1165,11 +1164,13 @@ copy_globals_c_not_in_b(const struct cb_term *key_term,
   struct cb_term temp_term;
   int ret;
 
+  (void)ret;
+
   // If an entry exists in both B and C, B's entry should mask C's.
   if (cb_bst_lookup(cl->src_cb, cl->old_root_b, key_term, &temp_term) == 0)
       return 0;
 
-  cb_offset_t c0 = cb_region_cursor(cl->dest_region);
+  DEBUG_ONLY(cb_offset_t c0 = cb_region_cursor(cl->dest_region));
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
                       cl->new_root_b,
@@ -1177,17 +1178,16 @@ copy_globals_c_not_in_b(const struct cb_term *key_term,
                       key_term,
                       value_term);
   assert(ret == 0);
-  cb_offset_t c1 = cb_region_cursor(cl->dest_region);
-  size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
-  printf("GLOBALSINSERT2 +%ju bytes (growth:+%ju)\n",
+  DEBUG_ONLY(cb_offset_t c1 = cb_region_cursor(cl->dest_region));
+  DEBUG_ONLY(size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b));
+  DEBUG_ONLY(printf("GLOBALSINSERT2 +%ju bytes (growth:+%ju)\n",
          (uintmax_t)(c1 - c0),
-         (uintmax_t)(s1 - cl->last_s));
+         (uintmax_t)(s1 - cl->last_s)));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
-  cl->last_s = s1;
+  DEBUG_ONLY(cl->last_s = s1);
 
-  (void)ret;
   return 0;
 }
 
@@ -1212,7 +1212,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     closure.dest_cb     = req->orig_cb;
     closure.dest_region = &(req->objtable_new_region);
     closure.new_root_b  = &(resp->objtable_new_root_b);
-    closure.last_s      = cb_bst_size(closure.dest_cb, resp->objtable_new_root_b);
+    DEBUG_ONLY(closure.last_s      = cb_bst_size(closure.dest_cb, resp->objtable_new_root_b));
     closure.white_list  = CB_NULL_OID;
 
     ret = cb_bst_traverse(req->orig_cb,
@@ -1362,7 +1362,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     closure.dest_cb     = req->orig_cb;
     closure.dest_region = &(req->strings_new_region);
     closure.new_root_b  = &(resp->strings_new_root_b);
-    closure.last_s      = cb_bst_size(closure.dest_cb, resp->strings_new_root_b);
+    DEBUG_ONLY(closure.last_s      = cb_bst_size(closure.dest_cb, resp->strings_new_root_b));
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->strings_root_b,
@@ -1405,7 +1405,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     closure.dest_cb     = req->orig_cb;
     closure.dest_region = &(req->globals_new_region);
     closure.new_root_b  = &(resp->globals_new_root_b);
-    closure.last_s      = cb_bst_size(closure.dest_cb, resp->globals_new_root_b);
+    DEBUG_ONLY(closure.last_s      = cb_bst_size(closure.dest_cb, resp->globals_new_root_b));
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->globals_root_b,
