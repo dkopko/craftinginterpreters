@@ -141,7 +141,7 @@ clox_objtable_value_external_size(const struct cb      *cb,
 {
   assert(term->tag == CB_TERM_U64);
 
-  cb_offset_t allocation_offset = (cb_offset_t)cb_term_get_u64(term);
+  cb_offset_t allocation_offset = PURE_OFFSET((cb_offset_t)cb_term_get_u64(term));
   if (allocation_offset == CB_NULL)
     return 0;
 
@@ -311,7 +311,7 @@ done:
     return CB_NULL;
   }
 
-  return (cb_offset_t)cb_term_get_u64(&value_term);
+  return PURE_OFFSET((cb_offset_t)cb_term_get_u64(&value_term));
 }
 
 cb_offset_t
@@ -328,7 +328,7 @@ objtable_lookup_A(ObjTable *obj_table, ObjID obj_id)
     return CB_NULL;
   }
 
-  return (cb_offset_t)cb_term_get_u64(&value_term);
+  return PURE_OFFSET((cb_offset_t)cb_term_get_u64(&value_term));
 }
 
 cb_offset_t
@@ -345,7 +345,7 @@ objtable_lookup_B(ObjTable *obj_table, ObjID obj_id)
     return CB_NULL;
   }
 
-  return (cb_offset_t)cb_term_get_u64(&value_term);
+  return PURE_OFFSET((cb_offset_t)cb_term_get_u64(&value_term));
 }
 
 cb_offset_t
@@ -362,7 +362,7 @@ objtable_lookup_C(ObjTable *obj_table, ObjID obj_id)
     return CB_NULL;
   }
 
-  return (cb_offset_t)cb_term_get_u64(&value_term);
+  return PURE_OFFSET((cb_offset_t)cb_term_get_u64(&value_term));
 }
 
 void
@@ -799,6 +799,7 @@ struct copy_objtable_closure
   struct cb_region *dest_region;
   cb_offset_t      *new_root_b;
   size_t            last_s;
+  ObjID             white_list;
 };
 
 static int
@@ -815,9 +816,12 @@ copy_objtable_b(const struct cb_term *key_term,
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
   ObjID obj_id = { .id = cb_term_get_u64(key_term) };
   cb_offset_t offset = (cb_offset_t)cb_term_get_u64(value_term);
+  bool newly_white = false;
   cb_offset_t clone_offset;
   cb_term clone_value_term;
   int ret;
+
+  assert(!ALREADY_WHITE(offset));
 
   //Skip those ObjIDs which have been invalidated.  (CB_NULL serves as a
   // tombstone in such cases).
@@ -829,14 +833,20 @@ copy_objtable_b(const struct cb_term *key_term,
   //Skip those ObjIDs which are not marked dark (and are therefore unreachable
   // from the roots of the VM state).
   if (!objectIsDark(obj_id)) {
-    printf("DANDEBUG copy_objtable_b() skipping white object #%ju.\n", (uintmax_t)obj_id.id);
-    return 0;
+    printf("DANDEBUG copy_objtable_b() preserving newly white object #%ju.\n", (uintmax_t)obj_id.id);
+    newly_white = true;
   }
 
   cb_offset_t c0 = cb_region_cursor(cl->dest_region);
 
   clone_offset = cloneObject(&(cl->dest_cb), cl->dest_region, obj_id, offset);
-  cb_term_set_u64(&clone_value_term, clone_offset);
+  cb_term_set_u64(&clone_value_term, clone_offset | (newly_white ? ALREADY_WHITE_FLAG : 0));
+
+  if (newly_white) {
+    CBO<Obj> clonedObj = clone_offset;
+    clonedObj.mrp(cl->dest_cb)->white_next = cl->white_list;
+    cl->white_list = obj_id;
+  }
 
   ret = cb_bst_insert(&(cl->dest_cb),
                       cl->dest_region,
@@ -847,11 +857,12 @@ copy_objtable_b(const struct cb_term *key_term,
   assert(ret == 0);
   cb_offset_t c1 = cb_region_cursor(cl->dest_region);
   size_t      s1 = cb_bst_size(cl->dest_cb, *cl->new_root_b);
-  printf("copy_objtable_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju\n",
+  printf("copy_objtable_b(): +%ju bytes (growth:+%ju) #%ju -> @%ju %s\n",
          (uintmax_t)(c1 - c0),
          (uintmax_t)(s1 - cl->last_s),
          (uintmax_t)obj_id.id,
-         (uintmax_t)clone_offset);
+         (uintmax_t)clone_offset,
+         (newly_white ? "NEWLYWHITE" : ""));
 
   // Actual bytes used must be <= reported bytes.
   assert(c1 - c0 <= s1 - cl->last_s);
@@ -875,7 +886,9 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
 
   struct copy_objtable_closure *cl = (struct copy_objtable_closure *)closure;
   OID<Obj> objOID = (ObjID) { .id = cb_term_get_u64(key_term) };
-  cb_offset_t cEntryOffset = (cb_offset_t)cb_term_get_u64(value_term);
+  cb_offset_t cEntryOffset = PURE_OFFSET((cb_offset_t)cb_term_get_u64(value_term));
+  bool already_white = ALREADY_WHITE((cb_offset_t)cb_term_get_u64(value_term));
+  bool newly_white = false;
   struct cb_term temp_term;
   cb_offset_t c0, c1;
   size_t s1;
@@ -888,8 +901,13 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
   //Skip those ObjIDs which are not marked dark (and are therefore unreachable
   // from the roots of the VM state).
   if (!objectIsDark(objOID)) {
-    printf("DANDEBUG copy_objtable_c_not_in_b() skipping white object #%ju.\n", (uintmax_t)objOID.id().id);
-    return 0;
+    if (already_white) {
+      printf("DANDEBUG copy_objtable_c_not_in_b() skipping already white object #%ju.\n", (uintmax_t)objOID.id().id);
+      return 0;
+    } else {
+      printf("DANDEBUG copy_objtable_c_not_in_b() preserving newly white object #%ju.\n", (uintmax_t)objOID.id().id);
+      newly_white = true;
+    }
   }
 
   c0 = cb_region_cursor(cl->dest_region);
@@ -956,7 +974,13 @@ copy_objtable_c_not_in_b(const struct cb_term *key_term,
     cb_offset_t clone_offset = cloneObject(&(cl->dest_cb), cl->dest_region, objOID.id(), cEntryOffset);
     cb_term clone_value_term;
 
-    cb_term_set_u64(&clone_value_term, clone_offset);
+    if (newly_white) {
+      CBO<Obj> clonedObj = clone_offset;
+      clonedObj.mrp(cl->dest_cb)->white_next = cl->white_list;
+      cl->white_list = objOID.id();
+    }
+
+    cb_term_set_u64(&clone_value_term, clone_offset | (newly_white ? ALREADY_WHITE_FLAG : 0));
 
     ret = cb_bst_insert(&(cl->dest_cb),
                         cl->dest_region,
@@ -1189,6 +1213,7 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
     closure.dest_region = &(req->objtable_new_region);
     closure.new_root_b  = &(resp->objtable_new_root_b);
     closure.last_s      = cb_bst_size(closure.dest_cb, resp->objtable_new_root_b);
+    closure.white_list  = CB_NULL_OID;
 
     ret = cb_bst_traverse(req->orig_cb,
                           req->objtable_root_b,
@@ -1209,6 +1234,8 @@ gc_perform(struct gc_request *req, struct gc_response *resp)
            (uintmax_t)cb_region_cursor(&(req->objtable_new_region)),
            (uintmax_t)cb_region_end(&(req->objtable_new_region)));
     assert(ret == 0);
+
+    resp->white_list = closure.white_list;
   }
 
   // Keep a view of the pre-collection objtable setup.

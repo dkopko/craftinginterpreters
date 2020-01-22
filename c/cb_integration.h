@@ -26,6 +26,10 @@ extern int gc_phase;
 #define CB_CACHE_LINE_SIZE 64
 #define CB_NULL ((cb_offset_t)0)
 
+#define ALREADY_WHITE_FLAG ((cb_offset_t)1)
+#define ALREADY_WHITE(OFFSET) !!((OFFSET) & ALREADY_WHITE_FLAG)
+#define PURE_OFFSET(OFFSET) ((OFFSET) & ~ALREADY_WHITE_FLAG)
+
 enum {
   EXEC_PHASE_COMPILE,
   EXEC_PHASE_INTERPRET
