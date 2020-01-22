@@ -219,7 +219,7 @@ struct OID
 
   //Local mutable dereference
   T* mlip() {
-    assert(gc_phase == GC_PHASE_NORMAL_EXEC || gc_phase == GC_PHASE_FREE_WHITE_SET);
+    assert(gc_phase == GC_PHASE_NORMAL_EXEC);
     return static_cast<T*>(cb_at(thread_cb, resolveAsMutableLayer(objid_)));
   }
 
