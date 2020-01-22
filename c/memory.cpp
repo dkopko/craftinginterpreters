@@ -1067,25 +1067,15 @@ void collectGarbage() {
 
 
   //Clobber old contents.
-  //FIXME doing the clobber breaks things.
-  if (false) {
-    printf("DANDEBUG clobbering range [%ju,%ju) of ring (size: %ju, start: %ju, end: %ju)\n",
-        (uintmax_t)cb_start(thread_cb),
-        (uintmax_t)new_lower_bound,
-        (uintmax_t)cb_ring_size(thread_cb),
-        (uintmax_t)cb_start(thread_cb),
-        (uintmax_t)cb_cursor(thread_cb));
-    size_t clobber_len = new_lower_bound - cb_start(thread_cb);
-    if (clobber_len > 0)
-      cb_memset(thread_cb, cb_start(thread_cb), '@', clobber_len);
-  } else {
-    printf("DANDEBUG WOULD clobber range [%ju,%ju) of ring (size: %ju, start: %ju, end: %ju)\n",
-        (uintmax_t)cb_start(thread_cb),
-        (uintmax_t)new_lower_bound,
-        (uintmax_t)cb_ring_size(thread_cb),
-        (uintmax_t)cb_start(thread_cb),
-        (uintmax_t)cb_cursor(thread_cb));
-  }
+  printf("DANDEBUG clobbering range [%ju,%ju) of ring (size: %ju, start: %ju, end: %ju)\n",
+      (uintmax_t)cb_start(thread_cb),
+      (uintmax_t)new_lower_bound,
+      (uintmax_t)cb_ring_size(thread_cb),
+      (uintmax_t)cb_start(thread_cb),
+      (uintmax_t)cb_cursor(thread_cb));
+  size_t clobber_len = new_lower_bound - cb_start(thread_cb);
+  if (clobber_len > 0)
+    cb_memset(thread_cb, cb_start(thread_cb), '@', clobber_len);
   cb_start_advance(thread_cb, new_lower_bound - cb_start(thread_cb));
 
   // Adjust the heap size based on live memory.
