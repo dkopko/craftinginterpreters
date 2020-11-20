@@ -24,6 +24,14 @@
 #include "memory.h"
 //< Strings vm-include-object-memory
 #include "vm.h"
+#include "cycle.h"
+
+//> Methods and Initializers method-op
+static struct {
+  uint64_t count;
+  uint64_t total_lat;
+} lats[OP_METHOD+1];
+//< Methods and Initializers method-op
 
 VM vm; // [one]
 //> Calls and Functions clock-native
@@ -480,6 +488,9 @@ static InterpretResult run() {
 
 //< trace-execution
     uint8_t instruction;
+//> Methods and Initializers method-op
+    ticks t0 = getticks();
+//< Methods and Initializers method-op
     switch (instruction = READ_BYTE()) {
 //> op-constant
       case OP_CONSTANT: {
@@ -877,6 +888,15 @@ static InterpretResult run() {
         break;
 //< Methods and Initializers interpret-method
     }
+
+//> Methods and Initializers method-op
+    ticks t1 = getticks();
+//< Methods and Initializers method-op
+
+//> Methods and Initializers method-op
+    lats[instruction].count++;
+    lats[instruction].total_lat += (t1 - t0);
+//< Methods and Initializers method-op
   }
 
 #undef READ_BYTE
@@ -958,7 +978,69 @@ InterpretResult interpret(const char* source) {
   return result;
 */
 //> Calls and Functions end-interpret
-  return run();
+  InterpretResult result = run();
+
+//> Superclasses super-invoke-op
+  uint64_t total_lat = 0;
+  for (int i = 0; i < OP_METHOD+1; ++i) { total_lat += lats[i].total_lat; }
+
+  FILE *ilatf = fopen("ilat.out", "a");
+  fprintf(ilatf, "#\n");
+
+#define PRINTIT(x) do { \
+    if (lats[x].count > 0) { \
+      fprintf(ilatf, "%-16s   count: %10ju   avgcost: % 9.1f  total_lat: %10ju  pct_total_lat: % 2.1f%%\n", \
+          #x, \
+          (uintmax_t)lats[x].count, \
+          (double)lats[x].total_lat / (double)lats[x].count, \
+          (uintmax_t)lats[x].total_lat, \
+          (double)lats[x].total_lat / (double)total_lat * 100.0f \
+          ); \
+    } } while(0)
+
+  PRINTIT(OP_CONSTANT);
+  PRINTIT(OP_NIL);
+  PRINTIT(OP_TRUE);
+  PRINTIT(OP_FALSE);
+  PRINTIT(OP_POP);
+  PRINTIT(OP_GET_LOCAL);
+  PRINTIT(OP_SET_LOCAL);
+  PRINTIT(OP_GET_GLOBAL);
+  PRINTIT(OP_DEFINE_GLOBAL);
+  PRINTIT(OP_SET_GLOBAL);
+  PRINTIT(OP_GET_UPVALUE);
+  PRINTIT(OP_SET_UPVALUE);
+  PRINTIT(OP_GET_PROPERTY);
+  PRINTIT(OP_SET_PROPERTY);
+  PRINTIT(OP_GET_SUPER);
+  PRINTIT(OP_EQUAL);
+  PRINTIT(OP_GREATER);
+  PRINTIT(OP_LESS);
+  PRINTIT(OP_ADD);
+  PRINTIT(OP_SUBTRACT);
+  PRINTIT(OP_MULTIPLY);
+  PRINTIT(OP_DIVIDE);
+  PRINTIT(OP_NOT);
+  PRINTIT(OP_NEGATE);
+  PRINTIT(OP_PRINT);
+  PRINTIT(OP_JUMP);
+  PRINTIT(OP_JUMP_IF_FALSE);
+  PRINTIT(OP_LOOP);
+  PRINTIT(OP_CALL);
+  PRINTIT(OP_INVOKE);
+  PRINTIT(OP_SUPER_INVOKE);
+  PRINTIT(OP_CLOSURE);
+  PRINTIT(OP_CLOSE_UPVALUE);
+  PRINTIT(OP_RETURN);
+  PRINTIT(OP_CLASS);
+  PRINTIT(OP_INHERIT);
+  PRINTIT(OP_METHOD);
+
+#undef PRINTIT
+//< Superclasses super-invoke-op
+  fclose(ilatf);
+
+  return result;
 //< Calls and Functions end-interpret
 //< Compiling Expressions interpret-chunk
 }
